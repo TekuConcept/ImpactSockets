@@ -2,6 +2,7 @@
  * Created by TekuConcept on July 21, 2017
  */
 
+#include "RFC2616.h"
 #include "RFC6455.h"
 #include <sstream>
 
@@ -43,7 +44,7 @@ unsigned int RFC6455::URI::getDefaultSecurePort() {
     return 443;
 }
 
-bool RFC6455::URI::generateInfo(std::string uri, Info &info) {
+bool RFC6455::URI::parseURI(std::string uri, Info &info) {
     // smallest uri name length: 8
     // ex: ws://a.z
     if(uri.length() < 8) return false;
@@ -53,18 +54,16 @@ bool RFC6455::URI::generateInfo(std::string uri, Info &info) {
     int length = uri.length();
     
     // validate protocol: "ws:" or "wss:"
-    if(buffer[0] != 'w' || buffer[1] != 's') return false;
+    std::string scheme;
+    if(!RFC2616::URI::parseScheme(uri, scheme)) return false;
+    if(scheme == "ws") info.secure = false;
+    else if(scheme == "wss") info.secure = true;
+    else return false;
+    int idx = scheme.length() + 1;
     
-    int idx = 2;
-    info.secure = false;
-    if(buffer[idx] == 's') {
-        info.secure = true;
-        idx++;
-    }
-    
-    if(buffer[idx] != ':' || buffer[idx+1] != '/' || buffer[idx+2] != '/')
+    if(buffer[idx] != '/' || buffer[idx+1] != '/')
         return false;
-    idx += 2; // 3rd increment in loop below
+    idx += 1; // 2nd increment in loop below
 
     // validate host name: [a-zA-Z0-9-.]
     std::ostringstream host;
@@ -96,6 +95,8 @@ bool RFC6455::URI::generateInfo(std::string uri, Info &info) {
             hostLen++;
         }
         else if(buffer[idx] == ':') {
+            // doesn't account for IPv6 addresses
+            // :- TODO -: fix this for complience
             hasPort = true;
             idx--; // reverse increment (canceled out below)
             break;
@@ -129,13 +130,14 @@ bool RFC6455::URI::generateInfo(std::string uri, Info &info) {
             info.port = std::stoi(port.str());
             if(info.port > 65535) return false;
         }
-        else return false;
+        else { // ws://host:/ is legal; use default port
+            if(info.secure) info.port = RFC6455::URI::getDefaultSecurePort();
+            else            info.port = RFC6455::URI::getDefaultPort();
+        }
     }
     else {
-        if(info.secure)
-            info.port = RFC6455::URI::getDefaultSecurePort();
-        else
-            info.port = RFC6455::URI::getDefaultPort();
+        if(info.secure) info.port = RFC6455::URI::getDefaultSecurePort();
+        else            info.port = RFC6455::URI::getDefaultPort();
     }
 
     if((length - idx) >= 1) {
@@ -151,3 +153,16 @@ bool RFC6455::URI::generateInfo(std::string uri, Info &info) {
     return true;
 }
 
+bool RFC6455::URI::validate(std::string uri) {
+    Info info;
+    return parseURI(uri, info);
+}
+
+std::string RFC6455::getRequestHeader(URI::Info info) {
+    std::ostringstream os;
+    os << RFC2616::Request::getRequestLine(
+        RFC2616::Request::METHOD::GET,
+        info.resourceName
+    );
+    return os.str();
+}

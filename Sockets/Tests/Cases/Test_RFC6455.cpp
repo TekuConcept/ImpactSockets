@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <string>
+#include <RFC2616.h>
 #include <RFC6455.h>
 
 using namespace Impact;
@@ -47,40 +48,59 @@ TEST(TestRFCStandard, URIEscapeAllPound) {
 // while connecting, socket will initially be in CONNECTING state
 
 TEST(TestRFCStandard, URIValidInfo) {
-    std::string uri;
+    EXPECT_TRUE(RFC6455::URI::validate("ws://192.168.0.2"));
+    EXPECT_TRUE(RFC6455::URI::validate("wss://www.example.com/"));
+    EXPECT_FALSE(RFC6455::URI::validate("rtp://a.z"));
+    EXPECT_FALSE(RFC6455::URI::validate("ws://-a.io"));
+    
+    EXPECT_TRUE(RFC6455::URI::validate("ws://127.0.0.1:80"));
+    EXPECT_TRUE(RFC6455::URI::validate("wss://localhost:943/"));
+    EXPECT_TRUE(RFC6455::URI::validate("ws://a.z:"));
+    EXPECT_FALSE(RFC6455::URI::validate("ws://a.z:90223"));
+    
+    RFC6455::URI::Info info0;
+    std::string uri1 = "ws://www.example.com:8080/path#fragment";
+    EXPECT_TRUE(RFC6455::URI::parseURI(uri1, info0));
+    EXPECT_EQ(info0.host, "www.example.com");
+    EXPECT_EQ(info0.port, 8080);
+    EXPECT_EQ(info0.secure, false);
+    EXPECT_EQ(info0.resourceName, "/path");
+    
+    RFC6455::URI::Info info1;
+    std::string uri2 = "wss://a.z";
+    EXPECT_TRUE(RFC6455::URI::parseURI(uri2, info1));
+    EXPECT_EQ(info1.host, "a.z");
+    EXPECT_EQ(info1.port, 443);
+    EXPECT_EQ(info1.secure, true);
+    EXPECT_EQ(info1.resourceName, "");
+}
+
+TEST(TestRFCStandard, GetRequestHeaders) {
     RFC6455::URI::Info info;
+    if(!RFC6455::URI::parseURI("ws://localhost:8080/path?query", info))
+        FAIL();
+    std::string header = RFC6455::getRequestHeader(info);
     
-    // std::string uri0 = "ws://192.168.0.2";
-    // EXPECT_TRUE(RFC6455::URI::generateInfo(uri0, info));
-    // std::string uri1 = "wss://www.example.com/";
-    // EXPECT_TRUE(RFC6455::URI::generateInfo(uri1, info));
-    // std::string uri2 = "rtp://a.z";
-    // EXPECT_FALSE(RFC6455::URI::generateInfo(uri2, info));
-    // std::string uri3 = "ws://-a.io";
-    // EXPECT_FALSE(RFC6455::URI::generateInfo(uri3, info));
+    // must be a valid http request
+    EXPECT_TRUE(RFC2616::Request::validate(header));
     
-    std::string uri4 = "ws://127.0.0.1:80";
-    EXPECT_TRUE(RFC6455::URI::generateInfo(uri4, info));
-    // std::string uri5 = "wss://localhost:943/";
-    // EXPECT_TRUE(RFC6455::URI::generateInfo(uri5, info));
-    // std::string uri6 = "ws://a.z:";
-    // EXPECT_FALSE(RFC6455::URI::generateInfo(uri6, info));
-    // std::string uri7 = "ws://a.z:90223";
-    // EXPECT_FALSE(RFC6455::URI::generateInfo(uri7, info));
+    // must be a get request
+    EXPECT_EQ(header.find("GET"), 0);
     
-    // RFC6455::URI::Info info0;
-    // std::string uri8 = "ws://www.example.com:8080/path#fragment";
-    // EXPECT_TRUE(RFC6455::URI::generateInfo(uri8, info0));
-    // EXPECT_EQ(info0.host, "www.example.com");
-    // EXPECT_EQ(info0.port, 8080);
-    // EXPECT_EQ(info0.secure, false);
-    // EXPECT_EQ(info0.resourceName, "/path");
+    // must be at least http version 1.1
+    EXPECT_NE(header.find("HTTP/1.1"), std::string::npos);
     
-    // RFC6455::URI::Info info1;
-    // std::string uri9 = "wss://a.z";
-    // EXPECT_TRUE(RFC6455::URI::generateInfo(uri9, info1));
-    // EXPECT_EQ(info1.host, "a.z");
-    // EXPECT_EQ(info1.port, 443);
-    // EXPECT_EQ(info1.secure, true);
-    // EXPECT_EQ(info1.resourceName, "");
+    // request-uri must match resource name
+    EXPECT_NE(header.find(info.resourceName), std::string::npos);
+    
+    // must contain host header field (optional port when not default)
+    // must contain upgrade header with value "websocket"
+    // must contain connection header with value "upgrade"
+    // must contain Sec-WebSocket-Key header with value of random 16B base64
+    // (Sec-WebSocket-Key must be random for each new connection)
+    // may contain Origin header (non web browsers)
+    // must contain Sec-WebSocket-Version header with value of 13
+    // may contain Sec-WebSocket-Protocol header
+    // may contain Sec-WebSocket-Extensions header
+    // may contain other header fields
 }

@@ -31,8 +31,12 @@ namespace Impact {
             } Info;
             
             // return true if valid
-            bool generateInfo(std::string uri, Info &info);
+            bool parseURI(std::string uri, Info &info);
+            
+            bool validate(std::string uri);
         }
+        
+        std::string getRequestHeader(URI::Info info);
     }
 }
 

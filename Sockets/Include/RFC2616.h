@@ -6,9 +6,14 @@
 #define RFC2616_H
 
 #include <string>
+#include <vector>
 
 namespace Impact {
     namespace RFC2616 {
+        const std::string HTTP_VERSION = "HTTP/1.1";
+        const std::string CRLF = "\r\n";
+        const char SP = ' ';
+
         // RFC 2616 Section 10: Status Code Definitions
         typedef enum STATUS {
             // -- informational --
@@ -62,8 +67,43 @@ namespace Impact {
             GATEWAY_TIMEOUT=504,
             HTTP_VERSION_NOT_SUPPORTED=505
         } STATUS;
-        
         std::string getStatusString(STATUS code);
+        
+        namespace URI {
+            bool parseScheme(std::string uri, std::string &scheme);
+            bool parseHost(std::string uri, std::string &host,
+                unsigned int &port);
+            bool validateHost(std::string uri);
+        }
+
+        namespace Request {
+            typedef enum METHOD {
+                OPTIONS = 0,
+                GET,
+                HEAD,
+                POST,
+                PUT,
+                DELETE,
+                TRACE,
+                CONNECT
+            } METHOD;
+
+            typedef struct Info {
+                METHOD method;
+                std::string requestURI;
+                std::string version;
+                std::vector<std::string> headers;
+                std::string body;
+            } Info;
+
+            std::string getMethodString(METHOD code);
+
+            std::string getRequestLine(METHOD code, std::string reqURI);
+            
+            bool parseRequest(std::string request, Info &info);
+
+            bool validate(std::string request);
+        }
     }
 }
 
