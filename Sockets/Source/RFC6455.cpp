@@ -69,7 +69,6 @@ bool RFC6455::URI::parseURI(std::string uri, Info &info) {
     std::ostringstream host;
     int labelLen = 0, hostLen = 0;
     bool hasPort = false, firstChar = true;
-    (void)hasPort;
     do {
         idx++;
         if(firstChar) {

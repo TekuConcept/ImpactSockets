@@ -32,6 +32,13 @@ TEST(TestRFCStandard, URIHostIPv6) {
     // EXPECT_EQ(port1, 0);
 }
 
+TEST(TestRFCStandard, URIHost) {
+    EXPECT_TRUE(RFC2616::URI::validateHost("http://192.168.0.2"));
+    EXPECT_TRUE(RFC2616::URI::validateHost("http://www.example.com/"));
+    EXPECT_FALSE(RFC2616::URI::validateHost("http://-a.io"));
+    EXPECT_TRUE(RFC2616::URI::validateHost("http://a.z:"));
+}
+
 TEST(TestRFCStandard, HTTPStatusCodes) {
     EXPECT_EQ(RFC2616::STATUS::CONTINUE, 100);
     EXPECT_EQ(RFC2616::STATUS::OK, 200);

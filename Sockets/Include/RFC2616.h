@@ -72,7 +72,7 @@ namespace Impact {
         namespace URI {
             bool parseScheme(std::string uri, std::string &scheme);
             bool parseHost(std::string uri, std::string &host,
-                unsigned int &port);
+                std::string &port);
             bool validateHost(std::string uri);
         }
 
