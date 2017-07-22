@@ -39,7 +39,7 @@ void TcpClient::init_() {
 
 
 int TcpClient::connect(int port, std::string address) {
-    if(connected) return 2;
+    if(connected) return -2;
     try {
         socket = std::make_shared<TCPSocket>(address, port);
         connected = true;
@@ -47,7 +47,7 @@ int TcpClient::connect(int port, std::string address) {
     catch (SocketException &e) {
         std::cerr << "TcpClient: " << e.what() << std::endl;
         connected = false;
-        return 1;
+        return -1;
     }
     return 0;
 }

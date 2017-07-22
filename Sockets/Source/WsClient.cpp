@@ -25,16 +25,20 @@ WsClient::~WsClient() {}
 
 
 int WsClient::connect(int port, std::string address) {
-	if (connected) return 2;
+	// open a socket connection
+	if (connected) return -2;
 	try {
 		socket = std::make_shared<TCPSocket>(address, port);
 		connected = true;
 	}
 	catch (SocketException &e) {
-		std::cerr << "TcpClient: " << e.what() << std::endl;
+		std::cerr << "WsClient: " << e.what() << std::endl;
 		connected = false;
-		return 1;
+		return -1;
 	}
+	
+	// send handshake message
+	// listen for server's handshake
 	return 0;
 }
 
