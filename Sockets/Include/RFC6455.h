@@ -18,6 +18,8 @@ namespace Impact {
             void EscapeAllPound(std::string &uri);
             std::string getProtocol();
             std::string getSecureProtocol();
+            unsigned int getDefaultPort();
+            unsigned int getDefaultSecurePort();
             
             typedef struct Info {
                 std::string host;
@@ -28,7 +30,8 @@ namespace Impact {
                 //extensions;
             } Info;
             
-            bool isValid(const Info *info);
+            // return true if valid
+            bool generateInfo(std::string uri, Info &info);
         }
     }
 }
