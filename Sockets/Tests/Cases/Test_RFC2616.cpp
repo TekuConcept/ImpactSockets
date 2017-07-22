@@ -17,12 +17,12 @@ TEST(TestRFCStandard, URIScheme) {
 }
 
 TEST(TestRFCStandard, URIHostIPv6) {
-    EXPECT_TRUE(RFC2616::URI::validateHost(
+    EXPECT_TRUE(RFC2616::URI::validate(
         "http://[2001:0db8:85A3::8a2e:0370:7334]/path"));
-    EXPECT_TRUE( RFC2616::URI::validateHost("http://[::]"));
-    EXPECT_FALSE(RFC2616::URI::validateHost("http://[:]"));
-    EXPECT_FALSE(RFC2616::URI::validateHost("http://[:/:]"));
-    EXPECT_FALSE(RFC2616::URI::validateHost("http://[:R:0G]"));
+    EXPECT_TRUE( RFC2616::URI::validate("http://[::]"));
+    EXPECT_FALSE(RFC2616::URI::validate("http://[:]"));
+    EXPECT_FALSE(RFC2616::URI::validate("http://[:/:]"));
+    EXPECT_FALSE(RFC2616::URI::validate("http://[:R:0G]"));
 
     // std::string host1, host2;
     // unsigned int port1, port2;
@@ -33,10 +33,10 @@ TEST(TestRFCStandard, URIHostIPv6) {
 }
 
 TEST(TestRFCStandard, URIHost) {
-    EXPECT_TRUE(RFC2616::URI::validateHost("http://192.168.0.2"));
-    EXPECT_TRUE(RFC2616::URI::validateHost("http://www.example.com/"));
-    EXPECT_FALSE(RFC2616::URI::validateHost("http://-a.io"));
-    EXPECT_TRUE(RFC2616::URI::validateHost("http://a.z:"));
+    EXPECT_TRUE(RFC2616::URI::validate("http://192.168.0.2"));
+    EXPECT_TRUE(RFC2616::URI::validate("http://www.example.com/"));
+    EXPECT_FALSE(RFC2616::URI::validate("http://-a.io"));
+    EXPECT_TRUE(RFC2616::URI::validate("http://a.z:"));
 }
 
 TEST(TestRFCStandard, HTTPStatusCodes) {

@@ -70,10 +70,16 @@ namespace Impact {
         std::string getStatusString(STATUS code);
         
         namespace URI {
+            typedef struct Info {
+                std::string scheme;
+                std::string host;
+                unsigned int port;
+                std::string resourceName;
+            } Info;
+            
             bool parseScheme(std::string uri, std::string &scheme);
-            bool parseHost(std::string uri, std::string &host,
-                std::string &port);
-            bool validateHost(std::string uri);
+            bool parse(std::string uri, Info &info);
+            bool validate(std::string uri);
         }
 
         namespace Request {

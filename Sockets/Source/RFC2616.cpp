@@ -84,6 +84,7 @@ std::string RFC2616::getStatusString(STATUS code) {
 bool RFC2616::URI::parseScheme(std::string uri, std::string &scheme) {
     std::ostringstream os;
     const char* buffer = uri.c_str();
+    const char diff = 'A' - 'a';
     unsigned int idx = 0, length = uri.length();
     bool foundDelimiter = false;
     while(idx < length) {
@@ -91,7 +92,11 @@ bool RFC2616::URI::parseScheme(std::string uri, std::string &scheme) {
             foundDelimiter = true;
             break;
         }
-        os << buffer[idx];
+        else if(buffer[idx] >= 'A' && buffer[idx] <= 'Z') {
+            // to lower
+            os << (buffer[idx] - diff);
+        }
+        else os << buffer[idx];
         idx++;
     }
     scheme.assign(os.str());
@@ -99,7 +104,8 @@ bool RFC2616::URI::parseScheme(std::string uri, std::string &scheme) {
 }
 
 bool parseHostHelperIPv6(const char* buffer, unsigned int length,
-    unsigned int &idx, std::ostringstream &os) {
+    unsigned int &idx, RFC2616::URI::Info &info) {
+    std::ostringstream os;
     const int MAX_HOST = 39; // IPv6 fully exapanded with ':' is 39 cahrs
     const int MAX_LABEL = 4; // labels are only 4 hex chars long
     int colonDelimiterCount = 0;
@@ -120,7 +126,10 @@ bool parseHostHelperIPv6(const char* buffer, unsigned int length,
             idx++; // align with parseHostHelper() function's return index
             // expecting "::" minimum
             if(colonDelimiterCount < 2) return false;
-            else return true;
+            else {
+                info.host = os.str();
+                return true;
+            }
         }
         else if( // only allow legal hex values
             (buffer[idx] >= 'a' && buffer[idx] <= 'f') || // a-z
@@ -141,11 +150,13 @@ bool parseHostHelperIPv6(const char* buffer, unsigned int length,
 }
 
 bool parseHostHelper(const char* buffer, unsigned int length,
-    unsigned int &idx, std::ostringstream &os) {
+    unsigned int &idx, RFC2616::URI::Info &info) {
+    std::ostringstream os;
     const int MAX_HOST = 254; // 253 + '.'
     const int MAX_LABEL = 63;
     int labelLen = 0, hostLen = 0;
     bool firstChar = true;
+    
     while(idx < length) {
         if(firstChar) {
             // RFC 952: non-alphanumeric chars as the first char
@@ -176,44 +187,80 @@ bool parseHostHelper(const char* buffer, unsigned int length,
         if(labelLen > MAX_LABEL || hostLen > MAX_HOST) return false;
         idx++;
     }
+    
+    info.host = os.str();
     return true;
 }
 
-bool RFC2616::URI::parseHost(std::string uri, std::string &host,
-    std::string &port) {
-    std::string scheme;
-    if(!parseScheme(uri, scheme)) return false;
+bool parseHostHelperPort(const char* buffer, unsigned int length,
+    unsigned int &idx, RFC2616::URI::Info &info) {
+    std::ostringstream os;
+    info.port = 0;
+    if(idx < length && buffer[idx] == ':') {
+        // parse port
+        const int MAX_CHARS = 5; // "65535"
+        int charCount = 0;
+        idx++; // skip ':'
+        while(idx < length) {
+            if(buffer[idx] == '/') break;
+            else if (buffer[idx] >= '0' && buffer[idx] <= '9') {
+                os << buffer[idx];
+                charCount++;
+            }
+            else return false;
+            if(charCount > MAX_CHARS) return false;
+            idx++;
+        }
+        std::string sport = os.str();
+        if(sport.length() >= 1) {
+            // only try to parse if there is something to parse
+            info.port = std::stoi(sport);
+            if(info.port > 65535) return false;
+        }
+    }
+    return true;
+}
+
+bool RFC2616::URI::parse(std::string uri, Info &info) {
+    if(!parseScheme(uri, info.scheme)) return false;
     
     const char *buffer = uri.c_str();
     unsigned int length = uri.length();
     if(length < 7) return false; // smallest uri: "a://b.c"
+    unsigned int idx = info.scheme.length() + 3; // skip "://"
     
-    std::ostringstream osHost;
-    unsigned int idx = scheme.length() + 3; // skip "://"
-    
-    if(buffer[idx] == '[') { // IPv6 enclosed: "[::]"
+    if(buffer[idx] == '[') {
+        // IPv6 enclosed: "[::]"
         idx++;
         if((length - idx) < 3) return false; // allow for at least [::]
-        if(!parseHostHelperIPv6(buffer, length, idx, osHost)) return false;
+        if(!parseHostHelperIPv6(buffer, length, idx, info)) return false;
     }
-    else {
-        if(!parseHostHelper(buffer, length, idx, osHost)) return false;
-    }
-    host = osHost.str();
-    if(host.length() < 2) return false;
+    else if(!parseHostHelper(buffer, length, idx, info)) return false;
+    if(info.host.length() < 2) return false;
     
-    // done getting the host
-    // now idx should either be pointing at ':' for port,
-    // '/' for resource name, or end of uri
-    port = "0";
+    // idx should either be pointing at ':' for port,
+    // '/' for resource name, or the end of uri
+    if(!parseHostHelperPort(buffer, length, idx, info)) return false;
+    if(info.port == 0) {
+        // if port is still 0, attempt to resolve port based on scheme
+        if(info.scheme == "http") info.port = 80;
+        else if(info.scheme == "https") info.port = 443;
+    }
+    
+    // store what is left into resourceName
+    std::ostringstream os;
+    while(idx < length) {
+        os << buffer[idx];
+        idx++;
+    }
+    info.resourceName = os.str();
     
     return true;
 }
 
-bool RFC2616::URI::validateHost(std::string uri) {
-    std::string host;
-    std::string port;
-    return parseHost(uri, host, port);
+bool RFC2616::URI::validate(std::string uri) {
+    Info info;
+    return parse(uri, info);
 }
 
 std::string RFC2616::Request::getMethodString(METHOD code) {
