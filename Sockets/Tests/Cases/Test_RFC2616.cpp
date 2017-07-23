@@ -23,13 +23,6 @@ TEST(TestRFCStandard, URIHostIPv6) {
     EXPECT_FALSE(RFC2616::URI::validate("http://[:]"));
     EXPECT_FALSE(RFC2616::URI::validate("http://[:/:]"));
     EXPECT_FALSE(RFC2616::URI::validate("http://[:R:0G]"));
-
-    // std::string host1, host2;
-    // unsigned int port1, port2;
-    // ASSERT_TRUE(RFC2616::URI::parseHost(
-    //     "http://[2001:0db8:85a3::8a2e:0370:7334]/path", host1, port1));
-    // EXPECT_EQ(host1, "2001:0db8:85a3::8a2e:0370:7334");
-    // EXPECT_EQ(port1, 0);
 }
 
 TEST(TestRFCStandard, URIHost) {
@@ -96,13 +89,14 @@ TEST(TestRFCStandard, HTTPRequestLine) {
 }
 
 TEST(TestRFCStandard, HTTPRequestParse) {
-    std::string request =
-"GET / HTTP/1.1\r\n";
+    std::string request = "\
+GET / HTTP/1.1\r\n\
+\r\n\
+";
     RFC2616::Request::Info info;
     ASSERT_TRUE(RFC2616::Request::parseRequest(request, info));
     EXPECT_EQ(info.method, RFC2616::Request::METHOD::GET);
-    // EXPECT_EQ(info.requestURI, "/");
-    // EXPECT_EQ(info.version, "HTTP/1.1");
-    
-    // EXPECT_TRUE(RFC2616::Request::validate(request));
+    EXPECT_EQ(info.requestURI, "/");
+    EXPECT_EQ(info.major, 1);
+    EXPECT_EQ(info.minor, 1);
 }

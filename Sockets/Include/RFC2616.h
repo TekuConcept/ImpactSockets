@@ -97,7 +97,8 @@ namespace Impact {
             typedef struct Info {
                 METHOD method;
                 std::string requestURI;
-                std::string version;
+                unsigned int major;
+                unsigned int minor;
                 std::vector<std::string> headers;
                 std::string body;
             } Info;

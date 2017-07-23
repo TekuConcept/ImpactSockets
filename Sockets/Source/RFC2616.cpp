@@ -276,8 +276,7 @@ std::string RFC2616::Request::getRequestLine(METHOD code, std::string reqURI) {
     if(reqURI.length() == 0) throw -1;
     else if(reqURI.at(0) == '*' && reqURI.length() != 1)
         throw -2;
-    else if(reqURI.at(0) != '/' && reqURI.at(0) != '*' &&
-        (reqURI.find("http") != 0))
+    else if(reqURI.at(0) != '/' && reqURI.at(0) != '*')
         throw -3;
 
     // compose
@@ -308,17 +307,92 @@ bool parseRequestMethod(std::string request, RFC2616::Request::Info &info) {
     return true;
 }
 
+bool parseRequestURI(const char* buffer, unsigned int length,
+    unsigned int &idx, RFC2616::Request::Info &info) {
+    std::ostringstream os;
+    if(buffer[idx] == '*' && buffer[idx+1] != ' ') return false;
+    else if(buffer[idx] != '/') return false; // full paths not yet supported
+    
+    while(idx < length) {
+        if(buffer[idx] == ' ') break;
+        else {
+            os << buffer[idx];
+        }
+        idx++;
+    }
+    info.requestURI = os.str();
+    return true;
+}
+
+bool parseRequestVersion(const char* buffer, unsigned int length,
+    unsigned int &idx, RFC2616::Request::Info &info) {
+    const char* version = "HTTP/";
+    
+    // check protocol identifier
+    for(unsigned int i = 0, len = 5; i < len; i++) {
+        if(version[i] != buffer[idx]) return false;
+        idx++;
+    }
+    
+    // get major and minor
+    std::ostringstream os;
+    while(idx < length) {
+        if(buffer[idx] >= '0' && buffer[idx] <= '9')
+            os << buffer[idx];
+        else if (buffer[idx] == '.') {
+            idx++;
+            break;
+        }
+        else return false;
+        idx++;
+    }
+    info.major = std::stoi(os.str());
+    os.str(std::string());
+    while(idx < length) {
+        if(buffer[idx] >= '0' && buffer[idx] <= '9')
+            os << buffer[idx];
+        else if (buffer[idx] == '\r') {
+            // end of line found, break
+            idx++;
+            break;
+        }
+        else if (buffer[idx] == ' ' || buffer[idx] == '\t') {
+            // skip whitespace
+            idx++;
+            continue;
+        }
+        else return false;
+        idx++;
+    }
+    info.minor = std::stoi(os.str());
+    return true;
+}
+
 bool RFC2616::Request::parseRequest(std::string request, Info &info) {
     // validate length
+    // Shortest request: "GET / HTTP/1.1\r\n\r\n"
+    if(request.length() < 18) return false;
     
     // first word must be a method and is case-sensitive
     if(!parseRequestMethod(request, info)) return false;
-    int idx = METHOD_NAMES[(int)info.method].length();
+    unsigned int idx    = METHOD_NAMES[(int)info.method].length(),
+                 length = request.length();
+    const char* buffer = request.c_str();
     idx++; // skip SP
     
-    // todo get request URI
-    //      get http version
-    //      check valid line ending
+    if(!parseRequestURI(buffer, length, idx, info))
+        return false;
+    idx++; // skip SP
+    if((length - idx) < 12) {
+        // Not enough characters to both identify HTTP version
+        // and properly end the request message.
+        return false;
+    }
+    if(!parseRequestVersion(buffer, length, idx, info)) return false;
+    
+    // todo parse headers
+    // todo check valid line ending
+    // todo get body?
     
     (void)info;
     return true;
@@ -326,6 +400,6 @@ bool RFC2616::Request::parseRequest(std::string request, Info &info) {
 
 bool RFC2616::Request::validate(std::string request) {
     Info info;
-    // validate resource uri
+    // validate resource uri ?
     return parseRequest(request, info);
 }

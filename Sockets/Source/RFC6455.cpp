@@ -79,5 +79,6 @@ std::string RFC6455::getRequestHeader(URI::Info info) {
         RFC2616::Request::METHOD::GET,
         info.resourceName
     );
+    os << RFC2616::CRLF;
     return os.str();
 }
