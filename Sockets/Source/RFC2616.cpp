@@ -211,6 +211,7 @@ bool parseHostHelperPort(const char* buffer, unsigned int length,
             if(charCount > MAX_CHARS) return false;
             idx++;
         }
+        
         std::string sport = os.str();
         if(sport.length() >= 1) {
             // only try to parse if there is something to parse
@@ -243,13 +244,14 @@ bool RFC2616::URI::parse(std::string uri, Info &info) {
     if(!parseHostHelperPort(buffer, length, idx, info)) return false;
     if(info.port == 0) {
         // if port is still 0, attempt to resolve port based on scheme
-        if(info.scheme == "http") info.port = 80;
+        if(info.scheme == "http")       info.port = 80;
         else if(info.scheme == "https") info.port = 443;
     }
     
     // store what is left into resourceName
     std::ostringstream os;
     while(idx < length) {
+        if(buffer[idx] == '#') break;
         os << buffer[idx];
         idx++;
     }

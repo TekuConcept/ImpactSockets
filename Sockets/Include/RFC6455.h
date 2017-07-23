@@ -31,7 +31,7 @@ namespace Impact {
             } Info;
             
             // return true if valid
-            bool parseURI(std::string uri, Info &info);
+            bool parse(std::string uri, Info &info);
             
             bool validate(std::string uri);
         }
