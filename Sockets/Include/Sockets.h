@@ -18,6 +18,7 @@
 *
 *   Modified by TekuConcept on May 12, 2017, for Windows support.
 *   Modified by TekuConcept on July 18, 2017, for Mac support.
+*   Modified by TekuConcept on July 23, 2017, for poll feature.
 */
 
 #ifndef __PRACTICALSOCKET_INCLUDED__
@@ -29,8 +30,10 @@
 #include <exception>         // For exception class
 
 #if defined(_MSC_VER)
+	#include <winsock2.h>
 	#define SOC_EXCEPTION ...
 #else
+	#include <sys/poll.h>    // For struct pollfd, poll()
 	#define SOC_EXCEPTION SocketException
 #endif
 
@@ -126,6 +129,7 @@ namespace Impact {
 
 	protected:
 		int sockDesc;              // Socket descriptor
+		struct pollfd fds[1];
 		Socket(int type, int protocol) throw(SOC_EXCEPTION);
 		Socket(int sockDesc);
 	};
@@ -165,6 +169,20 @@ namespace Impact {
 		*   @exception SocketException thrown if unable to receive data
 		*/
 		int recv(void *buffer, int bufferLen) throw(SOC_EXCEPTION);
+		
+		/**
+		*   Sets the events that will be used when polling.
+		*   @param events requested events
+		*/
+		void setEvents(short events);
+		
+		/**
+		*   Polls the socket for the requested events.
+		*   @param revents return events
+		*   @return 1 for success, 0 for timeout
+		*   @exception SocketException thrown if poll failed
+		*/
+		int poll(short &revents, int timeout) throw(SOC_EXCEPTION);
 
 		/**
 		*   Get the foreign address.  Call connect() before calling recv()
