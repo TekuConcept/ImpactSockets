@@ -11,8 +11,8 @@ TcpClient::TcpClient() :
     std::iostream(this),
     outputBuffer_(new char[BUF_SIZE + 1]),
     inputBuffer_(new char[BUF_SIZE + 1]),
-    connected(false) {
-    init_();
+    self(typeid(this), this) {
+    init();
 }
 
 
@@ -21,8 +21,8 @@ TcpClient::TcpClient(int port, std::string address) :
     std::iostream(this),
     outputBuffer_(new char[BUF_SIZE + 1]),
     inputBuffer_(new char[BUF_SIZE + 1]),
-    connected(false) {
-    init_();
+    self(typeid(this), this) {
+    init();
     connect(port, address);
 }
 
@@ -32,9 +32,22 @@ TcpClient::~TcpClient() {}
 
 
 
-void TcpClient::init_() {
+void TcpClient::init() {
+    connected = false;
+    peerConnected = false;
+    
     setp(outputBuffer_, outputBuffer_ + BUF_SIZE - 1);
     setg(inputBuffer_, inputBuffer_ + BUF_SIZE - 1, inputBuffer_ + BUF_SIZE - 1);
+}
+
+
+
+short TcpClient::checkFlags(short events) {
+    // set internal flags to handle user actions in advance
+    if((events & POLLHUP) != 0)
+        peerConnected = false;
+    // handle POLLERR?
+    return events;
 }
 
 
@@ -45,10 +58,12 @@ int TcpClient::connect(int port, std::string address) {
         socket = std::make_shared<TCPSocket>(address, port);
         socket->setEvents(POLLIN);
         connected = true;
+        peerConnected = true;
     }
     catch (SocketException &e) {
         std::cerr << "TcpClient: " << e.what() << std::endl;
         connected = false;
+        peerConnected = false;
         return 1;
     }
     return 0;
@@ -58,11 +73,15 @@ int TcpClient::connect(int port, std::string address) {
 
 void TcpClient::disconnect() {
     if (socket != nullptr && connected) {
-        try {
-            socket->disconnect();
-        } catch(SocketException) {
-            // server disconnected first,
-            // ignore for now
+        if(peerConnected) {
+            try {
+                socket->disconnect();
+            } catch(SocketException) {
+                // server disconnected first,
+                // ignore for now
+                std::cerr << "Peer disconnected first" << std::endl;
+            }
+            peerConnected = false;
         }
         connected = false;
     }
@@ -84,13 +103,16 @@ int TcpClient::sync() {
     return 0;
 }
 
+
+
 int TcpClient::underflow() {
     if(socket != nullptr && connected) {
         short isr;
         if(socket->poll(isr, TIMEOUT) == 0) {
-            std::cerr << "Read Timed Out" << std::endl;
+            EventArgs e;
+            onTimeout.invoke(self, e);
         }
-        else if((isr & POLLIN) > 0) {
+        else if((checkFlags(isr) & POLLIN) > 0) {
             int bytesReceived = socket->recv(eback(), BUF_SIZE);
             setg(eback(), eback(), eback() + bytesReceived);
             return *eback();

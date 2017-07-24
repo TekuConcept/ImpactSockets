@@ -12,6 +12,8 @@
 #include <string>
 #include <memory>
 
+#include "EventHandler.h"
+
 namespace Impact {
 	class TcpServer;
 	class TcpClient : private std::streambuf, public std::iostream
@@ -27,16 +29,20 @@ namespace Impact {
 		int API_DECLSPEC sync();
 		int API_DECLSPEC underflow();
 		bool API_DECLSPEC isConnected();
+		EventHandler<EventArgs> onTimeout;
 
 	private:
 		static const unsigned int BUF_SIZE = 256;
 		char* outputBuffer_;
 		char* inputBuffer_;
 		std::shared_ptr<TCPSocket> socket;
-		bool connected;
+		bool connected, peerConnected;
+		
 		const int TIMEOUT = 2000; // 2s
+		Object self;
 
-		void init_();
+		void init();
+		short checkFlags(short events);
 	};
 }
 

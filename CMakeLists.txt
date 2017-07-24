@@ -17,7 +17,7 @@ if(MSVC)
 endif()
 
 set(LIBRARIES_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Libraries)
-set(EVENTS_INCLUDE_DIR ${LIBRARIES}/Events/Include)
+set(EVENTS_INCLUDE_DIR ${LIBRARIES_PATH}/Events/Include)
 set(SOCKETS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Sockets)
 set(SOCKETS_INCLUDE_DIR ${SOCKETS_PATH}/Include)
 set(EXAMPLES_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Examples)
@@ -37,7 +37,10 @@ set(LIBRARY_NAME ImpactSockets)
 #                     PROJECT MODULES                     #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-include_directories(${SOCKETS_INCLUDE_DIR})
+include_directories(
+  ${EVENTS_INCLUDE_DIR}
+  ${SOCKETS_INCLUDE_DIR}
+)
 file(GLOB_RECURSE SOURCE_FILES "${SOCKETS_PATH}/Source/*.cpp")
 add_library(${LIBRARY_NAME} ${BUILD_MODE} ${SOURCE_FILES})
 target_compile_definitions(${LIBRARY_NAME} PUBLIC ${BUILD_FLAGS})

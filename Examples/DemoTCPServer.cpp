@@ -1,6 +1,11 @@
 #include "TcpServer.h"
 #include <iostream>
 #include <string>
+#include "StaticCommand.h"
+
+void callback(Object&,EventArgs) {
+    std::cerr << "Read Timed Out" << std::endl;
+}
 
 int main() {
     Impact::TcpServer server(25565);
@@ -8,6 +13,11 @@ int main() {
     std::cout << "- SERVER STARTED -" << std::endl;
     
     auto connection = server.accept();
+    connection->onTimeout += StaticCommandPtr(
+        EventArgs,
+        callback
+    );
+    
     std::cout << "Found new Client" << std::endl;
     
     std::string msg;

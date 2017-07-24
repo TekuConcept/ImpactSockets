@@ -20,6 +20,7 @@ TcpServer::TcpSocPtr TcpServer::accept() {
     socket->setEvents(POLLIN);
     connection->socket = socket;
     connection->connected = true;
+    connection->peerConnected = true;
 	return connection;
 }
 
