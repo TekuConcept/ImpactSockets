@@ -21,7 +21,7 @@ TcpServer::TcpSocPtr TcpServer::accept() {
     connection->socket = socket;
     connection->connected = true;
     connection->peerConnected = true;
-	return connection;
+    return connection;
 }
 
 int TcpServer::getPort() {
