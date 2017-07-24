@@ -195,22 +195,6 @@ bool RFC2616::URI::validate(std::string uri) {
     return parse(uri, info);
 }
 
-std::string RFC2616::Request::getRequestLine(METHOD code, std::string reqURI) {
-    // validate:
-    // request URI must either be a wild card "*", start with '/',
-    // or be a fully defined URI path.
-    if(reqURI.length() == 0) throw -1;
-    else if(reqURI.at(0) == '*' && reqURI.length() != 1)
-        throw -2;
-    else if(reqURI.at(0) != '/' && reqURI.at(0) != '*')
-        throw -3;
-
-    // compose
-    std::ostringstream os;
-    os << toString(code) << SP << reqURI << SP << HTTP_VERSION << CRLF;
-    return os.str();
-}
-
 bool parseRequestMethod(std::string request, RFC2616::Request::Info &info) {
     switch(request.at(0)) {
         case 'C': info.method = RFC2616::Request::METHOD::CONNECT; break;

@@ -33,8 +33,6 @@ namespace Impact {
                 std::vector<std::string> headers;
                 std::string body;
             } Info;
-
-            std::string getRequestLine(METHOD code, std::string reqURI);
             
             bool parse(std::istream &request, Info &info);
 

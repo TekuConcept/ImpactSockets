@@ -4,6 +4,7 @@
 
 #include "RFC/RFC2616.h"
 #include "RFC/RFC6455.h"
+#include "RFC/RequestMessage.h"
 #include <sstream>
 
 using namespace Impact;
@@ -74,11 +75,9 @@ bool RFC6455::URI::validate(std::string uri) {
 }
 
 std::string RFC6455::getRequestMessage(URI::Info info) {
-    std::ostringstream os;
-    os << RFC2616::Request::getRequestLine(
+    RFC2616::Request::Message message(
         RFC2616::Request::METHOD::GET,
         info.resourceName
     );
-    os << RFC2616::CRLF;
-    return os.str();
+    return message.toString();
 }

@@ -62,40 +62,6 @@ TEST(TestRFCStandard, HTTPHeaderCodes) {
         "Cache-Control");
 }
 
-TEST(TestRFCStandard, HTTPRequestLine) {
-    try {
-        std::string line0 = RFC2616::Request::getRequestLine(
-            RFC2616::Request::METHOD::GET,
-            "/path/to/resource?query"
-        );
-        EXPECT_EQ(line0, "GET /path/to/resource?query HTTP/1.1\r\n");
-    } catch(int e) {
-        std::cerr << "Failed valid resource: " << e << std::endl;
-        FAIL();
-    }
-    
-    try {
-        std::string line1 = RFC2616::Request::getRequestLine(
-            RFC2616::Request::METHOD::OPTIONS,
-            "*"
-        );
-        EXPECT_EQ(line1, "OPTIONS * HTTP/1.1\r\n");
-    } catch(int e) {
-        std::cerr << "Failed valid resource: " << e << std::endl;
-        FAIL();
-    }
-    
-    try {
-        std::string line2 = RFC2616::Request::getRequestLine(
-            RFC2616::Request::METHOD::GET, ""
-        );
-        std::cerr << "Passed invalid resource" << std::endl;
-        FAIL();
-    } catch (int) { 
-        SUCCEED();
-    }
-}
-
 TEST(TestRFCStandard, HTTPRequestParse) {
     std::stringstream request("GET / HTTP/1.1\r\n\r\n");
     RFC2616::Request::Info info;
