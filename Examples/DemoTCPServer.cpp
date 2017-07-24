@@ -4,7 +4,7 @@
 #include "StaticCommand.h"
 
 void callback(Object&,EventArgs) {
-    std::cerr << "Read Timed Out" << std::endl;
+    std::cerr << "Read Timed Out [Intentional]" << std::endl;
 }
 
 int main() {

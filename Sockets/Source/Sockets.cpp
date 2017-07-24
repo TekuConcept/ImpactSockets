@@ -27,12 +27,14 @@
 
 #if defined(_MSC_VER)
   #include <ws2tcpip.h>
+  #define SOC_POLL WSAPoll
 #else
   #include <sys/socket.h>      // For socket(), connect(), send(), and recv()
   #include <netdb.h>           // For gethostbyname()
   #include <arpa/inet.h>       // For inet_addr()
   #include <unistd.h>          // For close()
   #include <netinet/in.h>      // For sockaddr_in
+  #define SOC_POLL ::poll
 #endif
 
 #include <cstring>           // For strerror and memset
@@ -278,7 +280,7 @@ int CommunicatingSocket::poll(short &revents, int timeout)
 throw(SOC_EXCEPTION) {
 	int rtn;
 	fds[0].revents= 0;
-	if((rtn = ::poll(fds, 1, timeout)) < 0) {
+	if((rtn = SOC_POLL(fds, 1, timeout)) < 0) {
 		throw SocketException("Poll failed (poll())", true);
 	}
 	revents = fds[0].revents;
