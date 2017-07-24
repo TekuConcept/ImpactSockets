@@ -27,3 +27,10 @@ TEST(TestRequestMethod, SimpleRequestMessage) {
     );
     EXPECT_EQ(message3.toString(), "GET / HTTP/1.1\r\n\r\n");
 }
+
+TEST(TestRequestMethod, AverageRequestMessage) {
+    RFC2616::Request::Message message(RFC2616::Request::METHOD::GET, "");
+    message.addHeader(RFC2616::HEADER::Host, "www.example.com");
+    EXPECT_EQ(message.toString(),
+        "GET / HTTP/1.1\r\nHost: www.example.com\r\n\r\n");
+}

@@ -12,6 +12,7 @@
 namespace Impact {
 namespace RFC2616 {
 namespace Request {
+    typedef std::pair<HEADER,std::string> StringHeaderPair;
 
     class Message {
     public:
@@ -21,6 +22,7 @@ namespace Request {
     private:
         METHOD _method_;
         std::string _uri_;
+        std::vector<StringHeaderPair> _headers_;
     };
 
 }}}
