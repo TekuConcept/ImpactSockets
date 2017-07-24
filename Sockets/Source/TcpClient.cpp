@@ -82,16 +82,14 @@ int TcpClient::sync() {
 int TcpClient::underflow() {
     if(socket != nullptr && connected) {
         short isr;
-        int bytesReceived;
         if(socket->poll(isr, TIMEOUT) == 0) {
-            std::cerr << "Timed Out" << std::endl;
-            return EOF;
+            std::cerr << "Read Timed Out" << std::endl;
         }
         else if((isr & POLLIN) > 0) {
-            bytesReceived = socket->recv(eback(), BUF_SIZE);
+            int bytesReceived = socket->recv(eback(), BUF_SIZE);
             setg(eback(), eback(), eback() + bytesReceived);
+            return *eback();
         }
-        else return EOF;
     }
-    return *eback();
+    return EOF;
 }
