@@ -17,6 +17,8 @@
 *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 *
 *   Modified by TekuConcept on May 12, 2017, for Windows support.
+*   Modified by TekuConcept on July 18, 2017, for Mac support.
+*   Modified by TekuConcept on July 23, 2017, for poll feature.
 */
 
 #include "Sockets.h"
@@ -24,14 +26,15 @@
 #include <sys/types.h>       // For data types
 
 #if defined(_MSC_VER)
-  #include <winsock2.h>
   #include <ws2tcpip.h>
+  #define SOC_POLL WSAPoll
 #else
   #include <sys/socket.h>      // For socket(), connect(), send(), and recv()
   #include <netdb.h>           // For gethostbyname()
   #include <arpa/inet.h>       // For inet_addr()
   #include <unistd.h>          // For close()
   #include <netinet/in.h>      // For sockaddr_in
+  #define SOC_POLL ::poll
 #endif
 
 #include <cstring>           // For strerror and memset
@@ -116,17 +119,18 @@ Socket::Socket(int type, int protocol) throw(SOC_EXCEPTION) {
 		throw SocketException("Windows Socket Startup Failed", true);
 	}
 #endif
-
 	// Make a new socket
 	if ((sockDesc = socket(PF_INET, type, protocol)) < 0) {
 		throw SocketException("Socket creation failed (socket())", true);
 	}
+	fds[0].fd = sockDesc;
 }
 
 
 
 Socket::Socket(int sockDesc) {
 	this->sockDesc = sockDesc;
+	fds[0].fd = sockDesc;
 }
 
 
@@ -134,6 +138,7 @@ Socket::Socket(int sockDesc) {
 Socket::~Socket() {
 	CLOSE_SOCKET(sockDesc);
 	sockDesc = -1;
+	fds[0].fd = -1;
 
 #if defined(_MSC_VER)
 	WSACleanup();
@@ -260,6 +265,25 @@ throw(SOC_EXCEPTION) {
 		throw SocketException("Received failed (recv())", true);
 	}
 
+	return rtn;
+}
+
+
+
+void CommunicatingSocket::setEvents(short events) {
+	fds[0].events = events;
+}
+
+
+
+int CommunicatingSocket::poll(short &revents, int timeout)
+throw(SOC_EXCEPTION) {
+	int rtn;
+	fds[0].revents= 0;
+	if((rtn = SOC_POLL(fds, 1, timeout)) < 0) {
+		throw SocketException("Poll failed (poll())", true);
+	}
+	revents = fds[0].revents;
 	return rtn;
 }
 
