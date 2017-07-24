@@ -89,12 +89,12 @@ TEST(TestRFCStandard, HTTPRequestLine) {
 }
 
 TEST(TestRFCStandard, HTTPRequestParse) {
-    std::string request = "\
+    std::stringstream request("\
 GET / HTTP/1.1\r\n\
 \r\n\
-";
+");
     RFC2616::Request::Info info;
-    ASSERT_TRUE(RFC2616::Request::parseRequest(request, info));
+    ASSERT_TRUE(RFC2616::Request::parse(request, info));
     EXPECT_EQ(info.method, RFC2616::Request::METHOD::GET);
     EXPECT_EQ(info.requestURI, "/");
     EXPECT_EQ(info.major, 1);

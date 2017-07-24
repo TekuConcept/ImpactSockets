@@ -107,7 +107,7 @@ namespace Impact {
 
             std::string getRequestLine(METHOD code, std::string reqURI);
             
-            bool parseRequest(std::string request, Info &info);
+            bool parse(std::istream &request, Info &info);
 
             bool validate(std::string request);
         }

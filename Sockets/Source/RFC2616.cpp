@@ -368,38 +368,54 @@ bool parseRequestVersion(const char* buffer, unsigned int length,
     return true;
 }
 
-bool RFC2616::Request::parseRequest(std::string request, Info &info) {
-    // validate length
-    // Shortest request: "GET / HTTP/1.1\r\n\r\n"
-    if(request.length() < 18) return false;
-    
-    // first word must be a method and is case-sensitive
-    if(!parseRequestMethod(request, info)) return false;
+bool parseRequestHeader(std::string header, RFC2616::Request::Info &info) {
+    if(!parseRequestMethod(header, info)) return false;
+
     unsigned int idx    = METHOD_NAMES[(int)info.method].length(),
-                 length = request.length();
-    const char* buffer = request.c_str();
+                 length = header.length();
+    const char*  buffer = header.c_str();
     idx++; // skip SP
     
     if(!parseRequestURI(buffer, length, idx, info))
         return false;
     idx++; // skip SP
-    if((length - idx) < 12) {
+    
+    if((length - idx) < 8) {
         // Not enough characters to both identify HTTP version
         // and properly end the request message.
         return false;
     }
     if(!parseRequestVersion(buffer, length, idx, info)) return false;
+    return true;
+}
+
+bool RFC2616::Request::parse(std::istream &request, Info &info) {
+    const unsigned int MIN_REQUEST_HEADER_LEN = 14; // "GET / HTTP/1.X"
+    std::string requestHeader, optionalHeader;
+    if (!getline(request, requestHeader)) return false;
     
-    // todo parse headers
-    // todo check valid line ending
+    unsigned int length;
+    do {
+        if (!getline(request, optionalHeader)) return false;
+        length = optionalHeader.length();
+        if (length == 0) return false;
+        else if (optionalHeader[length - 1] != '\r') return false;
+        else if (length != 1)
+            info.headers.push_back(optionalHeader.substr(0, length-1));
+    } while(length > 1);
+
+    if(requestHeader.length() < MIN_REQUEST_HEADER_LEN) return false;
+    else if(!parseRequestHeader(requestHeader, info)) return false;
+    
+    // todo validate headers?
     // todo get body?
     
-    (void)info;
     return true;
 }
 
 bool RFC2616::Request::validate(std::string request) {
     Info info;
+    std::stringstream ss(request);
     // validate resource uri ?
-    return parseRequest(request, info);
+    return parse(ss, info);
 }
