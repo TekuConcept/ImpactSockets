@@ -374,17 +374,20 @@ bool parseRequestHeader(std::string header, RFC2616::Request::Info &info) {
     unsigned int idx    = METHOD_NAMES[(int)info.method].length(),
                  length = header.length();
     const char*  buffer = header.c_str();
-    idx++; // skip SP
+    
+    while(buffer[idx] == ' ' || buffer[idx] == '\t') {
+        idx++; // skip LWS
+        if((length - idx) < 10) return false; // "/ HTTP/1.1"
+    }
     
     if(!parseRequestURI(buffer, length, idx, info))
         return false;
-    idx++; // skip SP
     
-    if((length - idx) < 8) {
-        // Not enough characters to both identify HTTP version
-        // and properly end the request message.
-        return false;
+    while(buffer[idx] == ' ' || buffer[idx] == '\t') {
+        idx++; // skip LWS
+        if((length - idx) < 8) return false; // "HTTP/1.1"
     }
+    
     if(!parseRequestVersion(buffer, length, idx, info)) return false;
     return true;
 }

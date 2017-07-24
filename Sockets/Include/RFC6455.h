@@ -36,7 +36,7 @@ namespace Impact {
             bool validate(std::string uri);
         }
         
-        std::string getRequestHeader(URI::Info info);
+        std::string getRequestMessage(URI::Info info);
     }
 }
 

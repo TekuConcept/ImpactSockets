@@ -79,7 +79,7 @@ TEST(TestRFCStandard, GetRequestHeaders) {
     RFC6455::URI::Info info;
     if(!RFC6455::URI::parse("ws://localhost:8080/path?query", info))
         FAIL();
-    std::string header = RFC6455::getRequestHeader(info);
+    std::string header = RFC6455::getRequestMessage(info);
     
     // must be a valid http request
     EXPECT_TRUE(RFC2616::Request::validate(header));

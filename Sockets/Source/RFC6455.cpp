@@ -73,7 +73,7 @@ bool RFC6455::URI::validate(std::string uri) {
     return parse(uri, info);
 }
 
-std::string RFC6455::getRequestHeader(URI::Info info) {
+std::string RFC6455::getRequestMessage(URI::Info info) {
     std::ostringstream os;
     os << RFC2616::Request::getRequestLine(
         RFC2616::Request::METHOD::GET,
