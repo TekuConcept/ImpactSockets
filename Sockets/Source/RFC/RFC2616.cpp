@@ -2,84 +2,14 @@
  * Created by TekuConcept on July 22, 2017
  */
 
-#include "RFC/RFC2616.h"
 #include <map>
 #include <sstream>
+#include "RFC/RFC2616.h"
 
 #include <iostream>
 #define DMSG(x) std::cerr << x << std::endl
 
 using namespace Impact;
-
-typedef std::pair<int, std::string> Token;
-
-std::map <int, std::string> STATUS_NAMES = {
-    // -- informational --
-    Token(100, "CONTINUE"),
-    Token(101, "SWITCHING"),
-    
-    // -- successful --
-    Token(200, "OK"),
-    Token(201, "CREATED"),
-    Token(202, "ACCEPTED"),
-    Token(203, "NON AUTHORITATIVE"),
-    Token(204, "NO CONTENT"),
-    Token(205, "RESET CONTENT"),
-    Token(206, "PARTIAL CONTENT"),
-    
-    // -- redirection --
-    Token(300, "MULTIPLE CHOICES"),
-    Token(301, "MOVED PERMANENTLY"),
-    Token(302, "FOUND"),
-    Token(303, "SEE OTHER"),
-    Token(304, "NOT MODIFIED"),
-    Token(305, "USE PROXY"),
-    // 306 (unused)
-    Token(307, "TEMPORARY REDIRECT"),
-    
-    // -- client error --
-    Token(400, "BAD REQUEST"),
-    Token(401, "UNAUTHORIZED"),
-    Token(402, "PAYMENT REQUIRED"),
-    Token(403, "FORBIDDEN"),
-    Token(404, "NOT FOUND"),
-    Token(405, "METHOD NOT ALLOWED"),
-    Token(406, "NOT ACCEPTABLE"),
-    Token(407, "PROXY AUTHENTICATION REQUIRED"),
-    Token(408, "REQUEST TIMEOUT"),
-    Token(409, "CONFLICT"),
-    Token(410, "GONE"),
-    Token(411, "LENGTH REQUIRED"),
-    Token(412, "PRECONDITION FAILED"),
-    Token(413, "REQUEST ENTITY TOO LARGE"),
-    Token(414, "REQUEST URI TOO LONG"),
-    Token(415, "UNSUPPORTED MEDIA TYPE"),
-    Token(416, "REQUEST RANGE NOT SATISFIABLE"),
-    Token(417, "EXPECTATION FAILED"),
-    
-    // -- server error --
-    Token(500, "INTERNAL SERVER ERROR"),
-    Token(501, "NOT IMPLEMENTED"),
-    Token(502, "BAD GATEWAY"),
-    Token(503, "SERVICE UNAVAILBLE"),
-    Token(504, "GATEWAY TIMEOUT"),
-    Token(505, "HTTP VERSION NOT SUPPORTED"),
-};
-
-std::map <int, std::string> METHOD_NAMES = {
-    Token(0, "OPTIONS"),
-    Token(1, "GET"),
-    Token(2, "HEAD"),
-    Token(3, "POST"),
-    Token(4, "PUT"),
-    Token(5, "DELETE"),
-    Token(6, "TRACE"),
-    Token(7, "CONNECT")
-};
-
-std::string RFC2616::getStatusString(STATUS code) {
-    return STATUS_NAMES[(int)code];
-}
 
 bool RFC2616::URI::parseScheme(std::string uri, std::string &scheme) {
     std::ostringstream os;
@@ -265,10 +195,6 @@ bool RFC2616::URI::validate(std::string uri) {
     return parse(uri, info);
 }
 
-std::string RFC2616::Request::getMethodString(METHOD code) {
-    return METHOD_NAMES[(int)code];
-}
-
 std::string RFC2616::Request::getRequestLine(METHOD code, std::string reqURI) {
     // validate:
     // request URI must either be a wild card "*", start with '/',
@@ -281,7 +207,7 @@ std::string RFC2616::Request::getRequestLine(METHOD code, std::string reqURI) {
 
     // compose
     std::ostringstream os;
-    os << getMethodString(code) << SP << reqURI << SP << HTTP_VERSION << CRLF;
+    os << toString(code) << SP << reqURI << SP << HTTP_VERSION << CRLF;
     return os.str();
 }
 
@@ -303,7 +229,8 @@ bool parseRequestMethod(std::string request, RFC2616::Request::Info &info) {
         default: return false;
     }
     // double check because we only initially checked the first character(s)
-    if(request.find(METHOD_NAMES[(int)info.method]) != 0) return false;
+    if(request.find(RFC2616::toString(info.method)) != 0)
+        return false;
     return true;
 }
 
@@ -369,7 +296,7 @@ bool parseRequestVersion(const char* buffer, unsigned int length,
 bool parseRequestHeader(std::string header, RFC2616::Request::Info &info) {
     if(!parseRequestMethod(header, info)) return false;
 
-    unsigned int idx    = METHOD_NAMES[(int)info.method].length(),
+    unsigned int idx    = RFC2616::toString(info.method).length(),
                  length = header.length();
     const char*  buffer = header.c_str();
     
