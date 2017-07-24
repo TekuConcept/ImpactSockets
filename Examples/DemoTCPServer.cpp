@@ -20,6 +20,11 @@ int main() {
     std::getline(*connection, done);
     std::cout << "done: " << done << std::endl;
     
+    // attempt to wait for client but timeout because nothing arrives
+    std::string latemsg = "- NO MESSAGE -";
+    std::getline(*connection, latemsg);
+    std::cout << latemsg << std::endl;
+
     std::cout << "- END OF LINE -" << std::endl;
     
     return 0;

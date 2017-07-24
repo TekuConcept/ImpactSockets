@@ -3,6 +3,7 @@
  */
 
 #include "TcpClient.h"
+#include <iostream>
 
 using namespace Impact;
 
@@ -42,6 +43,7 @@ int TcpClient::connect(int port, std::string address) {
     if(connected) return 2;
     try {
         socket = std::make_shared<TCPSocket>(address, port);
+        socket->setEvents(POLLIN);
         connected = true;
     }
     catch (SocketException &e) {
@@ -79,8 +81,17 @@ int TcpClient::sync() {
 
 int TcpClient::underflow() {
     if(socket != nullptr && connected) {
-        int bytesReceived = socket->recv(eback(), BUF_SIZE);
-        setg(eback(), eback(), eback() + bytesReceived);
+        short isr;
+        int bytesReceived;
+        if(socket->poll(isr, TIMEOUT) == 0) {
+            std::cerr << "Timed Out" << std::endl;
+            return EOF;
+        }
+        else if((isr & POLLIN) > 0) {
+            bytesReceived = socket->recv(eback(), BUF_SIZE);
+            setg(eback(), eback(), eback() + bytesReceived);
+        }
+        else return EOF;
     }
     return *eback();
 }
