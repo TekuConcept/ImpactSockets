@@ -13,6 +13,7 @@ int main() {
     std::cout << "- SERVER STARTED -" << std::endl;
     
     auto connection = server.accept();
+	connection->setTimeout(2500); // 2.5 seconds
     connection->onTimeout += StaticCommandPtr(
         EventArgs,
         callback

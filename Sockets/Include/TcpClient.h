@@ -29,6 +29,7 @@ namespace Impact {
 		int API_DECLSPEC sync();
 		int API_DECLSPEC underflow();
 		bool API_DECLSPEC isConnected();
+		void API_DECLSPEC setTimeout(int time_ms);
 		EventHandler<EventArgs> onTimeout;
 
 	private:
@@ -37,8 +38,7 @@ namespace Impact {
 		char* inputBuffer_;
 		std::shared_ptr<TCPSocket> socket;
 		bool connected, peerConnected;
-		
-		const int TIMEOUT = 2000; // 2s
+		int timeout = -1;
 		Object self;
 
 		void init();

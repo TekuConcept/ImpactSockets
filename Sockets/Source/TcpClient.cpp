@@ -95,6 +95,14 @@ bool TcpClient::isConnected() {
 
 
 
+void TcpClient::setTimeout(int time_ms) {
+	// -1 means waiting indefinitely ie no timeout
+	if (time_ms < -1) timeout = -1; // normalize
+	else              timeout = time_ms;
+}
+
+
+
 int TcpClient::sync() {
     int len = int(pptr() - pbase());
     if(socket != nullptr && connected)
@@ -108,7 +116,7 @@ int TcpClient::sync() {
 int TcpClient::underflow() {
     if(socket != nullptr && connected) {
         short isr;
-        if(socket->poll(isr, TIMEOUT) == 0) {
+        if(socket->poll(isr, timeout) == 0) {
             EventArgs e;
             onTimeout.invoke(self, e);
         }
