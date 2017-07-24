@@ -67,6 +67,19 @@ namespace Impact {
             GATEWAY_TIMEOUT=504,
             HTTP_VERSION_NOT_SUPPORTED=505
         } STATUS;
+        typedef enum HEADERS {
+            // RFC 2616 Section 4.5
+            CacheControl,
+            Connection,
+            Date,
+            Pragma,
+            Trailer,
+            TransferEncoding,
+            Upgrade,
+            Via,
+            Warning
+        } HEADERS;
+        
         std::string getStatusString(STATUS code);
         
         namespace URI {
@@ -93,6 +106,28 @@ namespace Impact {
                 TRACE,
                 CONNECT
             } METHOD;
+            typedef enum HEADERS {
+                // RFC 2616 Section 5.3
+                Accept,
+                AcceptCharset,
+                AcceptEncoding,
+                AcceptLanguage,
+                Authorization,
+                Expect,
+                From,
+                Host,
+                IfMatch,
+                IfModifiedSince,
+                IfNoneMatch,
+                IfRange,
+                IfUnmodifiedSince,
+                MaxForwards,
+                ProxyAuthorization,
+                Range,
+                Referer,
+                TE,
+                UserAgent
+            } HEADERS;
 
             typedef struct Info {
                 METHOD method;
@@ -110,6 +145,23 @@ namespace Impact {
             bool parse(std::istream &request, Info &info);
 
             bool validate(std::string request);
+        }
+        
+        namespace Entity {
+            typedef enum HEADERS {
+                // RFC 2616 Section 7.1
+                Allow,
+                ContentEncoding,
+                ContentLanguage,
+                ContentLength,
+                ContentLocation,
+                ContentMD5,
+                ContentRange,
+                ContentType,
+                Expires,
+                LastModified,
+                Other
+            } HEADERS;
         }
     }
 }

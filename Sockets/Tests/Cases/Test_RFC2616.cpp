@@ -3,7 +3,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <RFC2616.h>
+#include <RFC/RFC2616.h>
 
 using namespace Impact;
 
@@ -89,10 +89,7 @@ TEST(TestRFCStandard, HTTPRequestLine) {
 }
 
 TEST(TestRFCStandard, HTTPRequestParse) {
-    std::stringstream request("\
-GET / HTTP/1.1\r\n\
-\r\n\
-");
+    std::stringstream request("GET / HTTP/1.1\r\n\r\n");
     RFC2616::Request::Info info;
     ASSERT_TRUE(RFC2616::Request::parse(request, info));
     EXPECT_EQ(info.method, RFC2616::Request::METHOD::GET);

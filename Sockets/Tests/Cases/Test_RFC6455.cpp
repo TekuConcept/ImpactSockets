@@ -4,8 +4,8 @@
 
 #include <gtest/gtest.h>
 #include <string>
-#include <RFC2616.h>
-#include <RFC6455.h>
+#include <RFC/RFC2616.h>
+#include <RFC/RFC6455.h>
 
 using namespace Impact;
 

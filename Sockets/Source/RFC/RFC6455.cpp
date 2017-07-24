@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 21, 2017
  */
 
-#include "RFC2616.h"
-#include "RFC6455.h"
+#include "RFC/RFC2616.h"
+#include "RFC/RFC6455.h"
 #include <sstream>
 
 using namespace Impact;

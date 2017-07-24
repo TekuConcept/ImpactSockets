@@ -2,7 +2,7 @@
  * Created by TekuConcept on July 22, 2017
  */
 
-#include "RFC2616.h"
+#include "RFC/RFC2616.h"
 #include <map>
 #include <sstream>
 
@@ -315,9 +315,7 @@ bool parseRequestURI(const char* buffer, unsigned int length,
     
     while(idx < length) {
         if(buffer[idx] == ' ') break;
-        else {
-            os << buffer[idx];
-        }
+        else os << buffer[idx];
         idx++;
     }
     info.requestURI = os.str();
