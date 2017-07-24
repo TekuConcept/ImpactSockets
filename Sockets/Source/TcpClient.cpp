@@ -58,7 +58,12 @@ int TcpClient::connect(int port, std::string address) {
 
 void TcpClient::disconnect() {
     if (socket != nullptr && connected) {
-        socket->disconnect();
+        try {
+            socket->disconnect();
+        } catch(SocketException) {
+            // server disconnected first,
+            // ignore for now
+        }
         connected = false;
     }
 }
