@@ -11,11 +11,11 @@ int main() {
     client << "Hello From Client" << std::endl;
     
     std::string msg;
-	if (!std::getline(client, msg)) {
-		std::cout << "Couldn't connect to local server..." << std::endl;
-		std::cout << "- END OF LINE -" << std::endl;
-		return 1;
-	}
+    if (!std::getline(client, msg)) {
+        std::cout << "Couldn't connect to local server..." << std::endl;
+        std::cout << "- END OF LINE -" << std::endl;
+        return 1;
+    }
     std::cout << "msg: " << msg << std::endl;
     
     client << "I got your message!" << std::endl;
