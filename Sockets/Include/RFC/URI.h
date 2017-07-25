@@ -18,7 +18,7 @@ namespace RFC2616 {
         unsigned int port();
         
         static bool validate(std::string uri);
-        static URI trial(std::string uri, bool &success);
+        static URI tryParse(std::string uri, bool &success);
 
     protected:
         std::string _scheme_, _host_, _resource_;

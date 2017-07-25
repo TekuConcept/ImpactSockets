@@ -38,7 +38,7 @@ bool URI::validate(std::string uri) {
     return _uri_.parse(uri);
 }
 
-URI URI::trial(std::string uri, bool &success) {
+URI URI::tryParse(std::string uri, bool &success) {
     URI _uri_;
     success = _uri_.parse(uri);
     return _uri_;

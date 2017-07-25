@@ -82,7 +82,7 @@ TEST(TestRFCStandard, GetRequestMessage) {
     std::string header = RFC6455::getRequestMessage(info);
     
     // must be a valid http request
-    EXPECT_TRUE(RFC2616::Request::validate(header));
+    EXPECT_TRUE(RFC2616::RequestMessage::validate(header));
     
     // must be a get request
     EXPECT_EQ(header.find("GET"), 0);

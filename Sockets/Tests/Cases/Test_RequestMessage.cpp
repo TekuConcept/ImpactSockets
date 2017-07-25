@@ -7,7 +7,7 @@
 
 using namespace Impact;
 
-TEST(TestRequestMethod, SimpleRequestMessage) {
+TEST(TestRequestMessage, SimpleRequestMessage) {
     RFC2616::RequestMessage message1(
         RFC2616::Request::METHOD::GET,
         "/path/to/resource?query"
@@ -28,9 +28,22 @@ TEST(TestRequestMethod, SimpleRequestMessage) {
     EXPECT_EQ(message3.toString(), "GET / HTTP/1.1\r\n\r\n");
 }
 
-TEST(TestRequestMethod, AverageRequestMessage) {
+TEST(TestRequestMessage, AverageRequestMessage) {
     RFC2616::RequestMessage message(RFC2616::Request::METHOD::GET, "");
     message.addHeader(RFC2616::HEADER::Host, "www.example.com");
     EXPECT_EQ(message.toString(),
         "GET / HTTP/1.1\r\nHost: www.example.com\r\n\r\n");
+}
+
+TEST(TestRequestMessage, HTTPRequestParse) {
+    std::stringstream request("GET / HTTP/1.1\r\n\r\n");
+    bool check = false;
+    RFC2616::RequestMessage message =
+        RFC2616::RequestMessage::tryParse(request, check);
+    ASSERT_TRUE(check);
+
+    EXPECT_EQ(message.method(), RFC2616::Request::METHOD::GET);
+    EXPECT_EQ(message.resource(), "/");
+    EXPECT_EQ(message.major(), 1);
+    EXPECT_EQ(message.minor(), 1);
 }

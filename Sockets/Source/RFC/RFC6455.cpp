@@ -50,7 +50,7 @@ bool RFC6455::URI::parse(std::string uri, Info &info) {
     if(uri.length() < 8) return false;
     
     bool check = false;
-    RFC2616::URI basicInfo = RFC2616::URI::trial(uri, check);
+    RFC2616::URI basicInfo = RFC2616::URI::tryParse(uri, check);
     if(!check) return false;
     
     // validate protocol: "ws:" or "wss:"
