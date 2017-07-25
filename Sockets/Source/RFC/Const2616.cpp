@@ -3,7 +3,7 @@
  */
 
 #include <map>
-#include "RFC/RFC2616Const.h"
+#include "RFC/Const2616.h"
 
 using namespace Impact;
 
@@ -129,6 +129,10 @@ std::map <int, std::string> HEADER_NAMES = {
     Token(45, "Expires"),
     Token(46, "Last-Modified"),
 };
+
+bool RFC2616::isWhiteSpace(const char c) {
+    return (c == SP) || (c == HWS);
+}
 
 std::string RFC2616::toString(STATUS code) {
     return STATUS_NAMES[(int)code];

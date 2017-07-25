@@ -12,9 +12,9 @@ using namespace RFC2616;
 RequestMessage::RequestMessage() {}
 
 RequestMessage::RequestMessage(Request::METHOD method, std::string uri)
-    : _method_(method), _major_(1), _minor_(1) {
+    : _method_(method), _major_(HTTP_MAJOR), _minor_(HTTP_MINOR) {
     if(uri.length() == 0) _uri_ = "/";
-    else if(uri.at(0) == '*' && uri.length() != 1) _uri_ = "*";
+    else if(uri[0] == '*' && uri.length() != 1) _uri_ = "*";
     else _uri_ = uri;
 }
 
@@ -35,7 +35,7 @@ void RequestMessage::addUserHeader(std::string header, std::string value) {
 std::string RequestMessage::toString() {
     std::ostringstream os;
     os << RFC2616::toString(_method_) << SP << _uri_ << SP
-        << "HTTP/" << _major_ << "." << _minor_ << CRLF;
+        << HTTP_PREFIX << _major_ << "." << _minor_ << CRLF;
     // iterate through elements rather than increment
     for(unsigned int i = 0; i < _headers_.size(); i++) {
         os << RFC2616::toString(_headers_[i].first);
@@ -98,15 +98,14 @@ bool RequestMessage::parseRequestHeader(std::string header) {
     if(!parseRequestMethod(header)) return false;
     unsigned int idx = RFC2616::toString(_method_).length();
 
-    while(header[idx] == ' ' || header[idx] == '\t') {
+    while(RFC2616::isWhiteSpace(header[idx])) {
         idx++; // skip LWS
         if((header.length() - idx) < 10) return false; // "/ HTTP/1.1"
     }
     
-    if(!parseRequestURI(header, idx))
-        return false;
+    if(!parseRequestURI(header, idx)) return false;
     
-    while(header[idx] == ' ' || header[idx] == '\t') {
+    while(RFC2616::isWhiteSpace(header[idx])) {
         idx++; // skip LWS
         if((header.length() - idx) < 8) return false; // "HTTP/1.1"
     }
@@ -141,11 +140,12 @@ bool RequestMessage::parseRequestURI(std::string header, unsigned int &offset) {
     std::ostringstream os;
     unsigned int &idx = offset;
     
-    if(header[idx] == '*' && header[idx+1] != ' ') return false;
+    if(header[idx] == '*' && !RFC2616::isWhiteSpace(header[idx+1]))
+        return false;
     else if(header[idx] != '/') return false; // full paths not yet supported
     
     while(idx < header.length()) {
-        if(header[idx] == ' ') break;
+        if(RFC2616::isWhiteSpace(header[idx])) break;
         else os << header[idx];
         idx++;
     }
@@ -154,7 +154,7 @@ bool RequestMessage::parseRequestURI(std::string header, unsigned int &offset) {
 }
 
 bool RequestMessage::parseRequestVersion(std::string header, unsigned int &offset) {
-    std::string version = "HTTP/";
+    std::string version = HTTP_PREFIX;
     unsigned int &idx = offset;
     
     // check protocol identifier
@@ -182,8 +182,8 @@ bool RequestMessage::parseRequestVersion(std::string header, unsigned int &offse
     while(idx < header.length()) {
         if(header[idx] >= '0' && header[idx] <= '9')
             os << header[idx];
-        else if (header[idx] == '\r' ||
-            header[idx] == ' ' || header[idx] == '\t') {
+        else if (header[idx] == RFC2616::CRLF[0] ||
+            RFC2616::isWhiteSpace(header[idx])) {
             // end of line found, break
             break;
         }

@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <istream>
-#include "RFC/RFC2616Const.h"
+#include "RFC/Const2616.h"
 
 namespace Impact {
 namespace RFC2616 {
@@ -47,12 +47,5 @@ namespace RFC2616 {
         bool parseRequestVersion(std::string header, unsigned int &offset);
     };
 }}
-
-// typedef struct Info {
-//                 METHOD method;
-//                 std::string requestURI;
-//                 std::vector<std::string> headers;
-//                 std::string body;
-//             } Info;
 
 #endif
