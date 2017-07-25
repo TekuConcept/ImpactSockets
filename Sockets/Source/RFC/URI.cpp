@@ -3,6 +3,7 @@
  */
 
 #include "RFC/URI.h"
+#include "RFC/Const2616.h"
 #include <sstream>
 #include <exception>
 
@@ -31,6 +32,10 @@ std::string URI::resource() {
 
 unsigned int URI::port() {
     return _port_;
+}
+
+bool URI::secure() {
+    return _scheme_ == "https";
 }
 
 bool URI::validate(std::string uri) {
@@ -227,8 +232,8 @@ bool URI::parsePort(std::string uri, unsigned int &offset) {
     
     // if port is still 0, attempt to resolve port based on scheme
     if(_port_ == 0) {
-        if(_scheme_ == "http")       _port_ =  80;
-        else if(_scheme_ == "https") _port_ = 443;
+        if(_scheme_ == "http")       _port_ = PORT;
+        else if(_scheme_ == "https") _port_ = SECURE_PORT;
     }
     return true;
 }

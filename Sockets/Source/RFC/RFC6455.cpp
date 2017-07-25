@@ -2,7 +2,6 @@
  * Created by TekuConcept on July 21, 2017
  */
 
-#include "RFC/2616"
 #include "RFC/RFC6455.h"
 #include <sstream>
 
@@ -28,65 +27,18 @@ void RFC6455::URI::EscapeAllPound(std::string &uri) {
     uri.assign(ss.str());
 }
 
-std::string RFC6455::URI::getProtocol() {
-    return "ws";
-}
-
-std::string RFC6455::URI::getSecureProtocol() {
-    return "wss";
-}
-
-unsigned int RFC6455::URI::getDefaultPort() {
-    return 80;
-}
-
-unsigned int RFC6455::URI::getDefaultSecurePort() {
-    return 443;
-}
-
-bool RFC6455::URI::parse(std::string uri, Info &info) {
-    // smallest uri name length: 8
-    // ex: ws://a.z
-    if(uri.length() < 8) return false;
-    
-    bool check = false;
-    RFC2616::URI basicInfo = RFC2616::URI::tryParse(uri, check);
-    if(!check) return false;
-    
-    // validate protocol: "ws:" or "wss:"
-    std::string scheme;
-    if(basicInfo.scheme() == "ws")       info.secure = false;
-    else if(basicInfo.scheme() == "wss") info.secure = true;
-    else return false;
-    
-    info.host         = basicInfo.host();
-    info.port         = basicInfo.port();
-    info.resourceName = basicInfo.resource();
-    
-    if(basicInfo.port() == 0)
-        info.port = (info.secure ? getDefaultSecurePort() : getDefaultPort());
-    
-    return true;
-}
-
-bool RFC6455::URI::validate(std::string uri) {
-    Info info;
-    return parse(uri, info);
-}
-
-std::string RFC6455::getRequestMessage(URI::Info info) {
+std::string RFC6455::getRequestMessage(RFC2616::URI uri) {
     RFC2616::RequestMessage message(
         RFC2616::Request::METHOD::GET,
-        info.resourceName
+        uri.resource()
     );
     
-    if(info.port != URI::getDefaultPort() &&
-        info.port != URI::getDefaultSecurePort()) {
+    if(uri.port() != RFC2616::PORT && uri.port() != RFC2616::SECURE_PORT) {
         std::ostringstream os;
-        os << info.host << ":" << info.port;
+        os << uri.host() << ":" << uri.port();
         message.addHeader(RFC2616::HEADER::Host, os.str());
     }
-    else message.addHeader(RFC2616::HEADER::Host, info.host);
+    else message.addHeader(RFC2616::HEADER::Host, uri.host());
     
     message.addHeader(RFC2616::HEADER::Upgrade, "websocket");
     message.addHeader(RFC2616::HEADER::Connection, "upgrade");

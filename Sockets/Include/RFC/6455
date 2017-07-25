@@ -6,5 +6,6 @@
 #define RFC_6455_H
 
 #include "RFC/RFC6455.h"
+#include "RFC/WSURI.h"
 
 #endif

@@ -16,7 +16,9 @@ namespace RFC2616 {
     const std::string CRLF = "\r\n";
     const char SP = ' ';
     const char HWS= '\t';
-    
+    const unsigned short PORT = 80;
+    const unsigned short SECURE_PORT = 443;
+
     typedef enum STATUS {
         // RFC 2616 Section 10
         // -- informational --

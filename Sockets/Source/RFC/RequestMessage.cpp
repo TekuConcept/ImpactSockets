@@ -69,22 +69,22 @@ RequestMessage RequestMessage::tryParse(std::istream &request,
 bool RequestMessage::parse(std::istream &request) {
     const unsigned int MIN_REQUEST_HEADER_LEN = 14; // "GET / HTTP/1.X"
     std::string requestHeader, optionalHeader;
-    if (!getline(request, requestHeader)) return false;
+    if (!getline(request, requestHeader))               return false;
     
     std::vector<std::string> pendingHeaders;
     unsigned int length;
     do {
-        if (!getline(request, optionalHeader)) return false;
+        if (!getline(request, optionalHeader))          return false;
         length = optionalHeader.length();
         if (length == 0) return false;
-        else if (optionalHeader[length - 1] != '\r') return false;
+        else if (optionalHeader[length - 1] != '\r')    return false;
         else if (length != 1) {
             pendingHeaders.push_back(optionalHeader.substr(0, length-1));
         }
     } while(length > 1);
 
     if(requestHeader.length() < MIN_REQUEST_HEADER_LEN) return false;
-    else if(!parseRequestHeader(requestHeader))   return false;
+    else if(!parseRequestHeader(requestHeader))         return false;
     
     // TODO: parse headers
     // if(!parseOptionalHeaders(pendingHeaders) return false;

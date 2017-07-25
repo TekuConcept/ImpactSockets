@@ -16,6 +16,7 @@ namespace RFC2616 {
         std::string host();
         std::string resource();
         unsigned int port();
+        virtual bool secure();
         
         static bool validate(std::string uri);
         static URI tryParse(std::string uri, bool &success);
@@ -23,15 +24,14 @@ namespace RFC2616 {
     protected:
         std::string _scheme_, _host_, _resource_;
         unsigned int _port_;
-        
+    
+    private:
+        URI();
         bool parse(std::string uri);
         bool parseScheme(std::string uri);
         bool parseIPv6Host(std::string uri, unsigned int &offset);
         bool parseHost(std::string uri, unsigned int &offset);
         bool parsePort(std::string uri, unsigned int &offset);
-    
-    private:
-        URI();
     };
 }}
 

@@ -6,6 +6,7 @@
 #define RFC6455_H
 
 #include <string>
+#include "RFC/2616"
 
 namespace Impact {
     namespace RFC6455 {
@@ -16,27 +17,9 @@ namespace Impact {
         namespace URI {
             void DerefFragment(std::string &uri);
             void EscapeAllPound(std::string &uri);
-            std::string getProtocol();
-            std::string getSecureProtocol();
-            unsigned int getDefaultPort();
-            unsigned int getDefaultSecurePort();
-            
-            typedef struct Info {
-                std::string host;
-                unsigned int port;
-                std::string resourceName;
-                bool secure;
-                //protocols;
-                //extensions;
-            } Info;
-            
-            // return true if valid
-            bool parse(std::string uri, Info &info);
-            
-            bool validate(std::string uri);
         }
         
-        std::string getRequestMessage(URI::Info info);
+        std::string getRequestMessage(RFC2616::URI info);
     }
 }
 
