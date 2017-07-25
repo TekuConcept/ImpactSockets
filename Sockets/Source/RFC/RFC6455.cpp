@@ -2,9 +2,8 @@
  * Created by TekuConcept on July 21, 2017
  */
 
-#include "RFC/RFC2616.h"
+#include "RFC/2616"
 #include "RFC/RFC6455.h"
-#include "RFC/RequestMessage.h"
 #include <sstream>
 
 using namespace Impact;
@@ -50,20 +49,21 @@ bool RFC6455::URI::parse(std::string uri, Info &info) {
     // ex: ws://a.z
     if(uri.length() < 8) return false;
     
-    RFC2616::URI::Info basicInfo;
-    if(!RFC2616::URI::parse(uri, basicInfo)) return false;
+    bool check = false;
+    RFC2616::URI basicInfo = RFC2616::URI::trial(uri, check);
+    if(!check) return false;
     
     // validate protocol: "ws:" or "wss:"
     std::string scheme;
-    if(basicInfo.scheme == "ws")       info.secure = false;
-    else if(basicInfo.scheme == "wss") info.secure = true;
+    if(basicInfo.scheme() == "ws")       info.secure = false;
+    else if(basicInfo.scheme() == "wss") info.secure = true;
     else return false;
     
-    info.host         = basicInfo.host;
-    info.port         = basicInfo.port;
-    info.resourceName = basicInfo.resourceName;
+    info.host         = basicInfo.host();
+    info.port         = basicInfo.port();
+    info.resourceName = basicInfo.resource();
     
-    if(basicInfo.port == 0)
+    if(basicInfo.port() == 0)
         info.port = (info.secure ? getDefaultSecurePort() : getDefaultPort());
     
     return true;
@@ -75,9 +75,21 @@ bool RFC6455::URI::validate(std::string uri) {
 }
 
 std::string RFC6455::getRequestMessage(URI::Info info) {
-    RFC2616::Request::Message message(
+    RFC2616::RequestMessage message(
         RFC2616::Request::METHOD::GET,
         info.resourceName
     );
+    
+    if(info.port != URI::getDefaultPort() &&
+        info.port != URI::getDefaultSecurePort()) {
+        std::ostringstream os;
+        os << info.host << ":" << info.port;
+        message.addHeader(RFC2616::HEADER::Host, os.str());
+    }
+    else message.addHeader(RFC2616::HEADER::Host, info.host);
+    
+    message.addHeader(RFC2616::HEADER::Upgrade, "websocket");
+    message.addHeader(RFC2616::HEADER::Connection, "upgrade");
+    
     return message.toString();
 }

@@ -7,21 +7,24 @@
 
 using namespace Impact;
 using namespace RFC2616;
-using namespace Request;
 
-Message::Message(METHOD method, std::string uri)
+RequestMessage::RequestMessage(Request::METHOD method, std::string uri)
     : _method_(method) {
     if(uri.length() == 0) _uri_ = "/";
     else if(uri.at(0) == '*' && uri.length() != 1) _uri_ = "*";
     else _uri_ = uri;
 }
 
-void Message::addHeader(HEADER header, std::string value) {
+void RequestMessage::addHeader(HEADER header, std::string value) {
     // check if header already exists - use map instead of vector
     _headers_.push_back(StringHeaderPair(header, value));
 }
 
-std::string Message::toString() {
+void RequestMessage::addUserHeader(std::string header, std::string value) {
+    _userHeaders_.push_back(StringStringPair(header, value));
+}
+
+std::string RequestMessage::toString() {
     std::ostringstream os;
     os << RFC2616::toString(_method_) << SP << _uri_ << SP << HTTP_VERSION << CRLF;
     // iterate through elements rather than increment
@@ -29,6 +32,12 @@ std::string Message::toString() {
         os << RFC2616::toString(_headers_[i].first);
         os << ":" << SP;
         os << _headers_[i].second;
+        os << CRLF;
+    }
+    for(unsigned int i = 0; i < _userHeaders_.size(); i++) {
+        os << _userHeaders_[i].first;
+        os << ":" << SP;
+        os << _userHeaders_[i].second;
         os << CRLF;
     }
     os << CRLF;

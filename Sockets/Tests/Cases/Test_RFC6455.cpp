@@ -4,8 +4,8 @@
 
 #include <gtest/gtest.h>
 #include <string>
-#include <RFC/RFC2616.h>
-#include <RFC/RFC6455.h>
+#include <RFC/2616>
+#include <RFC/6455>
 
 using namespace Impact;
 
@@ -75,7 +75,7 @@ TEST(TestRFCStandard, URIValidInfo) {
     EXPECT_EQ(info1.resourceName, "");
 }
 
-TEST(TestRFCStandard, GetRequestHeaders) {
+TEST(TestRFCStandard, GetRequestMessage) {
     RFC6455::URI::Info info;
     if(!RFC6455::URI::parse("ws://localhost:8080/path?query", info))
         FAIL();
@@ -94,8 +94,14 @@ TEST(TestRFCStandard, GetRequestHeaders) {
     EXPECT_NE(header.find(info.resourceName), std::string::npos);
     
     // must contain host header field (optional port when not default)
+    EXPECT_NE(header.find("Host: localhost:8080"), std::string::npos);
+    
     // must contain upgrade header with value "websocket"
+    EXPECT_NE(header.find("Upgrade: websocket"), std::string::npos);
+    
     // must contain connection header with value "upgrade"
+    EXPECT_NE(header.find("Connection: upgrade"), std::string::npos);
+    
     // must contain Sec-WebSocket-Key header with value of random 16B base64
     // (Sec-WebSocket-Key must be random for each new connection)
     // may contain Origin header (non web browsers)

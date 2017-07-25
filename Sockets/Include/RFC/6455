@@ -1,0 +1,10 @@
+/**
+ * Created by TekuConcept on July 25, 2017
+ */
+
+#ifndef RFC_6455_H
+#define RFC_6455_H
+
+#include "RFC/RFC6455.h"
+
+#endif

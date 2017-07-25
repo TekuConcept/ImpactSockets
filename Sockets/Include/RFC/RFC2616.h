@@ -11,19 +11,6 @@
 
 namespace Impact {
     namespace RFC2616 {
-        namespace URI {
-            typedef struct Info {
-                std::string scheme;
-                std::string host;
-                unsigned int port;
-                std::string resourceName;
-            } Info;
-            
-            bool parseScheme(std::string uri, std::string &scheme);
-            bool parse(std::string uri, Info &info);
-            bool validate(std::string uri);
-        }
-
         namespace Request {
             typedef struct Info {
                 METHOD method;

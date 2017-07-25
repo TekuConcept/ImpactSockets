@@ -3,34 +3,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <RFC/RFC2616.h>
+#include <RFC/2616>
 
 using namespace Impact;
-
-TEST(TestRFCStandard, URIScheme) {
-    std::string scheme1;
-    ASSERT_TRUE(RFC2616::URI::parseScheme("http://example.com/", scheme1));
-    EXPECT_EQ(scheme1, "http");
-    
-    std::string scheme2;
-    EXPECT_FALSE(RFC2616::URI::parseScheme("http", scheme2));
-}
-
-TEST(TestRFCStandard, URIHostIPv6) {
-    EXPECT_TRUE(RFC2616::URI::validate(
-        "http://[2001:0db8:85A3::8a2e:0370:7334]/path"));
-    EXPECT_TRUE( RFC2616::URI::validate("http://[::]"));
-    EXPECT_FALSE(RFC2616::URI::validate("http://[:]"));
-    EXPECT_FALSE(RFC2616::URI::validate("http://[:/:]"));
-    EXPECT_FALSE(RFC2616::URI::validate("http://[:R:0G]"));
-}
-
-TEST(TestRFCStandard, URIHost) {
-    EXPECT_TRUE(RFC2616::URI::validate("http://192.168.0.2"));
-    EXPECT_TRUE(RFC2616::URI::validate("http://www.example.com/"));
-    EXPECT_FALSE(RFC2616::URI::validate("http://-a.io"));
-    EXPECT_TRUE(RFC2616::URI::validate("http://a.z:"));
-}
 
 TEST(TestRFCStandard, HTTPStatusCodes) {
     EXPECT_EQ(RFC2616::STATUS::CONTINUE, 100);

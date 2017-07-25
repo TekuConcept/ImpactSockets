@@ -1,0 +1,13 @@
+/**
+ * Created by TekuConcept on July 25, 2017
+ */
+
+#ifndef RFC_2616_H
+#define RFC_2616_H
+
+#include "RFC/RFC2616Const.h"
+#include "RFC/RFC2616.h"
+#include "RFC/RequestMessage.h"
+#include "RFC/URI.h"
+
+#endif
