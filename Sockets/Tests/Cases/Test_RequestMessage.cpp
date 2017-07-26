@@ -58,7 +58,10 @@ TEST(TestMessage, ParseHeaders) {
     request << "\r\n";
     RFC2616::RequestMessage message =
         RFC2616::RequestMessage::tryParse(request, check);
-    EXPECT_TRUE(check);
+    ASSERT_TRUE(check);
+    
+    std::string line = message.toString();
+    EXPECT_NE(line.find("Host: ImpactSockets"), std::string::npos);
     
     request1 << "GET / HTTP/1.1\r\n";
     request1 << "Entity: \r\n";

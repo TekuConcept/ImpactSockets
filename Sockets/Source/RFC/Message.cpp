@@ -87,16 +87,19 @@ bool Message::parseHeader(std::string header) {
     std::string fieldName, fieldValue;
     std::ostringstream os;
     unsigned int idx = 0;
+    
+    // field name
     while(idx < header.length()) {
         if(header[idx] == ':') break;
         else if(RFC2616::isWhiteSpace(header[idx]))     return false;
-        else os << header[idx];
+        else os << RFC2616::toLower(header[idx]);
         idx++;
     }
     fieldName = os.str();
     if(fieldName.length() == 0)                         return false;
     idx++; // skip ':'
     
+    // field value
     os.str(std::string());
     bool ignoreWS = true;
     while(idx < header.length()) {
@@ -106,7 +109,11 @@ bool Message::parseHeader(std::string header) {
     // field values are allowed to be empty
     fieldValue = os.str();
     
-    // TODO: Sort headers
+    // sort headers
+    RFC2616::HEADER id;
+    if(RFC2616::findHeader(fieldName, id))
+         _headers_.push_back(StringHeaderPair(id, fieldValue));
+    else _userHeaders_.push_back(StringStringPair(fieldName, fieldValue));
     
     return true;
 }

@@ -5,9 +5,10 @@
 #ifndef RFC_2616_H
 #define RFC_2616_H
 
+#include "RFC/String.h"
 #include "RFC/Const2616.h"
+#include "RFC/URI.h"
 #include "RFC/RequestMessage.h"
 #include "RFC/ResponseMessage.h"
-#include "RFC/URI.h"
 
 #endif

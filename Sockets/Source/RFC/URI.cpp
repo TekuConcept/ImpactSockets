@@ -83,7 +83,6 @@ bool URI::parse(std::string uri) {
 
 bool URI::parseScheme(std::string uri) {
     std::ostringstream os;
-    const int DIFF = (int)'A' - (int)'a';
     unsigned int idx = 0, length = uri.length();
     bool foundDelimiter = false;
     
@@ -92,11 +91,7 @@ bool URI::parseScheme(std::string uri) {
             foundDelimiter = true;
             break;
         }
-        else if(uri[idx] >= 'A' && uri[idx] <= 'Z') {
-            // to lower
-            os << (char)(uri[idx] - DIFF);
-        }
-        else os << uri[idx];
+        else os << RFC2616::toLower(uri[idx]);
         idx++;
     }
     
@@ -108,7 +103,6 @@ bool URI::parseIPv6Host(std::string uri, unsigned int &offset) {
     const int MAX_HOST  = 39; // IPv6 fully exapanded with ':' is 39 cahrs
     const int MAX_LABEL =  4; // labels are only 4 hex chars long
     const int MIN_LEN   =  4; // "[::]"
-    const int DIFF      = (int)'A' - (int)'a';
     if((uri.length() - offset) < MIN_LEN) return false;
     
     std::ostringstream os;
@@ -150,7 +144,7 @@ bool URI::parseIPv6Host(std::string uri, unsigned int &offset) {
         else if(uri[idx] >= 'A' && uri[idx] <= 'F') {
             labelLen++;
             hostLen++;
-            os << (char)(uri[idx] - DIFF);
+            os << RFC2616::toLower(uri[idx]);
         }
         else return false;
         
@@ -165,7 +159,6 @@ bool URI::parseHost(std::string uri, unsigned int &offset) {
     const int MAX_HOST  = 254; // 253 + '.'
     const int MAX_LABEL =  63;
     const int MIN_LEN   =   3; // "a.z"
-    const int DIFF      = (int)'A' - (int)'a';
     if((uri.length() - offset) < MIN_LEN) return false;
     
     std::ostringstream os;
@@ -194,7 +187,7 @@ bool URI::parseHost(std::string uri, unsigned int &offset) {
             hostLen++;
         }
         else if(uri[idx] >= 'A' && uri[idx] <= 'Z') {
-            os << (char)(uri[idx] - DIFF);
+            os << RFC2616::toLower(uri[idx]);
             labelLen++;
             hostLen++;
         }

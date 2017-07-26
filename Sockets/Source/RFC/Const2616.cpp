@@ -4,12 +4,16 @@
 
 #include <map>
 #include "RFC/Const2616.h"
+#include "RFC/String.h"
 
 using namespace Impact;
 
 typedef std::pair<unsigned int, std::string> Token;
+typedef std::pair<RFC2616::string, unsigned int> Token2;
 
-std::map <int, std::string> STATUS_NAMES = {
+const int C_DIFF = (int)'A' - (int)'a';
+
+std::map <unsigned int, std::string> STATUS_NAMES = {
     // -- informational --
     Token(100, "CONTINUE"),
     Token(101, "SWITCHING"),
@@ -62,7 +66,7 @@ std::map <int, std::string> STATUS_NAMES = {
     Token(505, "HTTP VERSION NOT SUPPORTED"),
 };
 
-std::map <int, std::string> METHOD_NAMES = {
+std::map <unsigned int, std::string> METHOD_NAMES = {
     Token(0, "OPTIONS"),
     Token(1, "GET"),
     Token(2, "HEAD"),
@@ -73,7 +77,7 @@ std::map <int, std::string> METHOD_NAMES = {
     Token(7, "CONNECT")
 };
 
-std::map <int, std::string> HEADER_NAMES = {
+std::map <unsigned int, std::string> HEADER_NAMES = {
     // RFC 2616 Section 4.5: General Headers
     Token( 0, "Cache-Control"),
     Token( 1, "Connection"),
@@ -99,12 +103,12 @@ std::map <int, std::string> HEADER_NAMES = {
     Token(19, "If-None-Match"),
     Token(20, "If-Range"),
     Token(21, "If-Unmodified-Since"),
-    Token(22, "MaxForwards"),
+    Token(22, "Max-Forwards"),
     Token(23, "Proxy-Authorization"),
     Token(24, "Range"),
     Token(25, "Referer"),
     Token(26, "TE"),
-    Token(27, "UserAgent"),
+    Token(27, "User-Agent"),
     
     // RFC 2616 Section 6.2: Response Headers
     Token(28, "Accept-Ranges"),
@@ -130,12 +134,86 @@ std::map <int, std::string> HEADER_NAMES = {
     Token(46, "Last-Modified"),
 };
 
+std::map <RFC2616::string, unsigned int> HEADER_NAMES_REVERSE_LOOKUP = {
+    Token2("Accept", 9),
+    Token2("Accept-Charset", 10),
+    Token2("Accept-Encoding", 11),
+    Token2("Accept-Language", 12),
+    Token2("Accept-Ranges", 28),
+    Token2("Authorization", 13),
+    Token2("Age", 29),
+    Token2("Allow", 37),
+    Token2("Cache-Control", 0),
+    Token2("Connection", 1),
+    Token2("Content-Encoding", 38),
+    Token2("Content-Language", 39),
+    Token2("Content-Length", 40),
+    Token2("Content-Location", 41),
+    Token2("Content-MD5", 42),
+    Token2("Content-Range", 43),
+    Token2("Content-Type", 44),
+    Token2("Date", 2),
+    Token2("ETag", 30),
+    Token2("Expect", 14),
+    Token2("Expires", 45),
+    Token2("From", 15),
+    Token2("Host", 16),
+    Token2("If-Match", 17),
+    Token2("If-Modified-Since", 18),
+    Token2("If-None-Match", 19),
+    Token2("If-Range", 20),
+    Token2("If-Unmodified-Since", 21),
+    Token2("Last-Modified", 46),
+    Token2("Location", 31),
+    Token2("Max-Forwards", 22),
+    Token2("Pragma", 3),
+    Token2("Proxy-Authenticate", 32),
+    Token2("Proxy-Authorization", 23),
+    Token2("Range", 24),
+    Token2("Referer", 25),
+    Token2("Retry-After", 33),
+    Token2("Server", 34),
+    Token2("TE", 26),
+    Token2("Trailer", 4),
+    Token2("Transfer-Encoding", 5),
+    Token2("Upgrade", 6),
+    Token2("User-Agent", 27),
+    Token2("Vary", 35),
+    Token2("Via", 7),
+    Token2("Warning", 8),
+    Token2("WWW-Authenticate", 36),
+};
+
+char RFC2616::toLower(const char c) {
+    if(c >= 'A' && c <='Z') {
+        return (char)(c - C_DIFF);
+    }
+    return c;
+}
+
+char RFC2616::toUpper(const char c) {
+    if(c >= 'a' && c <='z') {
+        return (char)(c + C_DIFF);
+    }
+    return c;
+}
+
 bool RFC2616::isWhiteSpace(const char c) {
     return (c == SP) || (c == HWS);
 }
 
 bool RFC2616::validStatusCode(unsigned int code) {
     return !(STATUS_NAMES.find(code) == STATUS_NAMES.end());
+}
+
+bool RFC2616::findHeader(const std::string header, HEADER &code) {
+    RFC2616::string temp(header.c_str(), header.length());
+    auto token = HEADER_NAMES_REVERSE_LOOKUP.find(temp);
+    if(token != HEADER_NAMES_REVERSE_LOOKUP.end()) {
+        code = (HEADER)token->second;
+        return true;
+    }
+    return false;
 }
 
 std::string RFC2616::toString(STATUS code) {

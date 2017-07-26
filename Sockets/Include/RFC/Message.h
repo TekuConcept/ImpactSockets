@@ -35,6 +35,7 @@ namespace RFC2616 {
     
     private:
         bool parseHeader(std::string header);
+        unsigned int matchHeaderName(std::string fieldName);
     };
 }}
 

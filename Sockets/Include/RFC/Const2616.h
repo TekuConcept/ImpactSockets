@@ -144,8 +144,13 @@ namespace RFC2616 {
         } METHOD;
     }
     
+    char toLower(const char c);
+    char toUpper(const char c);
     bool isWhiteSpace(const char c);
     bool validStatusCode(unsigned int code);
+    bool findHeader(const std::string header, HEADER &code);
+    
+    unsigned int getHeaderKey(std::string value);
     
     std::string toString(STATUS code);
     std::string toString(Request::METHOD code);
