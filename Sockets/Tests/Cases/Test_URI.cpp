@@ -11,14 +11,32 @@ using namespace RFC2616;
 TEST(TestURI, Scheme) {
     URI uri1("http://example.com/");
     EXPECT_EQ(uri1.scheme(), "http");
+    
+    bool check = false;
+    URI uri2 = URI::tryParse("http:", check);
+    EXPECT_FALSE(check);
+    
+    URI uri3("HTTP://EXAMPLE.COM/");
+    EXPECT_EQ(uri3.scheme(), "http");
 }
 
 TEST(TestURI, HostIPv6) {
-    EXPECT_TRUE(URI::validate("http://[2001:0db8:85A3::8a2e:0370:7334]/path"));
-    EXPECT_TRUE(URI::validate("http://[::]"));
+    EXPECT_FALSE(URI::validate("http://"));
+    EXPECT_FALSE(URI::validate("http://["));
+    EXPECT_FALSE(URI::validate("http://[:"));
+    EXPECT_FALSE(URI::validate("http://[]"));
     EXPECT_FALSE(URI::validate("http://[:]"));
+    EXPECT_FALSE(URI::validate("http://[0:0:0:0:0:0:0:0:0]"));
+    EXPECT_TRUE(URI::validate("http://[::]"));
     EXPECT_FALSE(URI::validate("http://[:/:]"));
     EXPECT_FALSE(URI::validate("http://[:R:0G]"));
+    EXPECT_FALSE(URI::validate("http://[0123::ABCDE::]"));
+    
+    bool check = false;
+    URI uri = URI::tryParse(
+        "http://[2001:0db8:85A3::8A2E:03f0:7334]/path", check);
+    ASSERT_TRUE(check);
+    EXPECT_EQ(uri.host(), "[2001:0db8:85a3::8a2e:03f0:7334]");
 }
 
 TEST(TestURI, Host) {
@@ -28,25 +46,46 @@ TEST(TestURI, Host) {
     EXPECT_TRUE(URI::validate("http://a.z:"));
 }
 
+TEST(TestURI, Port) {
+    EXPECT_TRUE(URI::validate("http://127.0.0.1:80"));
+    EXPECT_TRUE(URI::validate("http://localhost:943/"));
+    EXPECT_FALSE(URI::validate("http://a.z:90223"));
+    EXPECT_FALSE(URI::validate("http://a.z:100001"));
+    
+    URI uri1("http://localhost");
+    EXPECT_EQ(uri1.port(), 80);
+    
+    URI uri2("https://localhost");
+    EXPECT_EQ(uri2.port(), 443);
+    
+    URI uri3("http://localhost:5020");
+    EXPECT_EQ(uri3.port(), 5020);
+    
+    URI uri4("rtp://localhost");
+    EXPECT_EQ(uri4.port(), 0);
+}
+
 TEST(TestURI, Secure) {
-    try {
-        URI uri("http://www.example.com/");
-        EXPECT_FALSE(uri.secure());
-    } catch (std::exception) {
-        FAIL();
-    }
+    URI uri1("http://www.example.com/");
+    EXPECT_FALSE(uri1.secure());
     
-    try {
-        URI uri("https://www.example.com/");
-        EXPECT_TRUE(uri.secure());
-    } catch (std::exception) {
-        FAIL();
-    }
+    URI uri2("https://www.example.com/");
+    EXPECT_TRUE(uri2.secure());
     
-    try {
-        URI uri("https://www.example.com:8080/");
-        EXPECT_TRUE(uri.secure());
-    } catch (std::exception) {
-        FAIL();
-    }
+    URI uri3("https://www.example.com:8080/");
+    EXPECT_TRUE(uri3.secure());
+}
+
+TEST(TestURI, Resource) {
+    URI uri1("http://www.example.com/path/to/something");
+    EXPECT_EQ(uri1.resource(), "/path/to/something");
+    
+    URI uri2("http://127.0.0.1:80/path/to?query");
+    EXPECT_EQ(uri2.resource(), "/path/to?query");
+    
+    URI uri3("http://localhost");
+    EXPECT_EQ(uri3.resource(), "/");
+    
+    URI uri4("http://www.example.com/path/with#fragment");
+    EXPECT_EQ(uri4.resource(), "/path/with");
 }

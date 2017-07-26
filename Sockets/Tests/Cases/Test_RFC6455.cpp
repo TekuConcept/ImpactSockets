@@ -57,7 +57,7 @@ TEST(TestRFCStandard, URIValidInfo) {
     EXPECT_EQ(uri2.host(), "a.z");
     EXPECT_EQ(uri2.port(), 443);
     EXPECT_EQ(uri2.secure(), true);
-    EXPECT_EQ(uri2.resource(), "");
+    EXPECT_EQ(uri2.resource(), "/");
 }
 
 TEST(TestRFCStandard, GetRequestMessage) {
