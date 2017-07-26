@@ -4,7 +4,6 @@
 
 #include <map>
 #include "RFC/Const2616.h"
-#include "RFC/String.h"
 
 using namespace Impact;
 
@@ -208,7 +207,11 @@ bool RFC2616::validStatusCode(unsigned int code) {
 
 bool RFC2616::findHeader(const std::string header, HEADER &code) {
     RFC2616::string temp(header.c_str(), header.length());
-    auto token = HEADER_NAMES_REVERSE_LOOKUP.find(temp);
+    return findHeader(temp, code);
+}
+
+bool RFC2616::findHeader(const RFC2616::string header, HEADER &code) {
+    auto token = HEADER_NAMES_REVERSE_LOOKUP.find(header);
     if(token != HEADER_NAMES_REVERSE_LOOKUP.end()) {
         code = (HEADER)token->second;
         return true;

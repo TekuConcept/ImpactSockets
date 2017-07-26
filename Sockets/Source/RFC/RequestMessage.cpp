@@ -39,7 +39,7 @@ std::string RequestMessage::toString() {
         os << CRLF;
     }
     for(auto header : _userHeaders_) {
-        os << header.first;
+        os << header.first.c_str();
         os << ":" << SP;
         os << header.second;
         os << CRLF;

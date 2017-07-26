@@ -15,7 +15,7 @@ TEST(TestResponseMessage, SimpleResponseMessage) {
 TEST(TestResponseMessage, AverageResponseMessage) {
     RFC2616::ResponseMessage message(RFC2616::STATUS::OK);
     message.addHeader(RFC2616::HEADER::Connection, "Closed");
-    message.addUserHeader("MyHeader", "myValue");
+    message.addHeader("MyHeader", "myValue");
     EXPECT_EQ(message.toString(),
         "HTTP/1.1 200 OK\r\nConnection: Closed\r\nMyHeader: myValue\r\n\r\n");
 }

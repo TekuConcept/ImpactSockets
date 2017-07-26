@@ -2,7 +2,7 @@
 
 [![progress](https://img.shields.io/badge/OSX-unknown-yellow.svg)]()&nbsp;
 [![progress](https://img.shields.io/badge/Win32-unkown-yellow.svg)]()&nbsp;
-[![progress](https://img.shields.io/badge/Debian-pass-green.svg)]()
+[![progress](https://img.shields.io/badge/Debian-failed-red.svg)]()
 
 Tested on:<br>
 

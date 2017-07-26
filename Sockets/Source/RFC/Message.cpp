@@ -115,7 +115,10 @@ bool Message::parseHeader(std::string header) {
     if(RFC2616::findHeader(fieldName, id)) {
         if(!addHeader(id, fieldValue)) return false;
     }
-    else _userHeaders_.insert(UHeaderToken(fieldName, fieldValue));
+    else {
+        RFC2616::string name(fieldName.c_str(), fieldName.length());
+        _userHeaders_.insert(UHeaderToken(name, fieldValue));
+    }
     
     return true;
 }
@@ -127,9 +130,36 @@ bool Message::addHeader(HEADER header, std::string value) {
     return true;
 }
 
-void Message::addUserHeader(std::string header, std::string value) {
-    if(header.find(":") != std::string::npos) throw std::exception();
-    _userHeaders_.insert(UHeaderToken(header, value));
+bool Message::addHeader(std::string header, std::string value) {
+    if(header.find(":") != std::string::npos) return false;
+    HEADER id;
+    if(RFC2616::findHeader(header, id)) {
+        if (!addHeader(id, value)) return false;
+    }
+    else {
+        RFC2616::string name(header.c_str(), header.length());
+        _userHeaders_.insert(UHeaderToken(name, value));
+    }
+    return true;
+}
+
+std::string Message::getHeaderValue(HEADER id) {
+    auto token = _headers_.find(id);
+    if(token != _headers_.end()) return token->second;
+    else return "";
+}
+
+std::string Message::getHeaderValue(std::string name) {
+    RFC2616::string temp(name.c_str(), name.length());
+    HEADER id;
+    if(RFC2616::findHeader(temp, id)) {
+        return getHeaderValue(id);
+    }
+    else {
+        auto token = _userHeaders_.find(temp);
+        if(token != _userHeaders_.end()) return token->second;
+        else return "";
+    }
 }
 
 unsigned int Message::major() {

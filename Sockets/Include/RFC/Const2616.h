@@ -7,6 +7,7 @@
 
 #include <string>
 #include <iostream>
+#include "RFC/String.h"
 
 namespace Impact {
 namespace RFC2616 {
@@ -149,6 +150,7 @@ namespace RFC2616 {
     bool isWhiteSpace(const char c);
     bool validStatusCode(unsigned int code);
     bool findHeader(const std::string header, HEADER &code);
+    bool findHeader(const RFC2616::string header, HEADER &code);
     
     unsigned int getHeaderKey(std::string value);
     
