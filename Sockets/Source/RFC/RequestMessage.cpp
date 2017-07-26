@@ -6,6 +6,9 @@
 #include <sstream>
 #include <exception>
 
+#include <iostream>
+#define DMSG(x) std::cerr << x << std::endl
+
 using namespace Impact;
 using namespace RFC2616;
 
@@ -62,12 +65,12 @@ RequestMessage RequestMessage::tryParse(std::istream &request,
 bool RequestMessage::parse(std::istream &request) {
     const unsigned int MIN_REQUEST_HEADER_LEN = 14; // "GET / HTTP/1.X"
     std::string startHeader;
-    if (!getline(request, startHeader))               return false;
     
-    if(!Message::parse(request))                      return false;
-
-    if(startHeader.length() < MIN_REQUEST_HEADER_LEN) return false;
-    else if(!parseRequestHeader(startHeader))         return false;
+    if (!getline(request, startHeader))                return false;
+    if (startHeader.length() < MIN_REQUEST_HEADER_LEN) return false;
+    else if (!parseRequestHeader(startHeader))         return false;
+    
+    if (!Message::parse(request))                      return false;
 
     return true;
 }

@@ -5,19 +5,22 @@
 #include "RFC/Message.h"
 #include <sstream>
 
+#include <iostream>
+#define DMSG(x) std::cerr << x << std::endl
+
 using namespace Impact;
 using namespace RFC2616;
 
 Message::Message() : _major_(HTTP_MAJOR), _minor_(HTTP_MINOR) {}
 
-bool Message::parse(std::istream &request) {
+bool Message::parse(std::istream &stream) {
     std::string optionalHeader;
     std::vector<std::string> pendingHeaders;
     unsigned int length;
     do {
-        if (!getline(request, optionalHeader))          return false;
+        if (!getline(stream, optionalHeader))           return false;
         length = optionalHeader.length();
-        if (length == 0) return false;
+        if (length == 0)                                return false;
         else if (optionalHeader[length - 1] != '\r')    return false;
         else if (length != 1) {
             pendingHeaders.push_back(optionalHeader.substr(0, length-1));
@@ -25,9 +28,10 @@ bool Message::parse(std::istream &request) {
     } while(length > 1);
     
     // parse pending headers
+    for(std::string &header : pendingHeaders) {
+        if(!parseHeader(header))                        return false;
+    }
     
-    // RFC 7230 Section 3.2.4 Paragraph 4: Field value folding is obsolete.
-    // White space between start line and first header must be rejected or ignored
     return true;
 }
 
@@ -70,6 +74,40 @@ bool Message::parseVersion(std::string header, unsigned int &offset) {
     }
     _minor_ = std::stoi(os.str());
 
+    return true;
+}
+
+bool Message::parseHeader(std::string header) {
+    // RFC 7230 Section 3.2.4 Paragraph 4: Field value folding is obsolete.
+    // nothing to parse, ignoring
+    if(header.length() == 0)                            return true;
+    // obsolete or malicious, ignoring
+    if(RFC2616::isWhiteSpace(header[0]))                return true;
+    
+    std::string fieldName, fieldValue;
+    std::ostringstream os;
+    unsigned int idx = 0;
+    while(idx < header.length()) {
+        if(header[idx] == ':') break;
+        else if(RFC2616::isWhiteSpace(header[idx]))     return false;
+        else os << header[idx];
+        idx++;
+    }
+    fieldName = os.str();
+    if(fieldName.length() == 0)                         return false;
+    idx++; // skip ':'
+    
+    os.str(std::string());
+    bool ignoreWS = true;
+    while(idx < header.length()) {
+        if(!(ignoreWS && RFC2616::isWhiteSpace(header[idx]))) os << header[idx];
+        idx++;
+    }
+    // field values are allowed to be empty
+    fieldValue = os.str();
+    
+    // TODO: Sort headers
+    
     return true;
 }
 

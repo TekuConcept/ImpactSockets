@@ -17,7 +17,6 @@ namespace RFC2616 {
     class Message {
     public:
         Message();
-        virtual bool parse(std::istream &request);
         
         void addHeader(HEADER header, std::string value);
         void addUserHeader(std::string header, std::string value);
@@ -31,7 +30,11 @@ namespace RFC2616 {
         std::vector<StringStringPair> _userHeaders_;
         unsigned int _major_, _minor_;
         
+        virtual bool parse(std::istream &stream);
         bool parseVersion(std::string header, unsigned int &offset);
+    
+    private:
+        bool parseHeader(std::string header);
     };
 }}
 

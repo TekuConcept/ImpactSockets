@@ -59,12 +59,11 @@ bool ResponseMessage::parse(std::istream &response) {
     const unsigned int MIN_RESPONSE_HEADER_LEN = 16; // "HTTP/1.1 200 OK"
     std::string startHeader;
     
-    if (!getline(response, startHeader))               return false;
+    if (!getline(response, startHeader))                return false;
+    if (startHeader.length() < MIN_RESPONSE_HEADER_LEN) return false;
+    else if (!parseResponseHeader(startHeader))         return false;
     
-    if(!Message::parse(response))                      return false;
-    
-    if(startHeader.length() < MIN_RESPONSE_HEADER_LEN) return false;
-    else if(!parseResponseHeader(startHeader))         return false;
+    if (!Message::parse(response))                      return false;
 
     return true;
 }
