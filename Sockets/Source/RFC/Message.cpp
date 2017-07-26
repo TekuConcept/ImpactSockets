@@ -4,6 +4,7 @@
 
 #include "RFC/Message.h"
 #include <sstream>
+#include <vector>
 
 #include <iostream>
 #define DMSG(x) std::cerr << x << std::endl
@@ -111,21 +112,24 @@ bool Message::parseHeader(std::string header) {
     
     // sort headers
     RFC2616::HEADER id;
-    if(RFC2616::findHeader(fieldName, id))
-         _headers_.push_back(StringHeaderPair(id, fieldValue));
-    else _userHeaders_.push_back(StringStringPair(fieldName, fieldValue));
+    if(RFC2616::findHeader(fieldName, id)) {
+        if(!addHeader(id, fieldValue)) return false;
+    }
+    else _userHeaders_.insert(UHeaderToken(fieldName, fieldValue));
     
     return true;
 }
 
-void Message::addHeader(HEADER header, std::string value) {
-    // check if header already exists - use map instead of vector
-    _headers_.push_back(StringHeaderPair(header, value));
+bool Message::addHeader(HEADER header, std::string value) {
+    auto result = &_headers_[header];
+    if (result->length() != 0) return false;
+    else *result = value;
+    return true;
 }
 
 void Message::addUserHeader(std::string header, std::string value) {
     if(header.find(":") != std::string::npos) throw std::exception();
-    _userHeaders_.push_back(StringStringPair(header, value));
+    _userHeaders_.insert(UHeaderToken(header, value));
 }
 
 unsigned int Message::major() {

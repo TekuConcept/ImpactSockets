@@ -50,37 +50,66 @@ TEST(TestRequestMessage, RequestParse) {
 }
 
 TEST(TestMessage, ParseHeaders) {
-    std::stringstream request, request1, request2, request3;
-    bool check = false, check1 = false, check2 = false, check3 = false;
+    std::stringstream request[7];
+    bool check[7];
+    for(int i = 0; i < 7; i++) check[i] = false;
     
-    request << "GET / HTTP/1.1\r\n";
-    request << "Host: ImpactSockets\r\n";
-    request << "\r\n";
-    RFC2616::RequestMessage message =
-        RFC2616::RequestMessage::tryParse(request, check);
-    ASSERT_TRUE(check);
-    
-    std::string line = message.toString();
+    request[0] << "GET / HTTP/1.1\r\n";
+    request[0] << "Host: ImpactSockets\r\n";
+    request[0] << "\r\n";
+    RFC2616::RequestMessage message0 =
+        RFC2616::RequestMessage::tryParse(request[0], check[0]);
+    ASSERT_TRUE(check[0]);
+    std::string line = message0.toString();
     EXPECT_NE(line.find("Host: ImpactSockets"), std::string::npos);
     
-    request1 << "GET / HTTP/1.1\r\n";
-    request1 << "Entity: \r\n";
-    request1 << "\r\n";
+    request[1] << "GET / HTTP/1.1\r\n";
+    request[1] << "Entity: \r\n";
+    request[1] << "\r\n";
     RFC2616::RequestMessage message1 =
-        RFC2616::RequestMessage::tryParse(request1, check1);
-    EXPECT_TRUE(check1);
+        RFC2616::RequestMessage::tryParse(request[1], check[1]);
+    EXPECT_TRUE(check[1]);
 
-    request2 << "GET / HTTP/1.1\r\n";
-    request2 << ": nothing\r\n";
-    request2 << "\r\n";
+    request[2] << "GET / HTTP/1.1\r\n";
+    request[2] << ": nothing\r\n";
+    request[2] << "\r\n";
     RFC2616::RequestMessage message2 =
-        RFC2616::RequestMessage::tryParse(request2, check2);
-    EXPECT_FALSE(check2);
+        RFC2616::RequestMessage::tryParse(request[2], check[2]);
+    EXPECT_FALSE(check[2]);
     
-    request2 << "GET / HTTP/1.1\r\n";
-    request2 << "Malicious : Value\r\n";
-    request2 << "\r\n";
+    request[3] << "GET / HTTP/1.1\r\n";
+    request[3] << "Malicious : Value\r\n";
+    request[3] << "\r\n";
     RFC2616::RequestMessage message3 =
-        RFC2616::RequestMessage::tryParse(request3, check3);
-    EXPECT_FALSE(check3);
+        RFC2616::RequestMessage::tryParse(request[3], check[3]);
+    EXPECT_FALSE(check[3]);
+    
+    // RFC 7230 Section 3.2.2
+    // duplicate header values not allowed
+    request[4] << "GET / HTTP/1.1\r\n";
+    request[4] << "Host: host1\r\n";
+    request[4] << "Host: host2\r\n";
+    request[4] << "\r\n";
+    RFC2616::RequestMessage message4 =
+        RFC2616::RequestMessage::tryParse(request[4], check[4]);
+    EXPECT_FALSE(check[4]);
+    
+    // former empty value overridden by new value
+    request[5] << "GET / HTTP/1.1\r\n";
+    request[5] << "Host:\r\n";
+    request[5] << "Host: localhost\r\n";
+    request[5] << "\r\n";
+    RFC2616::RequestMessage message5 =
+        RFC2616::RequestMessage::tryParse(request[5], check[5]);
+    EXPECT_TRUE(check[5]);
+    
+    // Set-Cookie is a special exception to the rule
+    // NOTE: Set-Cookie header is not defined in RFC 2616 standard
+    request[6] << "GET / HTTP/1.1\r\n";
+    request[6] << "Set-Cookie: cookie1\r\n";
+    request[6] << "Set-Cookie: cookie2\r\n";
+    request[6] << "\r\n";
+    RFC2616::RequestMessage message6 =
+        RFC2616::RequestMessage::tryParse(request[6], check[6]);
+    EXPECT_TRUE(check[6]);
 }

@@ -21,16 +21,16 @@ std::string ResponseMessage::toString() {
         << (int)_status_ << SP << RFC2616::toString(_status_) << CRLF;
     
     // iterate through elements rather than increment
-    for(unsigned int i = 0; i < _headers_.size(); i++) {
-        os << RFC2616::toString(_headers_[i].first);
+    for(auto header : _headers_) {
+        os << RFC2616::toString(header.first);
         os << ":" << SP;
-        os << _headers_[i].second;
+        os << header.second;
         os << CRLF;
     }
-    for(unsigned int i = 0; i < _userHeaders_.size(); i++) {
-        os << _userHeaders_[i].first;
+    for(auto header : _userHeaders_) {
+        os << header.first;
         os << ":" << SP;
-        os << _userHeaders_[i].second;
+        os << header.second;
         os << CRLF;
     }
     

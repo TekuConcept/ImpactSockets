@@ -6,19 +6,19 @@
 #define RFC_MESSAGE_H
 
 #include <string>
-#include <vector>
+#include <map>
 #include "RFC/Const2616.h"
 
 namespace Impact {
 namespace RFC2616 {
-    typedef std::pair<HEADER,std::string> StringHeaderPair;
-    typedef std::pair<std::string, std::string > StringStringPair;
+    typedef std::pair<HEADER,std::string> HeaderToken;
+    typedef std::pair<std::string,std::string> UHeaderToken;
     
     class Message {
     public:
         Message();
         
-        void addHeader(HEADER header, std::string value);
+        bool addHeader(HEADER header, std::string value);
         void addUserHeader(std::string header, std::string value);
         virtual std::string toString() = 0;
         
@@ -26,8 +26,8 @@ namespace RFC2616 {
         unsigned int minor();
 
     protected:
-        std::vector<StringHeaderPair> _headers_;
-        std::vector<StringStringPair> _userHeaders_;
+        std::map<HEADER, std::string> _headers_;
+        std::map<std::string, std::string> _userHeaders_;
         unsigned int _major_, _minor_;
         
         virtual bool parse(std::istream &stream);
