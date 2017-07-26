@@ -23,16 +23,6 @@ RequestMessage::RequestMessage(std::string message) {
     if(!parse(ss)) throw std::exception();
 }
 
-void RequestMessage::addHeader(HEADER header, std::string value) {
-    // check if header already exists - use map instead of vector
-    _headers_.push_back(StringHeaderPair(header, value));
-}
-
-void RequestMessage::addUserHeader(std::string header, std::string value) {
-    if(header.find(":") != std::string::npos) throw std::exception();
-    _userHeaders_.push_back(StringStringPair(header, value));
-}
-
 std::string RequestMessage::toString() {
     std::ostringstream os;
     os << RFC2616::toString(_method_) << SP << _uri_ << SP
@@ -69,31 +59,14 @@ RequestMessage RequestMessage::tryParse(std::istream &request,
 
 bool RequestMessage::parse(std::istream &request) {
     const unsigned int MIN_REQUEST_HEADER_LEN = 14; // "GET / HTTP/1.X"
-    std::string requestHeader, optionalHeader;
-    if (!getline(request, requestHeader))               return false;
+    std::string startHeader;
+    if (!getline(request, startHeader))               return false;
     
-    std::vector<std::string> pendingHeaders;
-    unsigned int length;
-    do {
-        if (!getline(request, optionalHeader))          return false;
-        length = optionalHeader.length();
-        if (length == 0) return false;
-        else if (optionalHeader[length - 1] != '\r')    return false;
-        else if (length != 1) {
-            pendingHeaders.push_back(optionalHeader.substr(0, length-1));
-        }
-    } while(length > 1);
+    if(!Message::parse(request))                      return false;
 
-    if(requestHeader.length() < MIN_REQUEST_HEADER_LEN) return false;
-    else if(!parseRequestHeader(requestHeader))         return false;
-    
-    // RFC 7230 Section 3.2.4 Paragraph 4: Field value folding is obsolete.
-    // White space between start line and first header must be rejected or ignored
-    // TODO: parse headers
-    // if(!parseOptionalHeaders(pendingHeaders) return false;
-    
-    // todo get body?
-    
+    if(startHeader.length() < MIN_REQUEST_HEADER_LEN) return false;
+    else if(!parseRequestHeader(startHeader))         return false;
+
     return true;
 }
 

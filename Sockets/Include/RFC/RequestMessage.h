@@ -9,19 +9,15 @@
 #include <vector>
 #include <istream>
 #include "RFC/Const2616.h"
+#include "RFC/Message.h"
 
 namespace Impact {
 namespace RFC2616 {
-    typedef std::pair<HEADER,std::string> StringHeaderPair;
-    typedef std::pair<std::string, std::string > StringStringPair;
-
-    class RequestMessage {
+    class RequestMessage : public Message {
     public:
         RequestMessage(Request::METHOD method, std::string uri);
         RequestMessage(std::string message);
-        
-        void addHeader(HEADER header, std::string value);
-        void addUserHeader(std::string header, std::string value);
+
         std::string toString();
         
         Request::METHOD method();
@@ -35,8 +31,6 @@ namespace RFC2616 {
     private:
         Request::METHOD _method_;
         std::string _uri_;
-        std::vector<StringHeaderPair> _headers_;
-        std::vector<StringStringPair> _userHeaders_;
         unsigned int _major_, _minor_;
         
         RequestMessage();
