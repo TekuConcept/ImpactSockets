@@ -145,6 +145,7 @@ namespace RFC2616 {
     }
     
     bool isWhiteSpace(const char c);
+    bool validStatusCode(unsigned int code);
     
     std::string toString(STATUS code);
     std::string toString(Request::METHOD code);

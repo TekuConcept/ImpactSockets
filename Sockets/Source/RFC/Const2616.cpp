@@ -7,7 +7,7 @@
 
 using namespace Impact;
 
-typedef std::pair<int, std::string> Token;
+typedef std::pair<unsigned int, std::string> Token;
 
 std::map <int, std::string> STATUS_NAMES = {
     // -- informational --
@@ -132,6 +132,10 @@ std::map <int, std::string> HEADER_NAMES = {
 
 bool RFC2616::isWhiteSpace(const char c) {
     return (c == SP) || (c == HWS);
+}
+
+bool RFC2616::validStatusCode(unsigned int code) {
+    return !(STATUS_NAMES.find(code) == STATUS_NAMES.end());
 }
 
 std::string RFC2616::toString(STATUS code) {

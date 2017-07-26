@@ -22,8 +22,6 @@ namespace RFC2616 {
         
         Request::METHOD method();
         std::string resource();
-        unsigned int major();
-        unsigned int minor();
         
         static RequestMessage tryParse(std::istream &request, bool &success);
         static bool validate(std::string request);
@@ -31,14 +29,12 @@ namespace RFC2616 {
     private:
         Request::METHOD _method_;
         std::string _uri_;
-        unsigned int _major_, _minor_;
         
         RequestMessage();
         bool parse(std::istream &request);
         bool parseRequestHeader(std::string header);
         bool parseRequestMethod(std::string header);
         bool parseRequestURI(std::string header, unsigned int &offset);
-        bool parseRequestVersion(std::string header, unsigned int &offset);
     };
 }}
 

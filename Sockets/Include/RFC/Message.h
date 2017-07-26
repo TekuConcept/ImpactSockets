@@ -1,5 +1,5 @@
 /**
- * 
+ * Created by TekuConcept on July 25, 2017
  */
 
 #ifndef RFC_MESSAGE_H
@@ -16,15 +16,22 @@ namespace RFC2616 {
     
     class Message {
     public:
+        Message();
         virtual bool parse(std::istream &request);
         
         void addHeader(HEADER header, std::string value);
         void addUserHeader(std::string header, std::string value);
         virtual std::string toString() = 0;
+        
+        unsigned int major();
+        unsigned int minor();
 
     protected:
         std::vector<StringHeaderPair> _headers_;
         std::vector<StringStringPair> _userHeaders_;
+        unsigned int _major_, _minor_;
+        
+        bool parseVersion(std::string header, unsigned int &offset);
     };
 }}
 
