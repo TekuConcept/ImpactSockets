@@ -88,4 +88,7 @@ TEST(TestURI, Resource) {
     
     URI uri4("http://www.example.com/path/with#fragment");
     EXPECT_EQ(uri4.resource(), "/path/with");
+    
+    URI uri5("http://www.example.com/path with spaces/");
+    EXPECT_EQ(uri5.resource(), "/path%%20with%%20spaces/");
 }

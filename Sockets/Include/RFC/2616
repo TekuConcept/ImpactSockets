@@ -7,6 +7,7 @@
 
 #include "RFC/Const2616.h"
 #include "RFC/RequestMessage.h"
+#include "RFC/ResponseMessage.h"
 #include "RFC/URI.h"
 
 #endif

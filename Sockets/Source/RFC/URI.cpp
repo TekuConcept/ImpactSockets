@@ -71,7 +71,8 @@ bool URI::parse(std::string uri) {
     std::ostringstream os;
     while(idx < uri.length()) {
         if(uri[idx] == '#') break;
-        os << uri[idx];
+        if(uri[idx] == SP) os << "%%20";
+        else os << uri[idx];
         idx++;
     }
     _resource_ = os.str();

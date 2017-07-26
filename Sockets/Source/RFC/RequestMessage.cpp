@@ -29,6 +29,7 @@ void RequestMessage::addHeader(HEADER header, std::string value) {
 }
 
 void RequestMessage::addUserHeader(std::string header, std::string value) {
+    if(header.find(":") != std::string::npos) throw std::exception();
     _userHeaders_.push_back(StringStringPair(header, value));
 }
 
@@ -86,6 +87,8 @@ bool RequestMessage::parse(std::istream &request) {
     if(requestHeader.length() < MIN_REQUEST_HEADER_LEN) return false;
     else if(!parseRequestHeader(requestHeader))         return false;
     
+    // RFC 7230 Section 3.2.4 Paragraph 4: Field value folding is obsolete.
+    // White space between start line and first header must be rejected or ignored
     // TODO: parse headers
     // if(!parseOptionalHeaders(pendingHeaders) return false;
     
@@ -98,17 +101,16 @@ bool RequestMessage::parseRequestHeader(std::string header) {
     if(!parseRequestMethod(header)) return false;
     unsigned int idx = RFC2616::toString(_method_).length();
 
-    while(RFC2616::isWhiteSpace(header[idx])) {
-        idx++; // skip LWS
-        if((header.length() - idx) < 10) return false; // "/ HTTP/1.1"
-    }
+    // RFC 7230 Section 3.1.1: Only one space.
+    if(header[idx] != SP) return false;
+    else idx++;
+    if(header[idx] == SP) return false;
     
     if(!parseRequestURI(header, idx)) return false;
     
-    while(RFC2616::isWhiteSpace(header[idx])) {
-        idx++; // skip LWS
-        if((header.length() - idx) < 8) return false; // "HTTP/1.1"
-    }
+    if(header[idx] != SP) return false;
+    else idx++;
+    if(header[idx] == SP) return false;
     
     if(!parseRequestVersion(header, idx)) return false;
     return true;

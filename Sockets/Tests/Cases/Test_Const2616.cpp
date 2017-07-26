@@ -7,7 +7,7 @@
 
 using namespace Impact;
 
-TEST(TestRFCStandard, HTTPStatusCodes) {
+TEST(TestConst2616, HTTPStatusCodes) {
     EXPECT_EQ(RFC2616::STATUS::CONTINUE, 100);
     EXPECT_EQ(RFC2616::STATUS::OK, 200);
     EXPECT_EQ(RFC2616::STATUS::MULTIPLE_CHOICES, 300);
@@ -24,11 +24,11 @@ TEST(TestRFCStandard, HTTPStatusCodes) {
         "INTERNAL SERVER ERROR");
 }
 
-TEST(TestRFCStandard, HTTPRequestMethod) {
+TEST(TestConst2616, HTTPRequestMethod) {
     EXPECT_EQ(RFC2616::toString(RFC2616::Request::METHOD::CONNECT), "CONNECT");
 }
 
-TEST(TestRFCStandard, HTTPHeaderCodes) {
+TEST(TestConst2616, HTTPHeaderCodes) {
     EXPECT_EQ(RFC2616::toString(RFC2616::HEADER::Allow), "Allow");
     EXPECT_EQ(RFC2616::toString(RFC2616::HEADER::AcceptRanges),
         "Accept-Ranges");

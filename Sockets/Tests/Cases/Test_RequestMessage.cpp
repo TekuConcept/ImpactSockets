@@ -31,8 +31,9 @@ TEST(TestRequestMessage, SimpleRequestMessage) {
 TEST(TestRequestMessage, AverageRequestMessage) {
     RFC2616::RequestMessage message(RFC2616::Request::METHOD::GET, "");
     message.addHeader(RFC2616::HEADER::Host, "www.example.com");
+    message.addUserHeader("MyHeader", "myValue");
     EXPECT_EQ(message.toString(),
-        "GET / HTTP/1.1\r\nHost: www.example.com\r\n\r\n");
+        "GET / HTTP/1.1\r\nHost: www.example.com\r\nMyHeader: myValue\r\n\r\n");
 }
 
 TEST(TestRequestMessage, HTTPRequestParse) {

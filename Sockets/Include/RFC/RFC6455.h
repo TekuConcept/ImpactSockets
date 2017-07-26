@@ -7,19 +7,15 @@
 
 #include <string>
 #include "RFC/2616"
+#include "RFC/WSURI.h"
 
 namespace Impact {
     namespace RFC6455 {
 	    enum State {
     	    CONNECTING
         };
-	
-        namespace URI {
-            void DerefFragment(std::string &uri);
-            void EscapeAllPound(std::string &uri);
-        }
         
-        std::string getRequestMessage(RFC2616::URI info);
+        std::string getRequestMessage(WSURI info);
     }
 }
 
