@@ -155,10 +155,6 @@ namespace RFC2616 {
     std::string toString(STATUS code);
     std::string toString(METHOD code);
     std::string toString(HEADER code);
-
-    void print(std::ostream &stream, STATUS code);
-    void print(std::ostream &stream, METHOD code);
-    void print(std::ostream &stream, HEADER code);
 }}
 
 #endif

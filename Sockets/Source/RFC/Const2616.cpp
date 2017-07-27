@@ -11,8 +11,8 @@ typedef std::pair<unsigned int, std::string> Token;
 typedef std::pair<RFC2616::string, unsigned int> Token2;
 
 const int C_DIFF = (int)'A' - (int)'a';
-
-std::map <unsigned int, std::string> STATUS_NAMES = {
+    
+std::map <unsigned int, std::string> STATUS_NAMES_2616 = {
     // -- informational --
     Token(100, "CONTINUE"),
     Token(101, "SWITCHING"),
@@ -65,7 +65,7 @@ std::map <unsigned int, std::string> STATUS_NAMES = {
     Token(505, "HTTP VERSION NOT SUPPORTED"),
 };
 
-std::map <unsigned int, std::string> METHOD_NAMES = {
+std::map <unsigned int, std::string> METHOD_NAMES_2616 = {
     Token(0, "OPTIONS"),
     Token(1, "GET"),
     Token(2, "HEAD"),
@@ -76,7 +76,7 @@ std::map <unsigned int, std::string> METHOD_NAMES = {
     Token(7, "CONNECT")
 };
 
-std::map <unsigned int, std::string> HEADER_NAMES = {
+std::map <unsigned int, std::string> HEADER_NAMES_2616 = {
     // RFC 2616 Section 4.5: General Headers
     Token( 0, "Cache-Control"),
     Token( 1, "Connection"),
@@ -133,7 +133,7 @@ std::map <unsigned int, std::string> HEADER_NAMES = {
     Token(46, "Last-Modified"),
 };
 
-std::map <RFC2616::string, unsigned int> HEADER_NAMES_REVERSE_LOOKUP = {
+std::map <RFC2616::string, unsigned int> HEADER_NAMES_REVERSE_LOOKUP_2616 = {
     Token2("Accept", 9),
     Token2("Accept-Charset", 10),
     Token2("Accept-Encoding", 11),
@@ -202,7 +202,7 @@ bool RFC2616::isWhiteSpace(const char c) {
 }
 
 bool RFC2616::validStatusCode(unsigned int code) {
-    return !(STATUS_NAMES.find(code) == STATUS_NAMES.end());
+    return !(STATUS_NAMES_2616.find(code) == STATUS_NAMES_2616.end());
 }
 
 bool RFC2616::findHeader(const std::string header, HEADER &code) {
@@ -211,8 +211,8 @@ bool RFC2616::findHeader(const std::string header, HEADER &code) {
 }
 
 bool RFC2616::findHeader(const RFC2616::string header, HEADER &code) {
-    auto token = HEADER_NAMES_REVERSE_LOOKUP.find(header);
-    if(token != HEADER_NAMES_REVERSE_LOOKUP.end()) {
+    auto token = HEADER_NAMES_REVERSE_LOOKUP_2616.find(header);
+    if(token != HEADER_NAMES_REVERSE_LOOKUP_2616.end()) {
         code = (HEADER)token->second;
         return true;
     }
@@ -220,25 +220,13 @@ bool RFC2616::findHeader(const RFC2616::string header, HEADER &code) {
 }
 
 std::string RFC2616::toString(STATUS code) {
-    return STATUS_NAMES[(int)code];
+    return STATUS_NAMES_2616[(int)code];
 }
 
 std::string RFC2616::toString(METHOD code) {
-    return METHOD_NAMES[(int)code];
+    return METHOD_NAMES_2616[(int)code];
 }
 
 std::string RFC2616::toString(HEADER code) {
-    return HEADER_NAMES[(int)code];
-}
-
-void RFC2616::print(std::ostream &stream, STATUS code) {
-    stream << toString(code);
-}
-
-void RFC2616::print(std::ostream &stream, METHOD code) {
-    stream << toString(code);
-}
-
-void RFC2616::print(std::ostream &stream, HEADER code) {
-    stream << (int)code;
+    return HEADER_NAMES_2616[(int)code];
 }

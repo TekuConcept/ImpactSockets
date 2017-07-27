@@ -133,7 +133,7 @@ TEST(TestMessage, ParseHeaders) {
     ASSERT_TRUE(check[6]);
 }
 
-TEST(TestMessages, GetHeaderValues) {
+TEST(TestMessage, GetHeaderValues) {
     std::stringstream request[2];
     
     request[0] << "GET / HTTP/1.1\r\n";
