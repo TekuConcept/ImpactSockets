@@ -5,7 +5,8 @@
 #ifndef RFC_6455_H
 #define RFC_6455_H
 
-#include "RFC/RFC6455.h"
+#include "RFC/Const6455.h"
 #include "RFC/WSURI.h"
+#include "RFC/Websocket.h"
 
 #endif

@@ -14,7 +14,7 @@ using namespace RFC2616;
 
 RequestMessage::RequestMessage() {}
 
-RequestMessage::RequestMessage(Request::METHOD method, std::string uri)
+RequestMessage::RequestMessage(METHOD method, std::string uri)
     : _method_(method) {
     if(uri.length() == 0) _uri_ = "/";
     else if(uri[0] == '*' && uri.length() != 1) _uri_ = "*";
@@ -96,19 +96,19 @@ bool RequestMessage::parseRequestHeader(std::string header) {
 
 bool RequestMessage::parseRequestMethod(std::string header) {
     switch(header[0]) {
-        case 'C': _method_ = RFC2616::Request::METHOD::CONNECT; break;
-        case 'D': _method_ = RFC2616::Request::METHOD::DELETE;  break;
-        case 'G': _method_ = RFC2616::Request::METHOD::GET;     break;
-        case 'H': _method_ = RFC2616::Request::METHOD::HEAD;    break;
-        case 'O': _method_ = RFC2616::Request::METHOD::OPTIONS; break;
+        case 'C': _method_ = RFC2616::METHOD::CONNECT; break;
+        case 'D': _method_ = RFC2616::METHOD::DELETE;  break;
+        case 'G': _method_ = RFC2616::METHOD::GET;     break;
+        case 'H': _method_ = RFC2616::METHOD::HEAD;    break;
+        case 'O': _method_ = RFC2616::METHOD::OPTIONS; break;
         case 'P':
             if(header[1] == 'O')
-                _method_ = RFC2616::Request::METHOD::POST;
+                _method_ = RFC2616::METHOD::POST;
             else if(header[1] == 'U')
-                _method_ = RFC2616::Request::METHOD::PUT;
+                _method_ = RFC2616::METHOD::PUT;
             else return false;
             break;
-        case 'T': _method_ = RFC2616::Request::METHOD::TRACE;   break;
+        case 'T': _method_ = RFC2616::METHOD::TRACE;   break;
         default: return false;
     }
     // double check because we only initially checked the first character(s)
@@ -133,7 +133,7 @@ bool RequestMessage::parseRequestURI(std::string header, unsigned int &offset) {
     return true;
 }
 
-Request::METHOD RequestMessage::method() {
+METHOD RequestMessage::method() {
     return _method_;
 }
 

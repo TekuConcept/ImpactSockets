@@ -131,19 +131,17 @@ namespace RFC2616 {
         LastModified
     } HEADER;
     
-    namespace Request {
-        typedef enum METHOD {
-            // RFC 2616 Section 5.1.1
-            OPTIONS = 0,
-            GET,
-            HEAD,
-            POST,
-            PUT,
-            DELETE,
-            TRACE,
-            CONNECT
-        } METHOD;
-    }
+    typedef enum METHOD {
+        // RFC 2616 Section 5.1.1
+        OPTIONS = 0,
+        GET,
+        HEAD,
+        POST,
+        PUT,
+        DELETE,
+        TRACE,
+        CONNECT
+    } METHOD;
     
     char toLower(const char c);
     char toUpper(const char c);
@@ -155,11 +153,11 @@ namespace RFC2616 {
     unsigned int getHeaderKey(std::string value);
     
     std::string toString(STATUS code);
-    std::string toString(Request::METHOD code);
+    std::string toString(METHOD code);
     std::string toString(HEADER code);
 
     void print(std::ostream &stream, STATUS code);
-    void print(std::ostream &stream, Request::METHOD code);
+    void print(std::ostream &stream, METHOD code);
     void print(std::ostream &stream, HEADER code);
 }}
 

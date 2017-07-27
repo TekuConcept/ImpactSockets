@@ -14,40 +14,40 @@ using namespace Impact;
 
 TEST(TestRequestMessage, SimpleRequestMessage) {
     RFC2616::RequestMessage message1(
-        RFC2616::Request::METHOD::GET,
+        RFC2616::METHOD::GET,
         "/path/to/resource?query"
     );
     EXPECT_EQ(message1.toString(),
         "GET /path/to/resource?query HTTP/1.1\r\n\r\n");
     
     RFC2616::RequestMessage message2(
-        RFC2616::Request::METHOD::OPTIONS,
+        RFC2616::METHOD::OPTIONS,
         "*"
     );
     EXPECT_EQ(message2.toString(), "OPTIONS * HTTP/1.1\r\n\r\n");
     
     RFC2616::RequestMessage message3(
-        RFC2616::Request::METHOD::GET,
+        RFC2616::METHOD::GET,
         ""
     );
     EXPECT_EQ(message3.toString(), "GET / HTTP/1.1\r\n\r\n");
 }
 
 TEST(TestRequestMessage, AverageRequestMessage) {
-    RFC2616::RequestMessage message2(RFC2616::Request::METHOD::GET, "");
+    RFC2616::RequestMessage message2(RFC2616::METHOD::GET, "");
     EXPECT_TRUE(message2.addHeader(RFC2616::HEADER::Host, "www.example.com"));
     EXPECT_FALSE(message2.addHeader(RFC2616::HEADER::Host, "localhost"));
     EXPECT_TRUE(message2.addHeader("MyHeader", "value1"));
     EXPECT_TRUE(message2.addHeader("MyHeader", "value2"));
     
-    RFC2616::RequestMessage message3(RFC2616::Request::METHOD::GET, "");
+    RFC2616::RequestMessage message3(RFC2616::METHOD::GET, "");
     message3.addHeader("MyHeader", "value1");
     message3.addHeader("MyHeader", "value2");
     std::string line = message3.toString();
     EXPECT_NE(line.find("MyHeader: value1"), std::string::npos);
     EXPECT_NE(line.find("MyHeader: value2"), std::string::npos);
     
-    RFC2616::RequestMessage message(RFC2616::Request::METHOD::GET, "");
+    RFC2616::RequestMessage message(RFC2616::METHOD::GET, "");
     message.addHeader(RFC2616::HEADER::Host, "www.example.com");
     message.addHeader("MyHeader", "myValue");
     EXPECT_EQ(message.toString(),
@@ -61,7 +61,7 @@ TEST(TestRequestMessage, RequestParse) {
         RFC2616::RequestMessage::tryParse(request, check);
     ASSERT_TRUE(check);
 
-    EXPECT_EQ(message.method(), RFC2616::Request::METHOD::GET);
+    EXPECT_EQ(message.method(), RFC2616::METHOD::GET);
     EXPECT_EQ(message.resource(), "/");
     EXPECT_EQ(message.major(), 1);
     EXPECT_EQ(message.minor(), 1);

@@ -15,19 +15,19 @@ namespace Impact {
 namespace RFC2616 {
     class RequestMessage : public Message {
     public:
-        RequestMessage(Request::METHOD method, std::string uri);
+        RequestMessage(METHOD method, std::string uri);
         RequestMessage(std::string message);
 
         std::string toString();
         
-        Request::METHOD method();
+        METHOD method();
         std::string resource();
         
         static RequestMessage tryParse(std::istream &request, bool &success);
         static bool validate(std::string request);
 
     private:
-        Request::METHOD _method_;
+        METHOD _method_;
         std::string _uri_;
         
         RequestMessage();

@@ -223,7 +223,7 @@ std::string RFC2616::toString(STATUS code) {
     return STATUS_NAMES[(int)code];
 }
 
-std::string RFC2616::toString(Request::METHOD code) {
+std::string RFC2616::toString(METHOD code) {
     return METHOD_NAMES[(int)code];
 }
 
@@ -235,7 +235,7 @@ void RFC2616::print(std::ostream &stream, STATUS code) {
     stream << toString(code);
 }
 
-void RFC2616::print(std::ostream &stream, Request::METHOD code) {
+void RFC2616::print(std::ostream &stream, METHOD code) {
     stream << toString(code);
 }
 

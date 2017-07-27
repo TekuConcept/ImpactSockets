@@ -25,7 +25,7 @@ TEST(TestConst2616, HTTPStatusCodes) {
 }
 
 TEST(TestConst2616, HTTPRequestMethod) {
-    EXPECT_EQ(RFC2616::toString(RFC2616::Request::METHOD::CONNECT), "CONNECT");
+    EXPECT_EQ(RFC2616::toString(RFC2616::METHOD::CONNECT), "CONNECT");
 }
 
 TEST(TestConst2616, HTTPHeaderCodes) {
