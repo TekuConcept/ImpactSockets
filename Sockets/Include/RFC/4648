@@ -1,0 +1,10 @@
+/**
+ * Created by TekuConcept on July 27, 2017
+ */
+
+#ifndef RFC_4648_H
+#define RFC_4648_H
+
+#include "RFC/Base64.h"
+
+#endif
