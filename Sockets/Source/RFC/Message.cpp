@@ -4,7 +4,6 @@
 
 #include "RFC/Message.h"
 #include <sstream>
-#include <vector>
 
 #include <iostream>
 #define DMSG(x) std::cerr << x << std::endl
@@ -104,7 +103,10 @@ bool Message::parseHeader(std::string header) {
     os.str(std::string());
     bool ignoreWS = true;
     while(idx < header.length()) {
-        if(!(ignoreWS && RFC2616::isWhiteSpace(header[idx]))) os << header[idx];
+        if(!(ignoreWS && RFC2616::isWhiteSpace(header[idx]))) {
+            os << header[idx];
+        }
+        else ignoreWS = false;
         idx++;
     }
     // field values are allowed to be empty
@@ -117,7 +119,7 @@ bool Message::parseHeader(std::string header) {
     }
     else {
         RFC2616::string name(fieldName.c_str(), fieldName.length());
-        _userHeaders_.insert(UHeaderToken(name, fieldValue));
+        _userHeaders_.push_back(UHeaderToken(name, fieldValue));
     }
     
     return true;
@@ -138,7 +140,7 @@ bool Message::addHeader(std::string header, std::string value) {
     }
     else {
         RFC2616::string name(header.c_str(), header.length());
-        _userHeaders_.insert(UHeaderToken(name, value));
+        _userHeaders_.push_back(UHeaderToken(name, value));
     }
     return true;
 }
@@ -149,17 +151,26 @@ std::string Message::getHeaderValue(HEADER id) {
     else return "";
 }
 
-std::string Message::getHeaderValue(std::string name) {
+std::string Message::getHeaderValue(std::string name, unsigned int next) {
+    (void)next; // will be used for selecting from duplicates
     RFC2616::string temp(name.c_str(), name.length());
     HEADER id;
+    
     if(RFC2616::findHeader(temp, id)) {
         return getHeaderValue(id);
     }
-    else {
-        auto token = _userHeaders_.find(temp);
-        if(token != _userHeaders_.end()) return token->second;
-        else return "";
+    
+    unsigned int occurance = 0;
+    for(auto token : _userHeaders_) {
+        if(token.first == name) {
+            if(occurance < next) {
+                occurance++;
+                continue;
+            }
+            else return token.second;
+        }
     }
+    return "";
 }
 
 unsigned int Message::major() {

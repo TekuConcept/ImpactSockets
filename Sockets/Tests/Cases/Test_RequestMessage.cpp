@@ -44,7 +44,6 @@ TEST(TestRequestMessage, AverageRequestMessage) {
     message3.addHeader("MyHeader", "value1");
     message3.addHeader("MyHeader", "value2");
     std::string line = message3.toString();
-    DMSG(line << " << END");
     EXPECT_NE(line.find("MyHeader: value1"), std::string::npos);
     EXPECT_NE(line.find("MyHeader: value2"), std::string::npos);
     
@@ -122,16 +121,16 @@ TEST(TestMessage, ParseHeaders) {
         RFC2616::RequestMessage::tryParse(request[5], check[5]);
     EXPECT_TRUE(check[5]);
     
-    // Set-Cookie is a special exception to the duplicate-header rule
+    // Some headers have special exceptions to the duplicate-header rule
     // NOTE: Set-Cookie header is not defined in RFC 2616 standard.
-    //       See RFC 6265 HTTP Cookie and Set-Cookie header fields.
+    //       See RFC 6265 for HTTP Cookie and Set-Cookie header fields.
     request[6] << "GET / HTTP/1.1\r\n";
     request[6] << "Set-Cookie: cookie1\r\n";
     request[6] << "Set-Cookie: cookie2\r\n";
     request[6] << "\r\n";
     RFC2616::RequestMessage message6 =
         RFC2616::RequestMessage::tryParse(request[6], check[6]);
-    EXPECT_TRUE(check[6]);
+    ASSERT_TRUE(check[6]);
 }
 
 TEST(TestMessages, GetHeaderValues) {
@@ -149,8 +148,11 @@ TEST(TestMessages, GetHeaderValues) {
     
     request[1] << "GET / HTTP/1.1\r\n";
     request[1] << "SomeEntity: fieldValue\r\n";
+    request[1] << "SomeEntity: next value\r\n";
     request[1] << "\r\n";
     RFC2616::RequestMessage message2(request[1].str());
-    EXPECT_EQ(message2.getHeaderValue("SomeEntity"), "fieldValue");
-    EXPECT_EQ(message2.getHeaderValue("SOMEENTITY"), "fieldValue");
+    EXPECT_EQ(message2.getHeaderValue("SomeEntity"),    "fieldValue");
+    EXPECT_EQ(message2.getHeaderValue("SOMEENTITY"),    "fieldValue");
+    EXPECT_EQ(message2.getHeaderValue("SomeEntity", 0), "fieldValue");
+    EXPECT_EQ(message2.getHeaderValue("SomeEntity", 1), "next value");
 }

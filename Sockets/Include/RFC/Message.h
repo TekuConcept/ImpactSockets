@@ -7,6 +7,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 #include "RFC/Const2616.h"
 #include "RFC/String.h"
 
@@ -24,14 +25,14 @@ namespace RFC2616 {
         virtual std::string toString() = 0;
         
         std::string getHeaderValue(HEADER id);
-        std::string getHeaderValue(std::string name);
+        std::string getHeaderValue(std::string name, unsigned int next = 0);
         
         unsigned int major();
         unsigned int minor();
 
     protected:
         std::map<HEADER, std::string> _headers_;
-        std::map<RFC2616::string, std::string> _userHeaders_;
+        std::vector<UHeaderToken> _userHeaders_;
         unsigned int _major_, _minor_;
         
         virtual bool parse(std::istream &stream);
