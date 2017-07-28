@@ -39,4 +39,8 @@ TEST(TestBase64, decode) {
     ASSERT_TRUE(check);
     EXPECT_EQ(message,
         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10");
+    
+    bool check2 = false;
+    std::string test = Base64::decode("illegal.chars", check2);
+    EXPECT_FALSE(check2);
 }
