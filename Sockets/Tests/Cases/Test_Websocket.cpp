@@ -52,13 +52,19 @@ TEST(TestWebsocket, initiateHandshake) {
     EXPECT_EQ(message.getHeaderValue(RFC2616::HEADER::Connection), connection);
     
     // must contain Sec-WebSocket-Key header with value of random 16B base64
-    // std::string base64 =
-    //     message.getHeaderValue(RFC6455::HEADER::SecWebSocketKey);
-    // EXPECT_NE(base64.length(), 0);
-    
+    std::string base64 = message.getHeaderValue(
+        RFC6455::toString(RFC6455::HEADER::SecWebSocketKey)
+    );
+    // 16 byte base64-encoded string is always 24 chars long and ends with '=='
     // (Sec-WebSocket-Key must be random for each new connection)
-    // may contain Origin header (non web browsers)
+    EXPECT_EQ(base64.length(), 24);
+    EXPECT_NE(base64.find("=="), std::string::npos);
+
     // must contain Sec-WebSocket-Version header with value of 13
+    EXPECT_EQ(message.getHeaderValue(
+        RFC6455::toString(RFC6455::HEADER::SecWebSocketVersion)), "13");
+    
+    // may contain Origin header (non web browsers)
     // may contain Sec-WebSocket-Protocol header
     // may contain Sec-WebSocket-Extensions header
     // may contain other header fields

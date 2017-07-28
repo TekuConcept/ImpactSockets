@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <string>
+#include <random>
 #include "RFC/Const6455.h"
 #include "RFC/WSURI.h"
 
@@ -20,8 +21,11 @@ namespace RFC6455 {
     
     private:
         std::iostream& _stream_;
+        std::mt19937 _engine_;
+        std::uniform_int_distribution<uint8_t> _distribution_;
         
         std::string generateRequest(WSURI uri);
+        std::string generateKey();
     };
 }}
 
