@@ -2,29 +2,29 @@
  * Created by TekuConcept on July 21, 2017
  */
 
-#include "WsClient.h"
+#include "WebClient.h"
 #include <sstream>
 
 using namespace Impact;
 
 
 
-WsClient::WsClient() : connected(false) {}
+WebClient::WebClient() : connected(false) {}
 
 
 
-WsClient::WsClient(int port, std::string address)
+WebClient::WebClient(int port, std::string address)
 	: connected(false) {
 	connect(port, address);
 }
 
 
 
-WsClient::~WsClient() {}
+WebClient::~WebClient() {}
 
 
 
-int WsClient::connect(int port, std::string address) {
+int WebClient::connect(int port, std::string address) {
 	// open a socket connection
 	if (connected) return -2;
 	try {
@@ -44,7 +44,7 @@ int WsClient::connect(int port, std::string address) {
 
 
 
-void WsClient::disconnect() {
+void WebClient::disconnect() {
 	if (socket != nullptr && connected) {
 		socket->disconnect();
 		connected = false;
@@ -53,18 +53,18 @@ void WsClient::disconnect() {
 
 
 
-bool WsClient::isConnected() {
+bool WebClient::isConnected() {
 	return connected;
 }
 
 
 
-void WsClient::write(std::string text) {
+void WebClient::write(std::string text) {
 	if (socket != nullptr && connected)
 		socket->send(text.c_str(), text.length());
 }
 
-char WsClient::read() {
+char WebClient::read() {
 	char c[1] = { '\0' };
 	if (socket != nullptr && connected)
 		socket->recv(c, 1);

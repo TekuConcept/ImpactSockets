@@ -1,8 +1,8 @@
-#include <WsClient.h>
+#include <WebClient.h>
 #include <iostream>
 #include <sstream>
 
-void print(Impact::WsClient& client) {
+void print(Impact::WebClient& client) {
   std::string msg;
   std::stringstream ss;
   char c = ' ';
@@ -16,7 +16,7 @@ void print(Impact::WsClient& client) {
 }
 
 int main() {
-  Impact::WsClient client(38107);
+  Impact::WebClient client(38107);
   print(client);
 
 /*

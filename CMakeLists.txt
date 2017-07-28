@@ -78,9 +78,9 @@ if(BUILD_EXAMPLES)
 	add_executable(${DEMO_TCP_SERVER} "${EXAMPLES_PATH}/${DEMO_TCP_SERVER}.cpp")
 	target_link_libraries(${DEMO_TCP_SERVER} ${LIBRARY_NAME})
 
-	set(DEMO_WS_CLIENT DemoWSClient)
-	add_executable(${DEMO_WS_CLIENT} "${EXAMPLES_PATH}/${DEMO_WS_CLIENT}.cpp")
-	target_link_libraries(${DEMO_WS_CLIENT} ${LIBRARY_NAME})
+	set(DEMO_WEB_CLIENT DemoWebClient)
+	add_executable(${DEMO_WEB_CLIENT} "${EXAMPLES_PATH}/${DEMO_WEB_CLIENT}.cpp")
+	target_link_libraries(${DEMO_WEB_CLIENT} ${LIBRARY_NAME})
 endif()
 
 set(TARGETS
@@ -101,6 +101,7 @@ INSTALL (
   DESTINATION include
   FILES_MATCHING PATTERN "*.h*"
 )
+
 INSTALL (
   DIRECTORY ${EVENTS_INCLUDE_DIR}/
   DESTINATION include
