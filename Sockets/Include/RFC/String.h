@@ -21,6 +21,8 @@ namespace RFC2616 {
     
     bool operator==(string lhs, std::string rhs);
     bool operator==(std::string lhs, string rhs);
+    bool operator!=(string lhs, std::string rhs);
+    bool operator!=(std::string lhs, string rhs);
 }}
 
 #endif

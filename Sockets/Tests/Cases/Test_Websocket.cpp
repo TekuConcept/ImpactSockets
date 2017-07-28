@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <RFC/2616>
+#include <RFC/4648>
 #include <RFC/6455>
 #include <sstream>
 
@@ -80,5 +81,25 @@ TEST(TestWebsocket, initiateServerHandshake) {
     Websocket server(tcpStream);
     server.initiateServerHandshake();
     
-    // TODO
+    bool check = false;
+    RFC2616::ResponseMessage message =
+        RFC2616::ResponseMessage::tryParse(tcpStream, check);
+    ASSERT_TRUE(check);
+    
+    EXPECT_EQ(message.status(), RFC2616::STATUS::SWITCHING);
+    EXPECT_GE(message.major(), 1);
+    EXPECT_GE(message.minor(), 1);
+    
+    RFC2616::string upgrade("websocket");
+    EXPECT_EQ(message.getHeaderValue(RFC2616::HEADER::Upgrade), upgrade);
+    
+    RFC2616::string connection("upgrade");
+    EXPECT_EQ(message.getHeaderValue(RFC2616::HEADER::Connection), connection);
+    
+    std::string hash = message.getHeaderValue(
+        RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept));
+    EXPECT_EQ(hash.length(), 28);
+    bool check2;
+    std::string md = Base64::decode(hash, check2);
+    EXPECT_TRUE(check2);
 }

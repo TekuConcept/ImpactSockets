@@ -15,3 +15,13 @@ bool RFC2616::operator==(std::string lhs, RFC2616::string rhs) {
     string temp(lhs.c_str(), lhs.length());
     return temp == rhs;
 }
+
+bool RFC2616::operator!=(string lhs, std::string rhs) {
+    string temp(rhs.c_str(), rhs.length());
+    return temp != lhs;
+}
+
+bool RFC2616::operator!=(std::string lhs, string rhs) {
+    string temp(lhs.c_str(), lhs.length());
+    return temp != rhs;
+}

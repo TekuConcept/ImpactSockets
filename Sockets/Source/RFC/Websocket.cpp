@@ -2,10 +2,10 @@
  * Created by TekuConcept on July 27, 2017
  */
 
+#include "RFC/ResponseMessage.h"
 #include "RFC/Websocket.h"
-#include "RFC/RequestMessage.h"
-#include "RFC/Const6455.h"
 #include "RFC/Base64.h"
+#include "RFC/SHA1.h"
 #include <sstream>
 #include <random>
 #include <chrono>
@@ -13,7 +13,8 @@
 using namespace Impact;
 using namespace RFC6455;
 
-Websocket::Websocket(std::iostream &stream) : _stream_(stream) {
+Websocket::Websocket(std::iostream &stream)
+    : _stream_(stream), SECRET("258EAFA5-E914-47DA-95CA-C5AB0DC85B11") {
     auto now = std::chrono::high_resolution_clock::now();
     _engine_.seed(
         std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -56,6 +57,56 @@ std::string Websocket::generateKey() {
     return Base64::encode(os.str());
 }
 
-void Websocket::initiateServerHandshake() {
+bool Websocket::initiateServerHandshake() {
+    using RFC2616::RequestMessage;
+    using RFC2616::ResponseMessage;
+    using RFC2616::STATUS;
+    using RFC2616::HEADER;
     
+    bool check;
+    RequestMessage request = RequestMessage::tryParse(_stream_, check);
+    
+    std::string key, hash;
+    STATUS status = check? STATUS::SWITCHING : STATUS::BAD_REQUEST;
+    
+    if(status == STATUS::SWITCHING) {
+        if(!validateRequest(request, key))
+            status = STATUS::BAD_REQUEST;
+        else {
+            key.append(SECRET);
+            hash = Base64::encode(SHA1::digest(key));
+        }
+    }
+    
+    ResponseMessage response(status);
+    if(status == STATUS::SWITCHING) {
+        response.addHeader(HEADER::Upgrade, "websocket");
+        response.addHeader(HEADER::Connection, "upgrade");
+        response.addHeader(
+            RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept), hash);
+    }
+    
+    _stream_ << response.toString();
+    return status == STATUS::OK;
 }
+
+bool Websocket::validateRequest(RFC2616::RequestMessage request,
+    std::string &key) {
+    if(request.method() != RFC2616::METHOD::GET)            return false;
+    if(request.major() < 1 || request.minor() < 1)          return false;
+    if(request.getHeaderValue(RFC6455::toString(
+        RFC6455::HEADER::SecWebSocketVersion)) != "13")     return false;
+    if(request.getHeaderValue(RFC2616::HEADER::Upgrade) !=
+        RFC2616::string("websocket"))                       return false;
+    if(request.getHeaderValue(RFC2616::HEADER::Connection) !=
+        RFC2616::string("upgrade"))                         return false;
+    if(request.getHeaderValue(RFC2616::HEADER::Host) == "") return false;
+    
+    const unsigned int KEY_SIZE = 24;
+    key = request.getHeaderValue(
+                RFC6455::toString(RFC6455::HEADER::SecWebSocketKey));
+    if(key.length() != KEY_SIZE)                            return false;
+    
+    return true;
+}
+

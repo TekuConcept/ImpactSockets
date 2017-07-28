@@ -16,4 +16,8 @@ TEST(TestConst2616, insensitiveStrings) {
     std::string third = "Hello World!";
     EXPECT_EQ(first, third);
     EXPECT_EQ(third, first);
+    
+    std::string forth = "Goodbye World!";
+    EXPECT_NE(first, forth);
+    EXPECT_NE(forth, first);
 }

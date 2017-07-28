@@ -10,6 +10,7 @@
 #include <random>
 #include "RFC/Const6455.h"
 #include "RFC/WSURI.h"
+#include "RFC/RequestMessage.h"
 
 namespace Impact {
 namespace RFC6455 {
@@ -18,7 +19,7 @@ namespace RFC6455 {
         Websocket(std::iostream &stream);
         
         void initiateClientHandshake(WSURI uri);
-        void initiateServerHandshake();
+        bool initiateServerHandshake();
     
     private:
         std::iostream& _stream_;
@@ -27,6 +28,9 @@ namespace RFC6455 {
         
         std::string generateRequest(WSURI uri);
         std::string generateKey();
+        bool validateRequest(RFC2616::RequestMessage message, std::string &key);
+        
+        const std::string SECRET;
     };
 }}
 
