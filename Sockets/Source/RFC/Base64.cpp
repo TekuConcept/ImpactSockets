@@ -4,6 +4,7 @@
 
 #include "RFC/Base64.h"
 #include <sstream>
+#include <exception>
 
 #include <iostream>
 #define DMSG(x) std::cerr << x << std::endl
@@ -57,9 +58,61 @@ std::string Base64::encode(const std::string data) {
     }
 }
 
-bool Base64::validate(const char c) {
-    return ((c >= 'A' && c <= 'Z') ||
-            (c >= 'a' && c <= 'z') ||
-            (c >= '0' && c <= '9') ||
-            (c == '+' || c == '/'));
+std::string Base64::decode(const std::string data) {
+    bool success;
+    auto result = decode(data, success);
+    if(!success) throw std::exception();
+    return result;
+}
+
+std::string Base64::decode(const std::string data, bool &status) {
+    status = true;
+    if(data.length() == 0) return "";
+    
+    std::ostringstream os;
+    const unsigned char BYTE = 0xFF, SYMBOL_SIZE = 6;
+    unsigned short padding = 0, tally = 0;
+    unsigned int reg24 = 0;
+
+    for(unsigned int i = 0; i < data.length(); i++) {
+        if(data[i] == '=') {
+            if((data.length() - i) <= 2) padding++;
+            continue;
+        }
+        auto c = reverseLookup(data[i]);
+        if(c == '\x40') {
+            status = false;
+            break;
+        }
+        else {
+            reg24 |= c;
+            tally++;
+            if(tally == 4) {
+                os << (unsigned char)(reg24 >> 16);
+                os << (unsigned char)((reg24 >> 8)&BYTE);
+                os << (unsigned char)(reg24&BYTE);
+                tally = reg24 = 0;
+            }
+            else reg24 <<= SYMBOL_SIZE;
+        }
+    }
+    
+    // take care of padded values
+    if((padding + tally) == 4) {
+        reg24 <<= (SYMBOL_SIZE * (padding - 1));
+        os << (unsigned char)(reg24 >> 16);
+        if(padding != 2) os << (unsigned char)((reg24 >> 8) & BYTE);
+    }
+    else if ((padding + tally) != 0) status = false;
+    
+    return os.str();
+}
+
+unsigned char Base64::reverseLookup(const char c) {
+    if     (c >= 'A' && c <= 'Z') return (unsigned char)(c - 'A');
+    else if(c >= 'a' && c <= 'z') return (unsigned char)(c - 'a' + 26);
+    else if(c >= '0' && c <= '9') return (unsigned char)(c - '0' + 52);
+    else if(c == '+') return (unsigned char)('\x3E');
+    else if(c == '/') return (unsigned char)('\x3F');
+    else return (unsigned char)('\x40');
 }

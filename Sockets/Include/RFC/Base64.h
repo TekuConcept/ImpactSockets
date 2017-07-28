@@ -12,13 +12,15 @@ namespace RFC4648 {
     class Base64 {
     public:
         static std::string encode(const std::string data);
+        static std::string decode(const std::string data);
+        static std::string decode(const std::string data, bool &status);
     
     private:
         static const std::string ALPHABET;
         static const char PAD;
         
         Base64();
-        bool validate(const char c);
+        static unsigned char reverseLookup(const char c);
     };
 }}
 
