@@ -16,12 +16,12 @@ TEST(TestWebsocket, create) {
     SUCCEED();
 }
 
-TEST(TestWebsocket, initiateHandshake) {
+TEST(TestWebsocket, initiateClientHandshake) {
     std::stringstream tcpStream;
     
     WSURI uri("ws://localhost:8080/path?query");
     Websocket socket(tcpStream);
-    socket.initiateHandshake(uri);
+    socket.initiateClientHandshake(uri);
 
     // must be a valid http request
     bool check = false;
@@ -68,4 +68,17 @@ TEST(TestWebsocket, initiateHandshake) {
     // may contain Sec-WebSocket-Protocol header
     // may contain Sec-WebSocket-Extensions header
     // may contain other header fields
+}
+
+TEST(TestWebsocket, initiateServerHandshake) {
+    std::stringstream tcpStream;
+    
+    WSURI uri("ws://localhost:8080/path?query");
+    Websocket client(tcpStream);
+    client.initiateClientHandshake(uri);
+    
+    Websocket server(tcpStream);
+    server.initiateServerHandshake();
+    
+    // TODO
 }

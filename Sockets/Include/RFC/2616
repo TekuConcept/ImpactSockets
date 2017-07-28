@@ -1,5 +1,7 @@
 /**
  * Created by TekuConcept on July 25, 2017
+ *
+ * RFC 2616: Hyper Text Transfer Protocol -- HTTP/1.1
  */
 
 #ifndef RFC_2616_H

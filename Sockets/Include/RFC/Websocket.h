@@ -17,7 +17,8 @@ namespace RFC6455 {
     public:
         Websocket(std::iostream &stream);
         
-        void initiateHandshake(WSURI uri);
+        void initiateClientHandshake(WSURI uri);
+        void initiateServerHandshake();
     
     private:
         std::iostream& _stream_;

@@ -7,7 +7,6 @@
 #include <iostream>
 
 using namespace Impact;
-using namespace RFC4648;
 
 TEST(TestBase64, encode) {
     EXPECT_EQ(Base64::encode(""), "");

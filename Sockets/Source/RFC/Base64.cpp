@@ -10,7 +10,6 @@
 #define DMSG(x) std::cerr << x << std::endl
 
 using namespace Impact;
-using namespace RFC4648;
 
 const std::string Base64::ALPHABET =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

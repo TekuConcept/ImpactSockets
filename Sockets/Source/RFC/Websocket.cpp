@@ -22,7 +22,7 @@ Websocket::Websocket(std::iostream &stream) : _stream_(stream) {
     );
 }
 
-void Websocket::initiateHandshake(WSURI uri) {
+void Websocket::initiateClientHandshake(WSURI uri) {
     _stream_ << generateRequest(uri);
 }
 
@@ -53,5 +53,9 @@ std::string Websocket::generateKey() {
     std::ostringstream os;
     for(int i = 0; i < 16; i++)
         os << (unsigned char)_distribution_(_engine_);
-    return RFC4648::Base64::encode(os.str());
+    return Base64::encode(os.str());
+}
+
+void Websocket::initiateServerHandshake() {
+    
 }

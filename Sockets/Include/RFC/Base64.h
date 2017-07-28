@@ -8,7 +8,6 @@
 #include <string>
 
 namespace Impact {
-namespace RFC4648 {
     class Base64 {
     public:
         static std::string encode(const std::string data);
@@ -22,6 +21,6 @@ namespace RFC4648 {
         Base64();
         static unsigned char reverseLookup(const char c);
     };
-}}
+}
 
 #endif

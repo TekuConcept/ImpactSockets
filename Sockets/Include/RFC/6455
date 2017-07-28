@@ -1,5 +1,7 @@
 /**
  * Created by TekuConcept on July 25, 2017
+ *
+ * RFC 6455: The Websocket Protocol
  */
 
 #ifndef RFC_6455_H
