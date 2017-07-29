@@ -12,8 +12,10 @@ using namespace Impact;
 using namespace RFC6455;
 
 TEST(TestWebsocket, create) {
+    WSURI uri("ws://localhost:8080/path?query");
     std::stringstream tcpStream;
-    Websocket websoc(tcpStream);
+    WebsocketClient client(tcpStream, uri);
+    WebsocketServer server(tcpStream);
     SUCCEED();
 }
 
@@ -21,8 +23,8 @@ TEST(TestWebsocket, initiateClientHandshake) {
     std::stringstream tcpStream;
     
     WSURI uri("ws://localhost:8080/path?query");
-    Websocket socket(tcpStream);
-    socket.initiateClientHandshake(uri);
+    WebsocketClient client(tcpStream, uri);
+    client.initiateHandshake();
 
     // must be a valid http request
     bool check = false;
@@ -81,8 +83,8 @@ TEST(TestWebsocket, initiateServerHandshake) {
     tcpStream << "sec-websocket-version: 13\r\n";
     tcpStream << "\r\n";
     
-    Websocket server(tcpStream);
-    ASSERT_TRUE(server.initiateServerHandshake());
+    WebsocketServer server(tcpStream);
+    ASSERT_TRUE(server.initiateHandshake());
     
     bool check = false;
     RFC2616::ResponseMessage message =
@@ -111,10 +113,10 @@ TEST(TestWebsocket, acceptResponse) {
     std::stringstream tcpStream;
     
     WSURI uri("ws://localhost:8080/path?query");
-    Websocket client(tcpStream);
-    client.initiateClientHandshake(uri);
+    WebsocketClient client(tcpStream, uri);
+    client.initiateHandshake();
     
-    Websocket server(tcpStream);
-    ASSERT_TRUE(server.initiateServerHandshake());
+    WebsocketServer server(tcpStream);
+    ASSERT_TRUE(server.initiateHandshake());
     ASSERT_TRUE(client.acceptResponse());
 }

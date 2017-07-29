@@ -12,7 +12,8 @@ namespace Impact {
 namespace RFC6455 {
     typedef enum STATE {
 	    CONNECTING,
-	    OPEN
+	    OPEN,
+	    CLOSED
     } STATE;
     
     typedef enum HEADER {
