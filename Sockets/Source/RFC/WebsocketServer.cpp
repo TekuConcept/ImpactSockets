@@ -14,7 +14,8 @@
 using namespace Impact;
 using namespace RFC6455;
 
-WebsocketServer::WebsocketServer(std::iostream &stream) : _stream_(stream) {}
+WebsocketServer::WebsocketServer(std::iostream &stream)
+    : Websocket(stream, false) {}
 
 bool WebsocketServer::initiateHandshake() {
     using RFC2616::RequestMessage;

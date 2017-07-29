@@ -9,24 +9,14 @@
 #include "RFC/Base64.h"
 #include "RFC/SHA1.h"
 #include <sstream>
-#include <random>
-#include <chrono>
 
-#include <iostream>
 #define DMSG(x) std::cerr << x << std::endl
 
 using namespace Impact;
 using namespace RFC6455;
 
 WebsocketClient::WebsocketClient(std::iostream &stream, WSURI uri)
-    : _stream_(stream), _uri_(uri) {
-    auto now = std::chrono::high_resolution_clock::now();
-    _engine_.seed(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(
-            now.time_since_epoch()
-        ).count()
-    );
-}
+    : Websocket(stream, true), _uri_(uri) {}
 
 bool WebsocketClient::initiateHandshake() {
     RFC2616::RequestMessage message(

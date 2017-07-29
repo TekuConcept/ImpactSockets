@@ -120,3 +120,130 @@ TEST(TestWebsocket, acceptResponse) {
     ASSERT_TRUE(server.initiateHandshake());
     ASSERT_TRUE(client.acceptResponse());
 }
+
+#ifndef DMSG
+#define DMSG(x) std::cerr << x << std::endl
+#endif
+void serializeOut(DataFrame frame, std::stringstream &_stream_) {
+    _stream_ << (unsigned char)((frame.finished ? 0x80 : 0x0) |
+                               ((frame.reserved & 0x7) << 4)  | 
+                                (frame.opcode   & 0xF));
+    
+    unsigned char l;
+    if(frame.length <= 125)
+         l = (unsigned char)(frame.length);
+    else if (frame.length <= 65535)
+         l = (unsigned char)126;
+    else l = (unsigned char)127;
+    _stream_ << (unsigned char)((frame.masked << 7) | l);
+    
+    if(frame.length >= 126 && frame.length <= 65535) {
+        _stream_ << (char)(frame.length >> 8);
+        _stream_ << (char)(frame.length & 0xFF);
+    }
+    else if (frame.length > 65535) {
+        for(unsigned short i = 8; i <= 64; i+=8)
+            _stream_ << (char)((frame.length>>(64-i)) & 0xFF);
+    }
+    
+    unsigned char maskKey[4];
+    if(frame.masked) {
+        maskKey[0] = '\x37';
+        maskKey[1] = '\xFA';
+        maskKey[2] = '\x21';
+        maskKey[3] = '\x3D';
+    }
+    for(unsigned short i = 0; i < 4; i++) {
+        if(frame.masked) {
+            // generate mask key
+            _stream_ << maskKey[i];
+        }
+        else maskKey[i] = '\0';
+    }
+    for(uint64_t i = 0; i < frame.length; i++)
+        _stream_ << (char)(frame.data[i]^maskKey[i%4]);
+}
+
+DataFrame serializeIn(std::stringstream &_stream_) {
+    DataFrame frame;
+    unsigned char c;
+    
+    _stream_ >> c;
+    frame.finished = ((c & 0x80) == 0x80);
+    frame.reserved = ((c >> 4) & 0x7);
+    frame.opcode   = (c & 0xF);
+    
+    _stream_ >> c;
+    frame.masked         = ((c & 0x80) == 0x80);
+    unsigned char length = (c & 0x7F);
+    if(length <= 125)
+        frame.length     = length;
+    else if(length == 126) {
+        frame.length     = (_stream_.get() << 8) | _stream_.get();
+    }
+    else {
+        for(unsigned short i = 0; i < 8; i++) {
+            frame.length <<= 8;
+            frame.length |= _stream_.get();
+        }
+    }
+    
+    std::string data(frame.length, '\0');
+    unsigned char maskKey[4];
+    for(unsigned short i = 0; i < 4; i++) {
+        if(frame.masked) maskKey[i] = (char)_stream_.get();
+        else             maskKey[i] = '\0';
+    }
+    for(uint64_t i = 0; i < frame.length; i++)
+        data[i] = (char)(_stream_.get()^maskKey[i%4]);
+    frame.data = data.c_str();
+    
+    return frame;
+}
+
+TEST(TestWebsocket, serialize) {
+    std::stringstream ssClient, ssServer;
+    WSURI uri("ws://localhost:8080/");
+    WebsocketClient client(ssClient, uri);
+    WebsocketServer server(ssServer);
+    
+    server.sendText("Hello");
+    client.sendText("Hello");
+    
+    std::string dataClient = ssClient.str();
+    ASSERT_EQ(dataClient.length(), 11);
+    unsigned char compare2[] = "\x81\x85";
+    for(unsigned int i = 0; i < 2; i++) {
+        // can't compare mask and masked data because
+        // mask is randomly generated every call
+        EXPECT_EQ(dataClient[i], compare2[i]);
+    }
+    
+    std::string dataServer = ssServer.str();
+    ASSERT_EQ(dataServer.length(), 7);
+    unsigned char compare[] = "\x81\x05\x48\x65\x6C\x6C\x6F";
+    for(unsigned int i = 0; i < dataServer.length(); i++) {
+        EXPECT_EQ(dataServer[i], compare[i]);
+    }
+    
+    // TODO: figure out how to setup and test received frames
+    std::stringstream ss3(dataServer);
+    DataFrame frame3 = serializeIn(ss3);
+    EXPECT_TRUE(frame3.finished);
+    EXPECT_EQ(frame3.reserved, 0);
+    EXPECT_EQ(frame3.opcode, 1);
+    EXPECT_FALSE(frame3.masked);
+    EXPECT_EQ(frame3.length, 5);
+    std::string line3(frame3.data);
+    EXPECT_EQ(line3, "Hello");
+    
+    std::stringstream ss4(dataClient);
+    DataFrame frame4 = serializeIn(ss4);
+    EXPECT_TRUE(frame4.finished);
+    EXPECT_EQ(frame4.reserved, 0);
+    EXPECT_EQ(frame4.opcode, 1);
+    EXPECT_TRUE(frame4.masked);
+    EXPECT_EQ(frame4.length, 5);
+    std::string line4(frame4.data);
+    EXPECT_EQ(line4, "Hello");
+}
