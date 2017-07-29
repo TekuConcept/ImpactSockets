@@ -124,8 +124,14 @@ bool Websocket::acceptResponse() {
     bool check;
     ResponseMessage message = ResponseMessage::tryParse(_stream_, check);
     
-    if(!check)                                              return false;
-    else if(message.status() != RFC2616::STATUS::SWITCHING) return false;
+    if(!check)                                                  return false;
+    else if(message.status() != RFC2616::STATUS::SWITCHING)     return false;
+    else if(message.getHeaderValue(
+        RFC6455::toString(RFC6455::HEADER::SecWebSocketExtensions))
+        .length() != 0) /* no extensions in this connecton */   return false;
+    else if(message.getHeaderValue(
+        RFC6455::toString(RFC6455::HEADER::SecWebSocketProtocol))
+        .length() != 0) /* no special protocols used */         return false;
     else { // check key matches
         const unsigned int KEY_SIZE = 20;
         check = false;
@@ -135,9 +141,9 @@ bool Websocket::acceptResponse() {
             ),
             check
         );
-        if(!check)                                          return false;
-        else if(key.length() != KEY_SIZE)                   return false;
-        else if(key != _key_)                               return false;
+        if(!check)                                              return false;
+        else if(key.length() != KEY_SIZE)                       return false;
+        else if(key != _key_)                                   return false;
     }
     
     return true;
