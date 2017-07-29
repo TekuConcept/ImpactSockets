@@ -10,6 +10,9 @@
 #include <random>
 #include <chrono>
 
+#include <iostream>
+#define DMSG(x) std::cerr << x << std::endl
+
 using namespace Impact;
 using namespace RFC6455;
 
@@ -54,7 +57,11 @@ std::string Websocket::generateKey() {
     std::ostringstream os;
     for(int i = 0; i < 16; i++)
         os << (unsigned char)_distribution_(_engine_);
-    return Base64::encode(os.str());
+    std::string key = Base64::encode(os.str());
+    std::string hash = key;
+    hash.append(SECRET);
+    _key_ = SHA1::digest(hash);
+    return key;
 }
 
 bool Websocket::initiateServerHandshake() {
@@ -65,13 +72,14 @@ bool Websocket::initiateServerHandshake() {
     
     bool check;
     RequestMessage request = RequestMessage::tryParse(_stream_, check);
-    
+
     std::string key, hash;
-    STATUS status = check? STATUS::SWITCHING : STATUS::BAD_REQUEST;
-    
+    STATUS status = check ? STATUS::SWITCHING : STATUS::BAD_REQUEST;
+
     if(status == STATUS::SWITCHING) {
-        if(!validateRequest(request, key))
+        if(!validateRequest(request, key)) {
             status = STATUS::BAD_REQUEST;
+        }
         else {
             key.append(SECRET);
             hash = Base64::encode(SHA1::digest(key));
@@ -87,7 +95,7 @@ bool Websocket::initiateServerHandshake() {
     }
     
     _stream_ << response.toString();
-    return status == STATUS::OK;
+    return status == STATUS::SWITCHING;
 }
 
 bool Websocket::validateRequest(RFC2616::RequestMessage request,
@@ -110,3 +118,27 @@ bool Websocket::validateRequest(RFC2616::RequestMessage request,
     return true;
 }
 
+bool Websocket::acceptResponse() {
+    using RFC2616::ResponseMessage;
+    
+    bool check;
+    ResponseMessage message = ResponseMessage::tryParse(_stream_, check);
+    
+    if(!check)                                              return false;
+    else if(message.status() != RFC2616::STATUS::SWITCHING) return false;
+    else { // check key matches
+        const unsigned int KEY_SIZE = 20;
+        check = false;
+        auto key = Base64::decode(
+            message.getHeaderValue(
+                RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept)
+            ),
+            check
+        );
+        if(!check)                                          return false;
+        else if(key.length() != KEY_SIZE)                   return false;
+        else if(key != _key_)                               return false;
+    }
+    
+    return true;
+}

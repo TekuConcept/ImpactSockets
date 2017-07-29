@@ -20,11 +20,13 @@ namespace RFC6455 {
         
         void initiateClientHandshake(WSURI uri);
         bool initiateServerHandshake();
+        bool acceptResponse();
     
     private:
         std::iostream& _stream_;
         std::mt19937 _engine_;
         std::uniform_int_distribution<uint8_t> _distribution_;
+        std::string _key_;
         
         std::string generateRequest(WSURI uri);
         std::string generateKey();

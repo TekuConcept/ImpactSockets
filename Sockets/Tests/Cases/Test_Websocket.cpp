@@ -73,13 +73,16 @@ TEST(TestWebsocket, initiateClientHandshake) {
 
 TEST(TestWebsocket, initiateServerHandshake) {
     std::stringstream tcpStream;
-    
-    WSURI uri("ws://localhost:8080/path?query");
-    Websocket client(tcpStream);
-    client.initiateClientHandshake(uri);
+    tcpStream << "GET /path?query HTTP/1.1\r\n";
+    tcpStream << "Connection: upgrade\r\n";
+    tcpStream << "Upgrade: websocket\r\n";
+    tcpStream << "Host: localhost:8080\r\n";
+    tcpStream << "sec-websocket-key: Tv/QGMqG8C28PDHiyMST3g==\r\n";
+    tcpStream << "sec-websocket-version: 13\r\n";
+    tcpStream << "\r\n";
     
     Websocket server(tcpStream);
-    server.initiateServerHandshake();
+    ASSERT_TRUE(server.initiateServerHandshake());
     
     bool check = false;
     RFC2616::ResponseMessage message =
@@ -102,4 +105,16 @@ TEST(TestWebsocket, initiateServerHandshake) {
     bool check2;
     std::string md = Base64::decode(hash, check2);
     EXPECT_TRUE(check2);
+}
+
+TEST(TestWebsocket, acceptResponse) {
+    std::stringstream tcpStream;
+    
+    WSURI uri("ws://localhost:8080/path?query");
+    Websocket client(tcpStream);
+    client.initiateClientHandshake(uri);
+    
+    Websocket server(tcpStream);
+    ASSERT_TRUE(server.initiateServerHandshake());
+    ASSERT_TRUE(client.acceptResponse());
 }
