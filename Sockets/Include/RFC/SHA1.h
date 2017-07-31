@@ -8,36 +8,34 @@
 #ifndef SHA1_H
 #define SHA1_H
 
-#include <stdint.h>
 #include <string>
-
-#define HashSize 20
 
 namespace Impact {
     class SHA1 {
     private:
         SHA1();
+        static const unsigned int HASH_SIZE;
         typedef enum State {
             Success = 0,
-            Null,            /* Null pointer parameter */
-            InputTooLong,    /* input data too long */
-            StateError       /* called Input after Result */
-        } STATE;
+            Null,
+            InputTooLong,
+            StateError
+        } SHA_STATE;
         typedef struct Context {
-            uint32_t Intermediate_Hash[HashSize/4];
-            uint32_t Length_Low;
-            uint32_t Length_High;
-            int_least16_t Message_Block_Index;
-            uint8_t Message_Block[64];
-            int Computed;
-            int Corrupted;
+            unsigned int IntermediateHash[5];
+            unsigned int LengthLow;
+            unsigned int LengthHigh;
+            short int MessageBlockIndex;
+            unsigned char MessageBlock[64];
+            bool Computed;
+            bool Corrupted;
         } Context;
         
-        static void padMessage(Context *);
-        static void processMessageBlock(Context *);
-        static int reset(Context *);
-        static int input(Context *, const uint8_t *, unsigned int);
-        static int result(Context *, uint8_t Message_Digest[HashSize]);
+        static void padMessage(Context*);
+        static void processMessageBlock(Context*);
+        static SHA_STATE reset(Context*);
+        static SHA_STATE input(Context*, const unsigned char*, unsigned int);
+        static SHA_STATE result(Context*, unsigned char*);
 
     public:
         static std::string digest(std::string message);

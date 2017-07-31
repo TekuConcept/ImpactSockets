@@ -44,8 +44,20 @@ void Websocket::ping() {
 void Websocket::pong() {
     DataFrame frame;
     initFrame(frame);
-    frame.opcode     = OP_PONG;
+    frame.opcode = OP_PONG;
     serializeOut(frame);
+}
+
+void Websocket::pong(DataFrame frame) {
+    // RFC 6455 Section 5.5.3 Paragraph 3: Identical Application Data
+    DataFrame nextFrame;
+    initFrame(nextFrame);
+    nextFrame.opcode = OP_PONG;
+    if(frame.length > 0) {
+        nextFrame.length = frame.length;
+        nextFrame.data = frame.data;
+    }
+    serializeOut(nextFrame);
 }
 
 void Websocket::close() {
@@ -89,7 +101,7 @@ DataFrame Websocket::read() {
     }
     else {
         switch(result.opcode) {
-        case OP_PING: pong(); break; // TODO: identical application data
+        case OP_PING:  pong(result); break;
         case OP_CLOSE: if(_connectionState_ != STATE::CLOSED) close(); break;
         }
     }

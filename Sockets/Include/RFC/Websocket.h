@@ -52,6 +52,7 @@ namespace RFC6455 {
     private:
         bool _isClient_;
         
+        void pong(DataFrame frame);
         void initFrame(DataFrame &frame);
         void serializeOut(DataFrame frame);
         DataFrame serializeIn();
