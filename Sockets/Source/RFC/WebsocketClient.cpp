@@ -3,7 +3,6 @@
  */
 
 #include "RFC/WebsocketClient.h"
-#include "RFC/ResponseMessage.h"
 #include "RFC/RequestMessage.h"
 #include "RFC/Const6455.h"
 #include "RFC/Base64.h"
@@ -19,6 +18,7 @@ WebsocketClient::WebsocketClient(std::iostream &stream, WSURI uri)
     : Websocket(stream, true), _uri_(uri) {}
 
 bool WebsocketClient::initiateHandshake() {
+    Websocket::initiateHandshake();
     RFC2616::RequestMessage message(
         RFC2616::METHOD::GET,
         _uri_.resource()
@@ -53,14 +53,25 @@ std::string WebsocketClient::generateKey() {
     return key;
 }
 
-bool WebsocketClient::acceptResponse() {
+bool WebsocketClient::acceptHandshake() {
     using RFC2616::ResponseMessage;
     
     bool check;
     ResponseMessage message = ResponseMessage::tryParse(_stream_, check);
+    if(check) check = responseHelper(message);
     
-    if(!check)                                                  return false;
-    else if(message.status() != RFC2616::STATUS::SWITCHING)     return false;
+    if(!check) {
+        _connectionState_ = STATE::CLOSED;
+        return false;
+    }
+    else {
+        _connectionState_ = STATE::OPEN;
+        return true;
+    }
+}
+
+bool WebsocketClient::responseHelper(RFC2616::ResponseMessage message) {
+    if(message.status() != RFC2616::STATUS::SWITCHING)     return false;
     else if(message.getHeaderValue(
         RFC6455::toString(RFC6455::HEADER::SecWebSocketExtensions))
         .length() != 0) /* no extensions in this connecton */   return false;
@@ -69,7 +80,7 @@ bool WebsocketClient::acceptResponse() {
         .length() != 0) /* no special protocols used */         return false;
     else { // check key matches
         const unsigned int KEY_SIZE = 20;
-        check = false;
+        bool check = false;
         auto key = Base64::decode(
             message.getHeaderValue(
                 RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept)
@@ -80,6 +91,5 @@ bool WebsocketClient::acceptResponse() {
         else if(key.length() != KEY_SIZE)                       return false;
         else if(key != _key_)                                   return false;
     }
-    
     return true;
 }

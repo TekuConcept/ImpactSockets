@@ -8,7 +8,6 @@
 #include "RFC/Base64.h"
 #include "RFC/SHA1.h"
 
-#include <iostream>
 #define DMSG(x) std::cerr << x << std::endl
 
 using namespace Impact;
@@ -18,6 +17,7 @@ WebsocketServer::WebsocketServer(std::iostream &stream)
     : Websocket(stream, false) {}
 
 bool WebsocketServer::initiateHandshake() {
+    Websocket::initiateHandshake();
     using RFC2616::RequestMessage;
     using RFC2616::ResponseMessage;
     using RFC2616::STATUS;
@@ -43,7 +43,14 @@ bool WebsocketServer::initiateHandshake() {
     }
     
     _stream_ << response.toString();
-    return status == STATUS::SWITCHING;
+    if(status == STATUS::SWITCHING) {
+        _connectionState_ = STATE::OPEN;
+        return true;
+    }
+    else {
+        _connectionState_ = STATE::CLOSED;
+        return false;
+    }
 }
 
 bool WebsocketServer::validateRequest(RFC2616::RequestMessage request) {

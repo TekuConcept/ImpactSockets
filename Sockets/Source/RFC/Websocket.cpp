@@ -16,7 +16,8 @@ using namespace RFC6455;
 #define OP_PONG    10
 
 Websocket::Websocket(std::iostream& stream, bool isClient)
-    : _stream_(stream), _isClient_(isClient) {
+    : _stream_(stream), _connectionState_(STATE::CLOSED),
+    _isClient_(isClient) {
     auto now = std::chrono::high_resolution_clock::now();
     _engine_.seed(
         std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -27,6 +28,11 @@ Websocket::Websocket(std::iostream& stream, bool isClient)
 }
 
 Websocket::~Websocket() {}
+
+bool Websocket::initiateHandshake() {
+    _connectionState_ = STATE::CONNECTING;
+    return true;
+}
 
 void Websocket::ping() {
     DataFrame frame;
@@ -47,6 +53,7 @@ void Websocket::close() {
     initFrame(frame);
     frame.opcode     = OP_CLOSE;
     serializeOut(frame);
+    _connectionState_ = STATE::CLOSED;
 }
 
 void Websocket::sendText(std::string text) {
@@ -74,6 +81,25 @@ void Websocket::initFrame(DataFrame &frame) {
     frame.length     = 0;
 }
 
+DataFrame Websocket::read() {
+    DataFrame result = serializeIn();
+    if(!(_isClient_ ^ result.masked)) {
+        close();
+        _connectionState_ = STATE::CLOSED;
+    }
+    else {
+        switch(result.opcode) {
+        case OP_PING: pong(); break; // TODO: identical application data
+        case OP_CLOSE: if(_connectionState_ != STATE::CLOSED) close(); break;
+        }
+    }
+    return result;
+}
+
+STATE Websocket::getState() {
+    return _connectionState_;
+}
+
 /*
   0                   1                   2                   3
   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -96,6 +122,8 @@ void Websocket::initFrame(DataFrame &frame) {
 */
 
 void Websocket::serializeOut(DataFrame frame) {
+    if(_connectionState_ == STATE::CLOSED) return;
+    
     _stream_ << (unsigned char)((frame.finished ? 0x80 : 0x0) |
                                ((frame.reserved & 0x7) << 4)  | 
                                 (frame.opcode   & 0xF));
@@ -113,6 +141,7 @@ void Websocket::serializeOut(DataFrame frame) {
         _stream_ << (char)(frame.length & 0xFF);
     }
     else if (frame.length > 65535) {
+        // TODO: MSb must be 0
         for(unsigned short i = 8; i <= 64; i+=8)
             _stream_ << (char)((frame.length>>(64-i)) & 0xFF);
     }

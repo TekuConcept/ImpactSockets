@@ -5,9 +5,9 @@
 #ifndef RFC_WEBSOCKET_CLIENT_H
 #define RFC_WEBSOCKET_CLIENT_H
 
+#include "RFC/ResponseMessage.h"
 #include "RFC/Websocket.h"
 #include "RFC/WSURI.h"
-#include <iostream>
 
 namespace Impact {
 namespace RFC6455 {
@@ -16,12 +16,13 @@ namespace RFC6455 {
         WebsocketClient(std::iostream &stream, WSURI uri);
         
         bool initiateHandshake();
-        bool acceptResponse();
+        bool acceptHandshake();
     
     private:
         WSURI _uri_;
 
         std::string generateKey();
+        bool responseHelper(RFC2616::ResponseMessage message);
     };
 }}
 

@@ -109,7 +109,7 @@ TEST(TestWebsocket, initiateServerHandshake) {
     EXPECT_TRUE(check2);
 }
 
-TEST(TestWebsocket, acceptResponse) {
+TEST(TestWebsocket, acceptHandshake) {
     std::stringstream tcpStream;
     
     WSURI uri("ws://localhost:8080/path?query");
@@ -118,51 +118,67 @@ TEST(TestWebsocket, acceptResponse) {
     
     WebsocketServer server(tcpStream);
     ASSERT_TRUE(server.initiateHandshake());
-    ASSERT_TRUE(client.acceptResponse());
+    ASSERT_TRUE(client.acceptHandshake());
+}
+
+TEST(TestWebsocket, state) {
+    std::stringstream tcpStream;
+    WSURI uri("ws://localhost:8080/");
+    
+    WebsocketClient client(tcpStream, uri);
+    WebsocketServer server(tcpStream);
+    EXPECT_EQ(client.getState(), RFC6455::STATE::CLOSED);
+    EXPECT_EQ(server.getState(), RFC6455::STATE::CLOSED);
+    
+    client.initiateHandshake();
+    EXPECT_EQ(client.getState(), RFC6455::STATE::CONNECTING);
+    
+    server.initiateHandshake();
+    EXPECT_EQ(server.getState(), RFC6455::STATE::OPEN);
+    
+    client.acceptHandshake();
+    EXPECT_EQ(client.getState(), RFC6455::STATE::OPEN);
+    
+    client.close();
+    server.read();
+    EXPECT_EQ(client.getState(), RFC6455::STATE::CLOSED);
+    EXPECT_EQ(server.getState(), RFC6455::STATE::CLOSED);
+}
+
+TEST(TestWebsocket, serializeOut) {
+    std::stringstream tcpStream;
+    WSURI uri("ws://localhost:8080/");
+    WebsocketClient client(tcpStream, uri);
+    WebsocketServer server(tcpStream);
+    
+    client.initiateHandshake();
+    server.initiateHandshake();
+    client.acceptHandshake();
+    
+    tcpStream.str(std::string());
+    client.sendText("Hello");
+    std::string dataClient = tcpStream.str();
+    ASSERT_EQ(dataClient.length(), 11);
+    unsigned char compare2[] = "\x81\x85";
+    for(unsigned int i = 0; i < 2; i++) {
+        // can't compare mask and masked data because
+        // mask is randomly generated every call
+        EXPECT_EQ(dataClient[i], compare2[i]);
+    }
+    
+    tcpStream.str(std::string());
+    server.sendText("Hello");
+    std::string dataServer = tcpStream.str();
+    ASSERT_EQ(dataServer.length(), 7);
+    unsigned char compare[] = "\x81\x05\x48\x65\x6C\x6C\x6F";
+    for(unsigned int i = 0; i < dataServer.length(); i++) {
+        EXPECT_EQ(dataServer[i], compare[i]);
+    }
 }
 
 #ifndef DMSG
 #define DMSG(x) std::cerr << x << std::endl
 #endif
-void serializeOut(DataFrame frame, std::stringstream &_stream_) {
-    _stream_ << (unsigned char)((frame.finished ? 0x80 : 0x0) |
-                               ((frame.reserved & 0x7) << 4)  | 
-                                (frame.opcode   & 0xF));
-    
-    unsigned char l;
-    if(frame.length <= 125)
-         l = (unsigned char)(frame.length);
-    else if (frame.length <= 65535)
-         l = (unsigned char)126;
-    else l = (unsigned char)127;
-    _stream_ << (unsigned char)((frame.masked << 7) | l);
-    
-    if(frame.length >= 126 && frame.length <= 65535) {
-        _stream_ << (char)(frame.length >> 8);
-        _stream_ << (char)(frame.length & 0xFF);
-    }
-    else if (frame.length > 65535) {
-        for(unsigned short i = 8; i <= 64; i+=8)
-            _stream_ << (char)((frame.length>>(64-i)) & 0xFF);
-    }
-    
-    unsigned char maskKey[4];
-    if(frame.masked) {
-        maskKey[0] = '\x37';
-        maskKey[1] = '\xFA';
-        maskKey[2] = '\x21';
-        maskKey[3] = '\x3D';
-    }
-    for(unsigned short i = 0; i < 4; i++) {
-        if(frame.masked) {
-            // generate mask key
-            _stream_ << maskKey[i];
-        }
-        else maskKey[i] = '\0';
-    }
-    for(uint64_t i = 0; i < frame.length; i++)
-        _stream_ << (char)(frame.data[i]^maskKey[i%4]);
-}
 
 DataFrame serializeIn(std::stringstream &_stream_) {
     DataFrame frame;
@@ -201,33 +217,9 @@ DataFrame serializeIn(std::stringstream &_stream_) {
     return frame;
 }
 
-TEST(TestWebsocket, serialize) {
-    std::stringstream ssClient, ssServer;
-    WSURI uri("ws://localhost:8080/");
-    WebsocketClient client(ssClient, uri);
-    WebsocketServer server(ssServer);
-    
-    server.sendText("Hello");
-    client.sendText("Hello");
-    
-    std::string dataClient = ssClient.str();
-    ASSERT_EQ(dataClient.length(), 11);
-    unsigned char compare2[] = "\x81\x85";
-    for(unsigned int i = 0; i < 2; i++) {
-        // can't compare mask and masked data because
-        // mask is randomly generated every call
-        EXPECT_EQ(dataClient[i], compare2[i]);
-    }
-    
-    std::string dataServer = ssServer.str();
-    ASSERT_EQ(dataServer.length(), 7);
-    unsigned char compare[] = "\x81\x05\x48\x65\x6C\x6C\x6F";
-    for(unsigned int i = 0; i < dataServer.length(); i++) {
-        EXPECT_EQ(dataServer[i], compare[i]);
-    }
-    
+TEST(TestWebsocket, serializeIn) {
     // TODO: figure out how to setup and test received frames
-    std::stringstream ss3(dataServer);
+    std::stringstream ss3("\x81\x05\x48\x65\x6C\x6C\x6F");
     DataFrame frame3 = serializeIn(ss3);
     EXPECT_TRUE(frame3.finished);
     EXPECT_EQ(frame3.reserved, 0);
@@ -237,7 +229,7 @@ TEST(TestWebsocket, serialize) {
     std::string line3(frame3.data);
     EXPECT_EQ(line3, "Hello");
     
-    std::stringstream ss4(dataClient);
+    std::stringstream ss4("\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58");
     DataFrame frame4 = serializeIn(ss4);
     EXPECT_TRUE(frame4.finished);
     EXPECT_EQ(frame4.reserved, 0);

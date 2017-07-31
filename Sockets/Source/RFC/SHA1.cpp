@@ -22,11 +22,9 @@ std::string SHA1::digest(std::string message) {
     unsigned char Message_Digest[HashSize];
     
     err = reset(&sha);
-    if (err) throw std::exception(); // reset error
+    if(err) throw std::exception(); // reset error (shouldn't ever throw)
 
-    err = input(&sha,
-          (const unsigned char *)message.c_str(),
-          message.length());
+    err = input(&sha, (const unsigned char*)message.c_str(), message.length());
     if(err) throw std::exception(); // input error
 
     err = result(&sha, Message_Digest);
@@ -94,12 +92,8 @@ int SHA1::reset(Context *context) {
 int SHA1::result(Context *context, uint8_t Message_Digest[HashSize]) {
     int i;
 
-    if (!context || !Message_Digest)
-        return Null;
-
-    if (context->Corrupted)
-        return context->Corrupted;
-
+    if (!context || !Message_Digest) return Null;
+    if (context->Corrupted) return context->Corrupted;
     if (!context->Computed) {
         padMessage(context);
         for(i=0; i<64; ++i){
@@ -141,19 +135,14 @@ int SHA1::result(Context *context, uint8_t Message_Digest[HashSize]) {
  */
 int SHA1::input(Context *context, const uint8_t *message_array,
     unsigned length) {
-    if (!length)
-        return Success;
-
-    if (!context || !message_array)
-        return Null;
-
+    if (!length) return Success;
+    if (!context || !message_array) return Null;
     if (context->Computed) {
         context->Corrupted = StateError;
         return StateError;
     }
 
-    if (context->Corrupted)
-        return context->Corrupted;
+    if (context->Corrupted) return context->Corrupted;
     while(length-- && !context->Corrupted)
     {
         context->Message_Block[context->Message_Block_Index++] =
@@ -212,16 +201,14 @@ void SHA1::processMessageBlock(Context *context) {
     /*
      *  Initialize the first 16 words in the array W
      */
-    for(t = 0; t < 16; t++)
-    {
+    for(t = 0; t < 16; t++) {
         W[t]  = context->Message_Block[t * 4] << 24;
         W[t] |= context->Message_Block[t * 4 + 1] << 16;
         W[t] |= context->Message_Block[t * 4 + 2] << 8;
         W[t] |= context->Message_Block[t * 4 + 3];
     }
 
-    for(t = 16; t < 80; t++)
-    {
+    for(t = 16; t < 80; t++) {
        W[t] = circularShift(1,W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16]);
     }
 
@@ -231,8 +218,7 @@ void SHA1::processMessageBlock(Context *context) {
     D = context->Intermediate_Hash[3];
     E = context->Intermediate_Hash[4];
 
-    for(t = 0; t < 20; t++)
-    {
+    for(t = 0; t < 20; t++) {
         temp =  circularShift(5,A) +
                 ((B & C) | ((~B) & D)) + E + W[t] + K[0];
         E = D;
@@ -242,8 +228,7 @@ void SHA1::processMessageBlock(Context *context) {
         A = temp;
     }
 
-    for(t = 20; t < 40; t++)
-    {
+    for(t = 20; t < 40; t++) {
         temp = circularShift(5,A) + (B ^ C ^ D) + E + W[t] + K[1];
         E = D;
         D = C;
@@ -252,8 +237,7 @@ void SHA1::processMessageBlock(Context *context) {
         A = temp;
     }
 
-    for(t = 40; t < 60; t++)
-    {
+    for(t = 40; t < 60; t++) {
         temp = circularShift(5,A) +
                ((B & C) | (B & D) | (C & D)) + E + W[t] + K[2];
         E = D;
@@ -263,8 +247,7 @@ void SHA1::processMessageBlock(Context *context) {
         A = temp;
     }
 
-    for(t = 60; t < 80; t++)
-    {
+    for(t = 60; t < 80; t++) {
         temp = circularShift(5,A) + (B ^ C ^ D) + E + W[t] + K[3];
         E = D;
         D = C;
@@ -304,7 +287,6 @@ void SHA1::processMessageBlock(Context *context) {
  *      Nothing.
  *
  */
-
 void SHA1::padMessage(Context *context) {
     /*
      *  Check to see if the current message block is too small to hold
@@ -312,26 +294,21 @@ void SHA1::padMessage(Context *context) {
      *  block, process it, and then continue padding into a second
      *  block.
      */
-    if (context->Message_Block_Index > 55)
-    {
+    if (context->Message_Block_Index > 55) {
         context->Message_Block[context->Message_Block_Index++] = 0x80;
-        while(context->Message_Block_Index < 64)
-        {
+        while(context->Message_Block_Index < 64) {
             context->Message_Block[context->Message_Block_Index++] = 0;
         }
 
         processMessageBlock(context);
 
-        while(context->Message_Block_Index < 56)
-        {
+        while(context->Message_Block_Index < 56) {
             context->Message_Block[context->Message_Block_Index++] = 0;
         }
     }
-    else
-    {
+    else {
         context->Message_Block[context->Message_Block_Index++] = 0x80;
-        while(context->Message_Block_Index < 56)
-        {
+        while(context->Message_Block_Index < 56) {
             context->Message_Block[context->Message_Block_Index++] = 0;
         }
     }
