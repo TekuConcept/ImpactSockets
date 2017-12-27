@@ -56,11 +56,11 @@ std::string WebsocketClient::generateKey() {
 bool WebsocketClient::acceptHandshake() {
     using RFC2616::ResponseMessage;
     
-    bool check, check2;
+    bool check = false, check2 = false;
     ResponseMessage message = ResponseMessage::tryParse(_stream_, check);
     if(check) check2 = responseHelper(message);
     
-    if(!check2) {
+    if(!check || !check2) {
         _connectionState_ = STATE::CLOSED;
         return false;
     }
