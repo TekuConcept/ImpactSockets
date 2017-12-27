@@ -49,18 +49,18 @@ std::string WebsocketClient::generateKey() {
     std::string key = Base64::encode(os.str());
     std::string hash = key;
     hash.append(SECRET);
-    _key_ = SHA1::digest(hash);
+    _key_ = Base64::encode(SHA1::digest(hash));
     return key;
 }
 
 bool WebsocketClient::acceptHandshake() {
     using RFC2616::ResponseMessage;
     
-    bool check;
+    bool check, check2;
     ResponseMessage message = ResponseMessage::tryParse(_stream_, check);
-    if(check) check = responseHelper(message);
+    if(check) check2 = responseHelper(message);
     
-    if(!check) {
+    if(!check2) {
         _connectionState_ = STATE::CLOSED;
         return false;
     }
@@ -71,7 +71,7 @@ bool WebsocketClient::acceptHandshake() {
 }
 
 bool WebsocketClient::responseHelper(RFC2616::ResponseMessage message) {
-    if(message.status() != RFC2616::STATUS::SWITCHING)     return false;
+    if(message.status() != RFC2616::STATUS::SWITCHING)          return false;
     else if(message.getHeaderValue(
         RFC6455::toString(RFC6455::HEADER::SecWebSocketExtensions))
         .length() != 0) /* no extensions in this connecton */   return false;
@@ -79,17 +79,10 @@ bool WebsocketClient::responseHelper(RFC2616::ResponseMessage message) {
         RFC6455::toString(RFC6455::HEADER::SecWebSocketProtocol))
         .length() != 0) /* no special protocols used */         return false;
     else { // check key matches
-        const unsigned int KEY_SIZE = 20;
-        bool check = false;
-        auto key = Base64::decode(
-            message.getHeaderValue(
-                RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept)
-            ),
-            check
+        auto key = message.getHeaderValue(
+            RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept)
         );
-        if(!check)                                              return false;
-        else if(key.length() != KEY_SIZE)                       return false;
-        else if(key != _key_)                                   return false;
+        if(key != _key_)                                        return false;
     }
     return true;
 }
