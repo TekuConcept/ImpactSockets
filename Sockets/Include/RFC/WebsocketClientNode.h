@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 27, 2017
  */
 
-#ifndef RFC_WEBSOCKET_CLIENT_H
-#define RFC_WEBSOCKET_CLIENT_H
+#ifndef RFC_WEBSOCKET_CLIENT_NODE_H
+#define RFC_WEBSOCKET_CLIENT_NODE_H
 
 #include "RFC/ResponseMessage.h"
 #include "RFC/Websocket.h"
@@ -11,9 +11,9 @@
 
 namespace Impact {
 namespace RFC6455 {
-    class WebsocketClient : public Websocket {
+    class WebsocketClientNode : public Websocket {
     public:
-        WebsocketClient(std::iostream &stream, WSURI uri);
+        WebsocketClientNode(std::iostream &stream, WSURI uri);
         
         bool initiateHandshake();
         bool acceptHandshake();

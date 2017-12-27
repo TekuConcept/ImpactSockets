@@ -14,8 +14,8 @@ using namespace RFC6455;
 TEST(TestWebsocket, create) {
     WSURI uri("ws://localhost:8080/path?query");
     std::stringstream tcpStream;
-    WebsocketClient client(tcpStream, uri);
-    WebsocketServer server(tcpStream);
+    WebsocketClientNode client(tcpStream, uri);
+    WebsocketServerNode server(tcpStream);
     SUCCEED();
 }
 
@@ -23,7 +23,7 @@ TEST(TestWebsocket, initiateClientHandshake) {
     std::stringstream tcpStream;
     
     WSURI uri("ws://localhost:8080/path?query");
-    WebsocketClient client(tcpStream, uri);
+    WebsocketClientNode client(tcpStream, uri);
     client.initiateHandshake();
 
     // must be a valid http request
@@ -83,7 +83,7 @@ TEST(TestWebsocket, initiateServerHandshake) {
     tcpStream << "sec-websocket-version: 13\r\n";
     tcpStream << "\r\n";
     
-    WebsocketServer server(tcpStream);
+    WebsocketServerNode server(tcpStream);
     ASSERT_TRUE(server.initiateHandshake());
     
     bool check = false;
@@ -113,10 +113,10 @@ TEST(TestWebsocket, acceptHandshake) {
     std::stringstream tcpStream;
     
     WSURI uri("ws://localhost:8080/path?query");
-    WebsocketClient client(tcpStream, uri);
+    WebsocketClientNode client(tcpStream, uri);
     client.initiateHandshake();
     
-    WebsocketServer server(tcpStream);
+    WebsocketServerNode server(tcpStream);
     ASSERT_TRUE(server.initiateHandshake());
     ASSERT_TRUE(client.acceptHandshake());
 }
@@ -125,8 +125,8 @@ TEST(TestWebsocket, state) {
     std::stringstream tcpStream;
     WSURI uri("ws://localhost:8080/");
     
-    WebsocketClient client(tcpStream, uri);
-    WebsocketServer server(tcpStream);
+    WebsocketClientNode client(tcpStream, uri);
+    WebsocketServerNode server(tcpStream);
     EXPECT_EQ(client.getState(), RFC6455::STATE::CLOSED);
     EXPECT_EQ(server.getState(), RFC6455::STATE::CLOSED);
     
@@ -148,8 +148,8 @@ TEST(TestWebsocket, state) {
 TEST(TestWebsocket, serializeOut) {
     std::stringstream tcpStream;
     WSURI uri("ws://localhost:8080/");
-    WebsocketClient client(tcpStream, uri);
-    WebsocketServer server(tcpStream);
+    WebsocketClientNode client(tcpStream, uri);
+    WebsocketServerNode server(tcpStream);
     
     EXPECT_TRUE(client.initiateHandshake());
     EXPECT_TRUE(server.initiateHandshake());

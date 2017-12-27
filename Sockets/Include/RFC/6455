@@ -9,7 +9,7 @@
 
 #include "RFC/Const6455.h"
 #include "RFC/WSURI.h"
-#include "RFC/WebsocketClient.h"
-#include "RFC/WebsocketServer.h"
+#include "RFC/WebsocketClientNode.h"
+#include "RFC/WebsocketServerNode.h"
 
 #endif

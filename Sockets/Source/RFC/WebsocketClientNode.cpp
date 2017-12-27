@@ -2,7 +2,7 @@
  * Created by TekuConcept on July 27, 2017
  */
 
-#include "RFC/WebsocketClient.h"
+#include "RFC/WebsocketClientNode.h"
 #include "RFC/RequestMessage.h"
 #include "RFC/Const6455.h"
 #include "RFC/Base64.h"
@@ -14,10 +14,10 @@
 using namespace Impact;
 using namespace RFC6455;
 
-WebsocketClient::WebsocketClient(std::iostream &stream, WSURI uri)
+WebsocketClientNode::WebsocketClientNode(std::iostream &stream, WSURI uri)
     : Websocket(stream, true), _uri_(uri) {}
 
-bool WebsocketClient::initiateHandshake() {
+bool WebsocketClientNode::initiateHandshake() {
     Websocket::initiateHandshake();
     RFC2616::RequestMessage message(
         RFC2616::METHOD::GET,
@@ -42,7 +42,7 @@ bool WebsocketClient::initiateHandshake() {
     return true;
 }
 
-std::string WebsocketClient::generateKey() {
+std::string WebsocketClientNode::generateKey() {
     std::ostringstream os;
     for(int i = 0; i < 16; i++)
         os << (unsigned char)_distribution_(_engine_);
@@ -53,7 +53,7 @@ std::string WebsocketClient::generateKey() {
     return key;
 }
 
-bool WebsocketClient::acceptHandshake() {
+bool WebsocketClientNode::acceptHandshake() {
     using RFC2616::ResponseMessage;
     
     bool check = false, check2 = false;
@@ -70,7 +70,7 @@ bool WebsocketClient::acceptHandshake() {
     }
 }
 
-bool WebsocketClient::responseHelper(RFC2616::ResponseMessage message) {
+bool WebsocketClientNode::responseHelper(RFC2616::ResponseMessage message) {
     if(message.status() != RFC2616::STATUS::SWITCHING)          return false;
     else if(message.getHeaderValue(
         RFC6455::toString(RFC6455::HEADER::SecWebSocketExtensions))
