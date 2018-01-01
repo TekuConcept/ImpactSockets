@@ -122,7 +122,7 @@ if(BUILD_TESTS AND GTEST_FOUND)
   set(TESTS Tests)
   add_executable(${TESTS} ${TEST_FILES} ${SOCKETS_PATH}/Tests/main.cpp)
   target_link_libraries(${TESTS} ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}
-  	${LIBRARY_NAME})
+  	${LIBRARY_NAME} pthread)
 
   install_targets(/bin ${TESTS})
 endif()

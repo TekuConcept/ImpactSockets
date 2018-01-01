@@ -14,8 +14,8 @@ using namespace RFC6455;
 TEST(TestWebsocket, create) {
     URI uri("ws://localhost:8080/path?query");
     std::stringstream tcpStream;
-    WebsocketClient client(tcpStream, uri);
-    WebsocketServer server(tcpStream);
+    WebsocketClientNode client(tcpStream, uri);
+    WebsocketServerNode server(tcpStream);
     SUCCEED();
 }
 
@@ -23,7 +23,7 @@ TEST(TestWebsocket, initiateClientHandshake) {
     std::stringstream tcpStream;
     
     URI uri("ws://localhost:8080/path?query");
-    WebsocketClient client(tcpStream, uri);
+    WebsocketClientNode client(tcpStream, uri);
     client.initiateHandshake();
 
     // must be a valid http request
@@ -83,7 +83,7 @@ TEST(TestWebsocket, initiateServerHandshake) {
     tcpStream << "sec-websocket-version: 13\r\n";
     tcpStream << "\r\n";
     
-    WebsocketServer server(tcpStream);
+    WebsocketServerNode server(tcpStream);
     ASSERT_TRUE(server.initiateHandshake());
     
     bool check = false;
@@ -113,10 +113,10 @@ TEST(TestWebsocket, acceptHandshake) {
     std::stringstream tcpStream;
     
     URI uri("ws://localhost:8080/path?query");
-    WebsocketClient client(tcpStream, uri);
+    WebsocketClientNode client(tcpStream, uri);
     client.initiateHandshake();
     
-    WebsocketServer server(tcpStream);
+    WebsocketServerNode server(tcpStream);
     ASSERT_TRUE(server.initiateHandshake());
     ASSERT_TRUE(client.acceptHandshake());
 }
@@ -125,18 +125,18 @@ TEST(TestWebsocket, state) {
     std::stringstream tcpStream;
     URI uri("ws://localhost:8080/");
     
-    WebsocketClient client(tcpStream, uri);
-    WebsocketServer server(tcpStream);
+    WebsocketClientNode client(tcpStream, uri);
+    WebsocketServerNode server(tcpStream);
     EXPECT_EQ(client.getState(), RFC6455::STATE::CLOSED);
     EXPECT_EQ(server.getState(), RFC6455::STATE::CLOSED);
     
-    client.initiateHandshake();
+    EXPECT_TRUE(client.initiateHandshake());
     EXPECT_EQ(client.getState(), RFC6455::STATE::CONNECTING);
     
-    server.initiateHandshake();
+    EXPECT_TRUE(server.initiateHandshake());
     EXPECT_EQ(server.getState(), RFC6455::STATE::OPEN);
     
-    client.acceptHandshake();
+    EXPECT_TRUE(client.acceptHandshake());
     EXPECT_EQ(client.getState(), RFC6455::STATE::OPEN);
     
     client.close();
@@ -148,12 +148,12 @@ TEST(TestWebsocket, state) {
 TEST(TestWebsocket, serializeOut) {
     std::stringstream tcpStream;
     URI uri("ws://localhost:8080/");
-    WebsocketClient client(tcpStream, uri);
-    WebsocketServer server(tcpStream);
+    WebsocketClientNode client(tcpStream, uri);
+    WebsocketServerNode server(tcpStream);
     
-    client.initiateHandshake();
-    server.initiateHandshake();
-    client.acceptHandshake();
+    EXPECT_TRUE(client.initiateHandshake());
+    EXPECT_TRUE(server.initiateHandshake());
+    EXPECT_TRUE(client.acceptHandshake());
     
     tcpStream.str(std::string());
     client.sendText("Hello");
@@ -163,7 +163,8 @@ TEST(TestWebsocket, serializeOut) {
     for(unsigned int i = 0; i < 2; i++) {
         // can't compare mask and masked data because
         // mask is randomly generated every call
-        EXPECT_EQ(dataClient[i], compare2[i]);
+        char a = dataClient[i], b = compare2[i];
+        EXPECT_EQ(a, b);
     }
     
     tcpStream.str(std::string());
@@ -172,7 +173,8 @@ TEST(TestWebsocket, serializeOut) {
     ASSERT_EQ(dataServer.length(), 7);
     unsigned char compare[] = "\x81\x05\x48\x65\x6C\x6C\x6F";
     for(unsigned int i = 0; i < dataServer.length(); i++) {
-        EXPECT_EQ(dataServer[i], compare[i]);
+        char a = dataServer[i], b = compare[i];
+        EXPECT_EQ(a, b);
     }
 }
 

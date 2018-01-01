@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 28, 2017
  */
 
-#ifndef RFC_WEBSOCKET_SERVER_H
-#define RFC_WEBSOCKET_SERVER_H
+#ifndef RFC_WEBSOCKET_SERVER_NODE_H
+#define RFC_WEBSOCKET_SERVER_NODE_H
 
 #include "RFC/Websocket.h"
 #include "RFC/RequestMessage.h"
@@ -11,9 +11,9 @@
 
 namespace Impact {
 namespace RFC6455 {
-    class WebsocketServer : public Websocket {
+    class WebsocketServerNode : public Websocket {
     public:
-        WebsocketServer(std::iostream &stream);
+        WebsocketServerNode(std::iostream &stream);
         bool initiateHandshake();
         
     private:

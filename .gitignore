@@ -4,6 +4,9 @@
 # Vim swap files
 .*.sw?
 
+# Node modules
+/node_modules
+
 # Pow and Powder config
 /.pow*
 

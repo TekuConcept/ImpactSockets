@@ -2,7 +2,7 @@
  * Created by TekuConcept on July 28, 2017
  */
 
-#include "RFC/WebsocketServer.h"
+#include "RFC/WebsocketServerNode.h"
 #include "RFC/ResponseMessage.h"
 #include "RFC/Const6455.h"
 #include "RFC/Base64.h"
@@ -13,10 +13,10 @@
 using namespace Impact;
 using namespace RFC6455;
 
-WebsocketServer::WebsocketServer(std::iostream &stream)
+WebsocketServerNode::WebsocketServerNode(std::iostream &stream)
     : Websocket(stream, false) {}
 
-bool WebsocketServer::initiateHandshake() {
+bool WebsocketServerNode::initiateHandshake() {
     Websocket::initiateHandshake();
     using RFC2616::RequestMessage;
     using RFC2616::ResponseMessage;
@@ -53,7 +53,7 @@ bool WebsocketServer::initiateHandshake() {
     }
 }
 
-bool WebsocketServer::validateRequest(RFC2616::RequestMessage request) {
+bool WebsocketServerNode::validateRequest(RFC2616::RequestMessage request) {
     if(request.method() != RFC2616::METHOD::GET)            return false;
     if(request.major() < 1 || request.minor() < 1)          return false;
     if(request.getHeaderValue(RFC6455::toString(

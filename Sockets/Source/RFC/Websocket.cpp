@@ -22,7 +22,7 @@ Websocket::Websocket(std::iostream& stream, bool isClient)
     _engine_.seed(
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             now.time_since_epoch()
-        ).count() + (int)this
+        ).count() + (size_t)this
         // 'this' prevents two instances having the same seed
     );
 }

@@ -2,7 +2,7 @@
  * Created by TekuConcept on July 27, 2017
  */
 
-#include "RFC/WebsocketClient.h"
+#include "RFC/WebsocketClientNode.h"
 #include "RFC/RequestMessage.h"
 #include "RFC/Const6455.h"
 #include "RFC/Base64.h"
@@ -14,10 +14,10 @@
 using namespace Impact;
 using namespace RFC6455;
 
-WebsocketClient::WebsocketClient(std::iostream &stream, URI uri)
+WebsocketClientNode::WebsocketClientNode(std::iostream &stream, URI uri)
     : Websocket(stream, true), _uri_(uri) {}
 
-bool WebsocketClient::initiateHandshake() {
+bool WebsocketClientNode::initiateHandshake() {
     Websocket::initiateHandshake();
     RFC2616::RequestMessage message(
         RFC2616::METHOD::GET,
@@ -42,25 +42,25 @@ bool WebsocketClient::initiateHandshake() {
     return true;
 }
 
-std::string WebsocketClient::generateKey() {
+std::string WebsocketClientNode::generateKey() {
     std::ostringstream os;
     for(int i = 0; i < 16; i++)
         os << (unsigned char)_distribution_(_engine_);
     std::string key = Base64::encode(os.str());
     std::string hash = key;
     hash.append(SECRET);
-    _key_ = SHA1::digest(hash);
+    _key_ = Base64::encode(SHA1::digest(hash));
     return key;
 }
 
-bool WebsocketClient::acceptHandshake() {
+bool WebsocketClientNode::acceptHandshake() {
     using RFC2616::ResponseMessage;
     
-    bool check;
+    bool check = false, check2 = false;
     ResponseMessage message = ResponseMessage::tryParse(_stream_, check);
-    if(check) check = responseHelper(message);
+    if(check) check2 = responseHelper(message);
     
-    if(!check) {
+    if(!check || !check2) {
         _connectionState_ = STATE::CLOSED;
         return false;
     }
@@ -70,8 +70,8 @@ bool WebsocketClient::acceptHandshake() {
     }
 }
 
-bool WebsocketClient::responseHelper(RFC2616::ResponseMessage message) {
-    if(message.status() != RFC2616::STATUS::SWITCHING)     return false;
+bool WebsocketClientNode::responseHelper(RFC2616::ResponseMessage message) {
+    if(message.status() != RFC2616::STATUS::SWITCHING)          return false;
     else if(message.getHeaderValue(
         RFC6455::toString(RFC6455::HEADER::SecWebSocketExtensions))
         .length() != 0) /* no extensions in this connecton */   return false;
@@ -79,17 +79,10 @@ bool WebsocketClient::responseHelper(RFC2616::ResponseMessage message) {
         RFC6455::toString(RFC6455::HEADER::SecWebSocketProtocol))
         .length() != 0) /* no special protocols used */         return false;
     else { // check key matches
-        const unsigned int KEY_SIZE = 20;
-        bool check = false;
-        auto key = Base64::decode(
-            message.getHeaderValue(
-                RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept)
-            ),
-            check
+        auto key = message.getHeaderValue(
+            RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept)
         );
-        if(!check)                                              return false;
-        else if(key.length() != KEY_SIZE)                       return false;
-        else if(key != _key_)                                   return false;
+        if(key != _key_)                                        return false;
     }
     return true;
 }
