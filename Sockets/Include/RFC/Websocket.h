@@ -11,6 +11,13 @@
 #include <stdint.h>
 #include "RFC/Const6455.h"
 
+#define WS_OP_CONTINUE 0
+#define WS_OP_TEXT     1
+#define WS_OP_BINARY   2
+#define WS_OP_CLOSE    8
+#define WS_OP_PING     9
+#define WS_OP_PONG    10
+
 namespace Impact {
 namespace RFC6455 {
     typedef struct DataFrame {

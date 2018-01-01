@@ -70,17 +70,16 @@ add_library(${LIBRARY_NAME} ${BUILD_MODE} ${SOURCE_FILES})
 target_compile_definitions(${LIBRARY_NAME} PUBLIC ${BUILD_FLAGS})
 
 if(BUILD_EXAMPLES)
-	set(DEMO_TCP_CLIENT DemoTCPClient)
-	add_executable(${DEMO_TCP_CLIENT} "${EXAMPLES_PATH}/${DEMO_TCP_CLIENT}.cpp")
-	target_link_libraries(${DEMO_TCP_CLIENT} ${LIBRARY_NAME})
-
-	set(DEMO_TCP_SERVER DemoTCPServer)
-	add_executable(${DEMO_TCP_SERVER} "${EXAMPLES_PATH}/${DEMO_TCP_SERVER}.cpp")
-	target_link_libraries(${DEMO_TCP_SERVER} ${LIBRARY_NAME})
-
-	set(DEMO_WEB_CLIENT DemoWebClient)
-	add_executable(${DEMO_WEB_CLIENT} "${EXAMPLES_PATH}/${DEMO_WEB_CLIENT}.cpp")
-	target_link_libraries(${DEMO_WEB_CLIENT} ${LIBRARY_NAME})
+	set(EXAMPLE_PROGRAMS
+		"DemoTCPClient"
+		"DemoTCPServer"
+		"DemoWebsocketClient"
+		"DemoWebsocketServer"
+	)
+	foreach(PROGRAM ${EXAMPLE_PROGRAMS})
+		add_executable(${PROGRAM} "${EXAMPLES_PATH}/${PROGRAM}.cpp")
+		target_link_libraries(${PROGRAM} ${LIBRARY_NAME})
+	endforeach()
 endif()
 
 set(TARGETS
