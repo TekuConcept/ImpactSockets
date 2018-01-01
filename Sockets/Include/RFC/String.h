@@ -13,7 +13,7 @@ namespace RFC2616 {
         static bool eq(char c, char d) {return std::tolower(c)==std::tolower(d);}
         static bool lt(char c, char d) {return std::tolower(c)<std::tolower(d);}
         static int compare(const char* p, const char* q, std::size_t n) {
-            while (n--) {if (!eq(*p,*q)) return lt(*p,*q)?-1:1; ++p; ++q;}
+            while (n--) {if (!eq(*p,*q)) return lt(*p,*q)?-1:1; p++; q++;}
             return 0;
         }
     };

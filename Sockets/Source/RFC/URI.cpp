@@ -1,11 +1,16 @@
 /**
  * Created by TekuConcept on July 25, 2017
+ * 
+ * URIs should be immutable objects.
+ * Its properties should be readonly.
  */
 
 #include "RFC/URI.h"
 #include "RFC/Const2616.h"
 #include <sstream>
 #include <exception>
+#include <stdexcept>
+#include <algorithm>
 
 #include <iostream>
 #define DMSG(x) std::cerr << x << std::endl
@@ -13,12 +18,21 @@
 using namespace Impact;
 using namespace RFC2616;
 
-URI::URI() {
-    
-}
+typedef std::pair<std::string, std::pair<bool, unsigned short>> MetaToken;
+typedef std::pair<bool, unsigned short> MetaValue;
+
+std::map<std::string, std::pair<bool,unsigned short>> URI::_schemeMetaData_
+= {
+    MetaToken("http",  MetaValue(false, 80)),
+    MetaToken("https", MetaValue(true, 443)),
+    MetaToken("ws",    MetaValue(false, 80)),
+    MetaToken("wss",   MetaValue(true, 443))
+};
+
+URI::URI() {}
 
 URI::URI(std::string uri) {
-    if(!parse(uri)) throw std::exception();
+    if(!parse(uri)) throw std::runtime_error("Bad URI");
 }
 
 std::string URI::scheme() {
@@ -33,12 +47,12 @@ std::string URI::resource() {
     return _resource_;
 }
 
-unsigned int URI::port() {
+unsigned short URI::port() {
     return _port_;
 }
 
 bool URI::secure() {
-    return _scheme_ == "https";
+    return _secure_;
 }
 
 bool URI::validate(std::string uri) {
@@ -96,11 +110,26 @@ bool URI::parseScheme(std::string uri) {
     }
     
     _scheme_.assign(os.str());
+    
+    setMetaInfo();
+    
     return foundDelimiter;
 }
 
+void URI::setMetaInfo() {
+    auto meta = _schemeMetaData_.find(_scheme_);
+    if(meta != _schemeMetaData_.end()) {
+        _secure_ = meta->second.first;
+        _port_   = meta->second.second;
+    }
+    else {
+        _secure_ = false;
+        _port_   = 0;
+    }
+}
+
 bool URI::parseIPv6Host(std::string uri, unsigned int &offset) {
-    const int MAX_HOST  = 39; // IPv6 fully exapanded with ':' is 39 cahrs
+    const int MAX_HOST  = 39; // IPv6 fully exapanded with ':' is 39 chars
     const int MAX_LABEL =  4; // labels are only 4 hex chars long
     const int MIN_LEN   =  4; // "[::]"
     if((uri.length() - offset) < MIN_LEN) return false;
@@ -114,7 +143,7 @@ bool URI::parseIPv6Host(std::string uri, unsigned int &offset) {
     idx++;
     int labelLen = 0, hostLen = 0;
     while(idx < uri.length()) {
-        if(uri[idx] == '/') return false; // didn't close with ']'
+        if(uri[idx] == '/') break; // didn't close with ']'
         else if(uri[idx] == ':') {
             labelLen = 0;
             hostLen++;
@@ -122,11 +151,11 @@ bool URI::parseIPv6Host(std::string uri, unsigned int &offset) {
             
             colonDelimiterCount++;
             // IPv6 doesn't have more than 8 groups
-            if (colonDelimiterCount > 7) return false;
+            if (colonDelimiterCount > 7) break;
         }
         else if(uri[idx] == ']') {
             // expecting "::" minimum
-            if(colonDelimiterCount < 2) return false;
+            if(colonDelimiterCount < 2) break;
             else {
                 os << uri[idx];
                 idx++; // align with parseHost() function's return index
@@ -135,20 +164,16 @@ bool URI::parseIPv6Host(std::string uri, unsigned int &offset) {
             }
         }
         else if( // only allow legal hex values
-            (uri[idx] >= 'a' && uri[idx] <= 'f') || // a-z
+            (uri[idx] >= 'a' && uri[idx] <= 'f') || // a-f
+            (uri[idx] >= 'A' && uri[idx] <= 'F') || // A-F
             (uri[idx] >= '0' && uri[idx] <= '9')) {
-            labelLen++;
-            hostLen++;
-            os << uri[idx];
-        }
-        else if(uri[idx] >= 'A' && uri[idx] <= 'F') {
             labelLen++;
             hostLen++;
             os << RFC2616::toLower(uri[idx]);
         }
-        else return false;
+        else break;
         
-        if(labelLen > MAX_LABEL || hostLen > MAX_HOST) return false;
+        if(labelLen > MAX_LABEL || hostLen > MAX_HOST) break;
         idx++;
     }
     
@@ -158,7 +183,7 @@ bool URI::parseIPv6Host(std::string uri, unsigned int &offset) {
 bool URI::parseHost(std::string uri, unsigned int &offset) {
     const int MAX_HOST  = 254; // 253 + '.'
     const int MAX_LABEL =  63;
-    const int MIN_LEN   =   3; // "a.z"
+    const int MIN_LEN   =   1; // "a"
     if((uri.length() - offset) < MIN_LEN) return false;
     
     std::ostringstream os;
@@ -180,13 +205,9 @@ bool URI::parseHost(std::string uri, unsigned int &offset) {
         else if(uri[idx] == ':') break;
         else if(
             (uri[idx] >= 'a' && uri[idx] <= 'z') ||
+            (uri[idx] >= 'A' && uri[idx] <= 'Z') ||
             (uri[idx] >= '0' && uri[idx] <= '9') || // 0-9
             (uri[idx] == '-')) {
-            os << uri[idx];
-            labelLen++;
-            hostLen++;
-        }
-        else if(uri[idx] >= 'A' && uri[idx] <= 'Z') {
             os << RFC2616::toLower(uri[idx]);
             labelLen++;
             hostLen++;
@@ -211,7 +232,6 @@ bool URI::parsePort(std::string uri, unsigned int &offset) {
     unsigned int& idx = offset;
     std::ostringstream os;
     
-    _port_ = 0;
     if(idx < uri.length() && uri[idx] == ':') {
         // parse port
         const int MAX_CHARS = 5; // "65535"
@@ -231,15 +251,17 @@ bool URI::parsePort(std::string uri, unsigned int &offset) {
         std::string strport = os.str();
         if(strport.length() >= 1) {
             // only try to parse if there is something to parse
-            _port_ = std::stoi(strport);
-            if(_port_ > 65535) return false;
+            unsigned int tport = std::stoi(strport);
+            if(tport > 65535) return false;
+            else _port_ = static_cast<unsigned short>(tport);
         }
     }
-    
-    // if port is still 0, attempt to resolve port based on scheme
-    if(_port_ == 0) {
-        if(_scheme_ == "http")       _port_ = PORT;
-        else if(_scheme_ == "https") _port_ = SECURE_PORT;
-    }
+
     return true;
+}
+
+void URI::registerScheme(std::string name, unsigned short port, bool secure) {
+    if(name.length() == 0) return;
+    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+    _schemeMetaData_[name] = MetaValue(secure, port);
 }

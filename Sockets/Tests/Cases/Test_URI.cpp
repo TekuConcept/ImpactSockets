@@ -8,6 +8,19 @@
 using namespace Impact;
 using namespace RFC2616;
 
+TEST(TestURI, Create) {
+    try {
+        URI uri("ws://www.example.com/");
+        SUCCEED();
+    } catch(std::exception) {
+        FAIL();
+    }
+    
+    bool check;
+    URI uri = URI::tryParse("http://www.example.com", check);
+    EXPECT_TRUE(check);
+}
+
 TEST(TestURI, Scheme) {
     URI uri1("http://example.com/");
     EXPECT_EQ(uri1.scheme(), "http");
@@ -44,6 +57,8 @@ TEST(TestURI, Host) {
     EXPECT_TRUE(URI::validate("http://www.example.com/"));
     EXPECT_FALSE(URI::validate("http://-a.io"));
     EXPECT_TRUE(URI::validate("http://a.z:"));
+    EXPECT_FALSE(URI::validate("http://"));
+    EXPECT_TRUE(URI::validate("http://a"));
 }
 
 TEST(TestURI, Port) {
@@ -63,6 +78,12 @@ TEST(TestURI, Port) {
     
     URI uri4("rtp://localhost");
     EXPECT_EQ(uri4.port(), 0);
+    
+    URI uri5("ws://localhost");
+    EXPECT_EQ(uri5.port(), 80);
+    
+    URI uri6("wss://localhost");
+    EXPECT_EQ(uri6.port(), 443);
 }
 
 TEST(TestURI, Secure) {
@@ -74,6 +95,15 @@ TEST(TestURI, Secure) {
     
     URI uri3("https://www.example.com:8080/");
     EXPECT_TRUE(uri3.secure());
+    
+    URI uri4("ws://www.example.com/");
+    EXPECT_FALSE(uri4.secure());
+    
+    URI uri5("wss://www.example.com/");
+    EXPECT_TRUE(uri5.secure());
+    
+    URI uri6("unkown://www.example.com/");
+    EXPECT_FALSE(uri6.secure());
 }
 
 TEST(TestURI, Resource) {

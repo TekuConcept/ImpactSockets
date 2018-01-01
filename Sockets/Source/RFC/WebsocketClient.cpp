@@ -14,7 +14,7 @@
 using namespace Impact;
 using namespace RFC6455;
 
-WebsocketClient::WebsocketClient(std::iostream &stream, WSURI uri)
+WebsocketClient::WebsocketClient(std::iostream &stream, URI uri)
     : Websocket(stream, true), _uri_(uri) {}
 
 bool WebsocketClient::initiateHandshake() {

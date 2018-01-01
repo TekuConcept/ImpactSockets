@@ -8,7 +8,6 @@
 #define RFC_6455_H
 
 #include "RFC/Const6455.h"
-#include "RFC/WSURI.h"
 #include "RFC/WebsocketClient.h"
 #include "RFC/WebsocketServer.h"
 

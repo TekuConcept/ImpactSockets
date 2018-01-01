@@ -12,7 +12,7 @@ using namespace Impact;
 using namespace RFC6455;
 
 TEST(TestWebsocket, create) {
-    WSURI uri("ws://localhost:8080/path?query");
+    URI uri("ws://localhost:8080/path?query");
     std::stringstream tcpStream;
     WebsocketClient client(tcpStream, uri);
     WebsocketServer server(tcpStream);
@@ -22,7 +22,7 @@ TEST(TestWebsocket, create) {
 TEST(TestWebsocket, initiateClientHandshake) {
     std::stringstream tcpStream;
     
-    WSURI uri("ws://localhost:8080/path?query");
+    URI uri("ws://localhost:8080/path?query");
     WebsocketClient client(tcpStream, uri);
     client.initiateHandshake();
 
@@ -112,7 +112,7 @@ TEST(TestWebsocket, initiateServerHandshake) {
 TEST(TestWebsocket, acceptHandshake) {
     std::stringstream tcpStream;
     
-    WSURI uri("ws://localhost:8080/path?query");
+    URI uri("ws://localhost:8080/path?query");
     WebsocketClient client(tcpStream, uri);
     client.initiateHandshake();
     
@@ -123,7 +123,7 @@ TEST(TestWebsocket, acceptHandshake) {
 
 TEST(TestWebsocket, state) {
     std::stringstream tcpStream;
-    WSURI uri("ws://localhost:8080/");
+    URI uri("ws://localhost:8080/");
     
     WebsocketClient client(tcpStream, uri);
     WebsocketServer server(tcpStream);
@@ -147,7 +147,7 @@ TEST(TestWebsocket, state) {
 
 TEST(TestWebsocket, serializeOut) {
     std::stringstream tcpStream;
-    WSURI uri("ws://localhost:8080/");
+    URI uri("ws://localhost:8080/");
     WebsocketClient client(tcpStream, uri);
     WebsocketServer server(tcpStream);
     
