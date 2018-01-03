@@ -37,12 +37,12 @@ bool WebsocketServerNode::initiateHandshake() {
     ResponseMessage response(status);
     if(status == STATUS::SWITCHING) {
         response.addHeader(HEADER::Upgrade, "websocket");
-        response.addHeader(HEADER::Connection, "upgrade");
+        response.addHeader(HEADER::Connection, "Upgrade");
         response.addHeader(
             RFC6455::toString(RFC6455::HEADER::SecWebSocketAccept), hash);
     }
     
-    _stream_ << response.toString();
+    _stream_ << response.toString() << std::flush;
     if(status == STATUS::SWITCHING) {
         _connectionState_ = STATE::OPEN;
         return true;

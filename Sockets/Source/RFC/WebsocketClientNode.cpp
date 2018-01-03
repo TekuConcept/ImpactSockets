@@ -38,7 +38,7 @@ bool WebsocketClientNode::initiateHandshake() {
     message.addHeader(RFC6455::toString(RFC6455::HEADER::SecWebSocketVersion),
         "13");
     
-    _stream_ << message.toString();
+    _stream_ << message.toString() << std::flush;
     return true;
 }
 

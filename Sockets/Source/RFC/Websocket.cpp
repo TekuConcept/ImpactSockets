@@ -168,6 +168,8 @@ void Websocket::serializeOut(DataFrame frame) {
     }
     for(uint64_t i = 0; i < frame.length; i++)
         _stream_ << (char)(frame.data[i]^maskKey[i%4]);
+    
+    _stream_ << std::flush;
 }
 
 DataFrame Websocket::serializeIn() {
