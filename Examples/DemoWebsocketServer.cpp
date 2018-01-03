@@ -14,7 +14,7 @@ using namespace Impact;
 using namespace RFC6455;
 
 int main() {
-    TcpServer server(8080);
+    TcpServer server(8082);
 
     std::cout << "- SERVER STARTED -" << std::endl;
 
@@ -32,15 +32,15 @@ int main() {
             std::cout << packet.data;
         }
         else {
-            std::cout << "Op Code: " << packet.opcode;
+            std::cout << "Op Code: " << (int)packet.opcode;
         }
         std::cout << std::endl;
         ws.close();
+        connection->disconnect();
     }
     else {
         std::cout << "Websocket Message: handshake failed" << std::endl;
     }
-    
     
     return 0;
 }
