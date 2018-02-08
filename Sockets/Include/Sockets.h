@@ -121,6 +121,15 @@ namespace Impact {
 		*/
 		static unsigned short resolveService(const string &service,
 			const string &protocol = "tcp");
+		
+		/**
+		*   Allows a program to monitor 'readability' multiple sockets.
+		*   WARNING: Only tested on Linux
+		*   @param handles Socket handles to all sockets
+		*   @param timeout Time in seconds before timing out
+		*   @return 1 for success, 0 for timeout
+		*/
+		static int select(Socket** handles, int length, int timeout);
 
 	private:
 		// Prevent the user from trying to use value semantics on this object

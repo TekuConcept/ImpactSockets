@@ -13,7 +13,7 @@ TcpServer::TcpServer(unsigned short port) : server(port) {}
 TcpServer::~TcpServer() {}
 
 
-#include <iostream>
+
 TcpServer::TcpSocPtr TcpServer::accept() {
     std::shared_ptr<TCPSocket> socket(server.accept());
     TcpSocPtr connection = std::make_shared<TcpClient>();
@@ -24,6 +24,15 @@ TcpServer::TcpSocPtr TcpServer::accept() {
     return connection;
 }
 
+
+
 int TcpServer::getPort() {
     return server.getLocalPort();
+}
+
+
+
+int TcpServer::waitForClient(int timeout) {
+    Socket* handles[] = {&server};
+    return Socket::select(handles, 1, timeout);
 }
