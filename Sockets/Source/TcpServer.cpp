@@ -14,7 +14,7 @@ TcpServer::~TcpServer() {}
 
 
 
-TcpServer::TcpSocPtr TcpServer::accept() {
+TcpSocPtr TcpServer::accept() {
     std::shared_ptr<TCPSocket> socket(server.accept());
     TcpSocPtr connection = std::make_shared<TcpClient>();
     socket->setEvents(POLLIN);
