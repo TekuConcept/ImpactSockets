@@ -38,7 +38,7 @@ namespace Impact {
 		char* inputBuffer_;
 		std::shared_ptr<TCPSocket> socket;
 		bool connected, peerConnected;
-		int timeout = -1;
+		int timeout_ = -1;
 		Object self;
 
 		void init();

@@ -34,7 +34,6 @@ TcpClient::~TcpClient() {}
 
 void TcpClient::init() {
     connected = false;
-    peerConnected = false;
     
     setp(outputBuffer_, outputBuffer_ + BUF_SIZE - 1);
     setg(inputBuffer_, inputBuffer_ + BUF_SIZE - 1, inputBuffer_ + BUF_SIZE - 1);
@@ -45,7 +44,7 @@ void TcpClient::init() {
 short TcpClient::checkFlags(short events) {
     // set internal flags to handle user actions in advance
     if((events & POLLHUP) != 0)
-        peerConnected = false;
+        connected = false;
     // handle POLLERR?
     return events;
 }
@@ -58,12 +57,10 @@ int TcpClient::connect(int port, std::string address) {
         socket = std::make_shared<TCPSocket>(address, port);
         socket->setEvents(POLLIN);
         connected = true;
-        peerConnected = true;
     }
     catch (SocketException &e) {
         std::cerr << "TcpClient: " << e.what() << std::endl;
         connected = false;
-        peerConnected = false;
         return -1;
     }
     return 0;
@@ -73,15 +70,11 @@ int TcpClient::connect(int port, std::string address) {
 
 void TcpClient::disconnect() {
     if (socket != nullptr && connected) {
-        if(peerConnected) {
-            try {
-                socket->disconnect();
-            } catch(SocketException) {
-                // server disconnected first,
-                // ignore for now
-                std::cerr << "Peer disconnected first" << std::endl;
-            }
-            peerConnected = false;
+        try {
+            socket->disconnect();
+        } catch(SocketException) {
+            // recipient disconnected first, ignore for now
+            std::cerr << "Peer disconnected first" << std::endl;
         }
         connected = false;
     }
@@ -90,6 +83,9 @@ void TcpClient::disconnect() {
 
 
 bool TcpClient::isConnected() {
+    short isr;
+    socket->poll(isr, -1);
+    checkFlags(isr);
     return connected;
 }
 
@@ -97,8 +93,8 @@ bool TcpClient::isConnected() {
 
 void TcpClient::setTimeout(int time_ms) {
 	// -1 means waiting indefinitely ie no timeout
-	if (time_ms < -1) timeout = -1; // normalize
-	else              timeout = time_ms;
+	if (time_ms < -1) timeout_ = -1; // normalize
+	else              timeout_ = time_ms;
 }
 
 
@@ -116,7 +112,7 @@ int TcpClient::sync() {
 int TcpClient::underflow() {
     if(socket != nullptr && connected) {
         short isr;
-        if(socket->poll(isr, timeout) == 0) {
+        if(socket->poll(isr, timeout_) == 0) {
             EventArgs e;
             onTimeout.invoke(self, e);
         }
