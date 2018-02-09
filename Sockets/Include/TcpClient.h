@@ -30,6 +30,7 @@ namespace Impact {
 		int API_DECLSPEC underflow();
 		bool API_DECLSPEC isConnected();
 		void API_DECLSPEC setTimeout(int time_ms);
+		int API_DECLSPEC poll(int& isr, int timeout = -1);
 		EventHandler<EventArgs> onTimeout;
 
 	private:

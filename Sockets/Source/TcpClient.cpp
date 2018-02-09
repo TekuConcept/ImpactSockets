@@ -83,10 +83,13 @@ void TcpClient::disconnect() {
 
 
 bool TcpClient::isConnected() {
-    short isr;
-    socket->poll(isr, -1);
-    checkFlags(isr);
-    return connected;
+    if(connected) {
+        short isr;
+        socket->poll(isr, -1);
+        checkFlags(isr);
+        return connected;
+    }
+    return false;
 }
 
 
@@ -95,6 +98,15 @@ void TcpClient::setTimeout(int time_ms) {
 	// -1 means waiting indefinitely ie no timeout
 	if (time_ms < -1) timeout_ = -1; // normalize
 	else              timeout_ = time_ms;
+}
+
+
+
+int TcpClient::poll(int& isr, int timeout) {
+    short rsi;
+    int result = socket->poll(rsi, timeout);
+    isr = rsi;
+    return result;
 }
 
 
