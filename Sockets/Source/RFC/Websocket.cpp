@@ -97,7 +97,6 @@ DataFrame Websocket::read() {
     DataFrame result = serializeIn();
     if(!(_isClient_ ^ result.masked)) {
         close();
-        _connectionState_ = STATE::CLOSED;
     }
     else {
         switch(result.opcode) {
