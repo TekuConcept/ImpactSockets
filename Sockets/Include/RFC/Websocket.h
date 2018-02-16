@@ -27,6 +27,7 @@ namespace RFC6455 {
         bool masked;
         uint64_t length;
         const char* data;
+		DataFrame();
     } DataFrame;
     
     class Websocket {
@@ -52,7 +53,7 @@ namespace RFC6455 {
         STATE _connectionState_;
         
         std::mt19937 _engine_;
-        std::uniform_int_distribution<uint8_t> _distribution_;
+        std::uniform_int_distribution<unsigned short> _distribution_;
         
         const std::string SECRET = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     
