@@ -147,11 +147,11 @@ void Websocket::serializeOut(DataFrame frame) {
     else l = (unsigned char)127;
     _stream_ << (unsigned char)((frame.masked << 7) | l);
     
-    if(frame.length >= 126 && frame.length <= 65535) {
+    if(l == 126) {
         _stream_ << (char)(frame.length >> 8);
         _stream_ << (char)(frame.length & 0xFF);
     }
-    else if (frame.length > 65535) {
+    else if (l == 127) {
         // TODO: MSb must be 0
         for(unsigned short i = 8; i <= 64; i+=8)
             _stream_ << (char)((frame.length>>(64-i)) & 0xFF);
