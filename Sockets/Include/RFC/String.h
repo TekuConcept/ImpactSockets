@@ -6,6 +6,7 @@
 #define RFC_STRING_H
 
 #include <string>
+#include <cctype>
 
 namespace Impact{
 namespace RFC2616 {

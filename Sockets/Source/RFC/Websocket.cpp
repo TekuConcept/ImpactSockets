@@ -15,16 +15,19 @@ using namespace RFC6455;
 #define OP_PING     9
 #define OP_PONG    10
 
+DataFrame::DataFrame() : finished(true), reserved(0),
+	opcode(0), masked(false), length(0), data(NULL) {}
+
 Websocket::Websocket(std::iostream& stream, bool isClient)
     : _stream_(stream), _connectionState_(STATE::CLOSED),
-    _isClient_(isClient) {
+	_distribution_(0,255), _isClient_(isClient) {
     auto now = std::chrono::high_resolution_clock::now();
-    _engine_.seed(
+    _engine_.seed(static_cast<unsigned int>(
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             now.time_since_epoch()
         ).count() + (size_t)this
         // 'this' prevents two instances having the same seed
-    );
+    ));
 }
 
 Websocket::~Websocket() {}
@@ -194,15 +197,16 @@ DataFrame Websocket::serializeIn() {
         }
     }
     
-    std::string data(frame.length, '\0');
+    std::string data((const unsigned int)frame.length, '\0');
     unsigned char maskKey[4];
     for(unsigned short i = 0; i < 4; i++) {
         if(frame.masked) maskKey[i] = (char)_stream_.get();
         else             maskKey[i] = '\0';
     }
-    for(uint64_t i = 0; i < frame.length; i++)
-        data[i] = (char)(_stream_.get()^maskKey[i%4]);
+	for (uint64_t i = 0; i < frame.length; i++)
+		// limited array size; for 64-bit sizes, try queued processing
+		data[(const unsigned int)i] = (char)(_stream_.get() ^ maskKey[i%4]);
     frame.data = data.c_str();
-    
+
     return frame;
 }

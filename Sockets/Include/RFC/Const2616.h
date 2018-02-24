@@ -9,6 +9,10 @@
 #include <iostream>
 #include "RFC/String.h"
 
+#ifdef _WIN32
+	#undef DELETE
+#endif
+
 namespace Impact {
 namespace RFC2616 {
     const unsigned int HTTP_MAJOR = 1;
