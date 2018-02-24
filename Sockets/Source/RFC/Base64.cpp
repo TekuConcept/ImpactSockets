@@ -7,6 +7,7 @@
 #include <exception>
 
 #include <iostream>
+#include <iomanip>
 #define DMSG(x) std::cerr << x << std::endl
 
 using namespace Impact;
@@ -29,7 +30,9 @@ std::string Base64::encode(const std::string data) {
     unsigned int reg24;
     unsigned short reg16[4];
     for(unsigned int i = 0; (i+2) < data.length(); i+=3) {
-        reg24 = (data[i] << 16) | (data[i + 1] << 8) | (data[i + 2]);
+        reg24 = ((0xFF&data[i    ]) << 16) |
+                ((0xFF&data[i + 1]) <<  8) |
+                ((0xFF&data[i + 2]));
         for(short j = 3; j >= 0; j--) {
             reg16[j] = reg24 & SYMBOL;
             reg24 >>= SYMBOL_SIZE;
@@ -43,8 +46,8 @@ std::string Base64::encode(const std::string data) {
     if(padCount == 0) return os.str();
     else {
         std::string padding(padCount, PAD);
-        reg24 = (data[data.length() - 3 + padCount] << 16);
-        if(padCount == 1) reg24 |= (data[data.length() - 1] <<  8);
+        reg24 = ((0xFF&data[data.length() - 3 + padCount]) << 16);
+        if(padCount == 1) reg24 |= ((0xFF&data[data.length() - 1]) <<  8);
         else reg24 >>= SYMBOL_SIZE;
         for(short i = (3 - padCount); i >= 0; i--) {
             reg24 >>= SYMBOL_SIZE;

@@ -21,6 +21,10 @@ TEST(TestBase64, encode) {
         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10";
     std::string data = Base64::encode(message);
     EXPECT_EQ(data, "AQIDBAUGBwgJCgsMDQ4PEA==");
+    
+    message = "\xb3\x7a\x4f\x2c\xc0\x62\x4f\x16\x90\xf6\x46\x06\xcf\x38\x59\x45\xb2\xbe\xc4\xea";
+    data = Base64::encode(message);
+    EXPECT_EQ(data, "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
 }
 
 TEST(TestBase64, decode) {
