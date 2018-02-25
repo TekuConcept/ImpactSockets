@@ -195,26 +195,24 @@ DataFrame serializeIn(std::stringstream &_stream_) {
     frame.masked         = ((c & 0x80) == 0x80);
     unsigned char length = (c & 0x7F);
     if(length <= 125)
-        frame.length     = length;
-    else if(length == 126) {
-        frame.length     = (_stream_.get() << 8) | _stream_.get();
-    }
+        frame.data.resize(length, '\0');
+    else if(length == 126)
+        frame.data.resize((_stream_.get() << 8) | _stream_.get(), '\0');
     else {
-        for(unsigned short i = 0; i < 8; i++) {
-            frame.length <<= 8;
-            frame.length |= _stream_.get();
-        }
+        unsigned long long int pad = 0;
+        for(unsigned short i = 0; i < 8; i++)
+            pad = (pad << 8) | _stream_.get();
+        frame.data.resize(pad, '\0');
     }
     
-    std::string data(frame.length, '\0');
     unsigned char maskKey[4];
     for(unsigned short i = 0; i < 4; i++) {
         if(frame.masked) maskKey[i] = (char)_stream_.get();
         else             maskKey[i] = '\0';
     }
-    for(uint64_t i = 0; i < frame.length; i++)
-        data[i] = (char)(_stream_.get()^maskKey[i%4]);
-    frame.data = data.c_str();
+	for (uint64_t i = 0; i < frame.data.length(); i++)
+		// limited array size; for 64-bit sizes, try queued processing
+		frame.data[(const unsigned int)i] = (char)(_stream_.get() ^ maskKey[i%4]);
     
     return frame;
 }
@@ -227,9 +225,8 @@ TEST(TestWebsocket, serializeIn) {
     EXPECT_EQ(frame3.reserved, 0);
     EXPECT_EQ(frame3.opcode, 1);
     EXPECT_FALSE(frame3.masked);
-    EXPECT_EQ(frame3.length, 5);
-    std::string line3(frame3.data);
-    EXPECT_EQ(line3, "Hello");
+    EXPECT_EQ(frame3.data.length(), 5);
+    EXPECT_EQ(frame3.data, "Hello");
     
     std::stringstream ss4("\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58");
     DataFrame frame4 = serializeIn(ss4);
@@ -237,7 +234,6 @@ TEST(TestWebsocket, serializeIn) {
     EXPECT_EQ(frame4.reserved, 0);
     EXPECT_EQ(frame4.opcode, 1);
     EXPECT_TRUE(frame4.masked);
-    EXPECT_EQ(frame4.length, 5);
-    std::string line4(frame4.data);
-    EXPECT_EQ(line4, "Hello");
+    EXPECT_EQ(frame4.data.length(), 5);
+    EXPECT_EQ(frame4.data, "Hello");
 }

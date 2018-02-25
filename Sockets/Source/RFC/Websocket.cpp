@@ -16,7 +16,7 @@ using namespace RFC6455;
 #define OP_PONG    10
 
 DataFrame::DataFrame() : finished(true), reserved(0),
-	opcode(0), masked(false), length(0), data(NULL) {}
+	opcode(0), masked(false), data("") {}
 
 Websocket::Websocket(std::iostream& stream, bool isClient)
     : _stream_(stream), _connectionState_(STATE::CLOSED),
@@ -56,10 +56,8 @@ void Websocket::pong(DataFrame frame) {
     DataFrame nextFrame;
     initFrame(nextFrame);
     nextFrame.opcode = OP_PONG;
-    if(frame.length > 0) {
-        nextFrame.length = frame.length;
+    if(frame.data.length() > 0)
         nextFrame.data = frame.data;
-    }
     serializeOut(nextFrame);
 }
 
@@ -75,8 +73,7 @@ void Websocket::sendText(std::string text) {
     DataFrame frame;
     initFrame(frame);
     frame.opcode     = OP_TEXT;
-    frame.length     = text.length();
-    frame.data       = text.c_str();
+    frame.data       = text;
     serializeOut(frame);
 }
 
@@ -84,8 +81,7 @@ void Websocket::sendBinary(const char* data, unsigned int length) {
     DataFrame frame;
     initFrame(frame);
     frame.opcode     = OP_BINARY;
-    frame.length     = length;
-    frame.data       = data;
+    frame.data       = std::string(data, length);
     serializeOut(frame);
 }
 
@@ -93,7 +89,6 @@ void Websocket::initFrame(DataFrame &frame) {
     frame.finished   = true;
     frame.reserved   = '\0';
     frame.masked     = _isClient_;
-    frame.length     = 0;
 }
 
 DataFrame Websocket::read() {
@@ -139,25 +134,26 @@ void Websocket::serializeOut(DataFrame frame) {
     if(_connectionState_ == STATE::CLOSED) return;
     
     _stream_ << (unsigned char)((frame.finished ? 0x80 : 0x0) |
-                               ((frame.reserved & 0x7) << 4)  | 
+                              ((frame.reserved & 0x7) << 4)  | 
                                 (frame.opcode   & 0xF));
     
     unsigned char l;
-    if(frame.length <= 125)
-         l = (unsigned char)(frame.length);
-    else if (frame.length <= 65535)
+    auto length = frame.data.length();
+    if(length <= 125)
+         l = (unsigned char)(length);
+    else if (length <= 65535)
          l = (unsigned char)126;
     else l = (unsigned char)127;
     _stream_ << (unsigned char)((frame.masked << 7) | l);
     
     if(l == 126) {
-        _stream_ << (char)(frame.length >> 8);
-        _stream_ << (char)(frame.length & 0xFF);
+        _stream_ << (char)(length >> 8);
+        _stream_ << (char)(length & 0xFF);
     }
     else if (l == 127) {
         // TODO: MSb must be 0
         for(unsigned short i = 8; i <= 64; i+=8)
-            _stream_ << (char)((frame.length>>(64-i)) & 0xFF);
+            _stream_ << (char)((length>>(64-i)) & 0xFF);
     }
     
     unsigned char maskKey[4];
@@ -168,7 +164,7 @@ void Websocket::serializeOut(DataFrame frame) {
         }
         else maskKey[i] = '\0';
     }
-    for(uint64_t i = 0; i < frame.length; i++)
+    for(uint64_t i = 0; i < length; i++)
         _stream_ << (char)(frame.data[i]^maskKey[i%4]);
     
     _stream_ << std::flush;
@@ -187,26 +183,24 @@ DataFrame Websocket::serializeIn() {
     frame.masked         = ((c & 0x80) == 0x80);
     unsigned char length = (c & 0x7F);
     if(length <= 125)
-        frame.length     = length;
+        frame.data.resize(length, '\0');
     else if(length == 126)
-        frame.length     = (_stream_.get() << 8) | _stream_.get();
+        frame.data.resize((_stream_.get() << 8) | _stream_.get(), '\0');
     else {
-        for(unsigned short i = 0; i < 8; i++) {
-            frame.length <<= 8;
-            frame.length |= _stream_.get();
-        }
+        unsigned long long int pad = 0;
+        for(unsigned short i = 0; i < 8; i++)
+            pad = (pad << 8) | _stream_.get();
+        frame.data.resize(pad, '\0');
     }
     
-    std::string data((const unsigned int)frame.length, '\0');
     unsigned char maskKey[4];
     for(unsigned short i = 0; i < 4; i++) {
         if(frame.masked) maskKey[i] = (char)_stream_.get();
         else             maskKey[i] = '\0';
     }
-	for (uint64_t i = 0; i < frame.length; i++)
+	for (uint64_t i = 0; i < frame.data.length(); i++)
 		// limited array size; for 64-bit sizes, try queued processing
-		data[(const unsigned int)i] = (char)(_stream_.get() ^ maskKey[i%4]);
-    frame.data = data.c_str();
-
+		frame.data[(const unsigned int)i] = (char)(_stream_.get() ^ maskKey[i%4]);
+    
     return frame;
 }

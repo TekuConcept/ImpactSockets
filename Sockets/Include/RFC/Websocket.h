@@ -25,8 +25,7 @@ namespace RFC6455 {
         unsigned char reserved;
         unsigned char opcode;
         bool masked;
-        uint64_t length;
-        const char* data;
+        std::string data;
 		DataFrame();
     } DataFrame;
     
