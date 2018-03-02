@@ -41,12 +41,11 @@ void TcpClient::init() {
 
 
 
-short TcpClient::checkFlags(short events) {
+void TcpClient::checkFlags() {
     // set internal flags to handle user actions in advance
-    if((events & POLLHUP) != 0)
+    if((pollToken.revents & POLLHUP) != 0)
         connected = false;
-    // handle POLLERR?
-    return events;
+    // Todo: handle POLLERR event?
 }
 
 
@@ -55,7 +54,8 @@ int TcpClient::connect(int port, std::string address) {
     if(connected) return -2;
     try {
         socket = std::make_shared<TCPSocket>(address, port);
-        socket->setEvents(POLLIN);
+        pollToken.handle = &socket->getHandle();
+        pollToken.events = POLLIN;
         connected = true;
     }
     catch (SocketException &e) {
@@ -84,9 +84,8 @@ void TcpClient::disconnect() {
 
 bool TcpClient::isConnected() {
     if(connected) {
-        short isr;
-        socket->poll(isr, -1);
-        checkFlags(isr);
+        Socket::poll(&pollToken, 1, 0); // Todo: poll error handling?
+        checkFlags();
         return connected;
     }
     return false;
@@ -98,15 +97,6 @@ void TcpClient::setTimeout(int time_ms) {
 	// -1 means waiting indefinitely ie no timeout
 	if (time_ms < -1) timeout_ = -1; // normalize
 	else              timeout_ = time_ms;
-}
-
-
-
-int TcpClient::poll(int& isr, int timeout) {
-    short rsi;
-    int result = socket->poll(rsi, timeout);
-    isr = rsi;
-    return result;
 }
 
 
@@ -123,15 +113,18 @@ int TcpClient::sync() {
 
 int TcpClient::underflow() {
     if(socket != nullptr && connected) {
-        short isr;
-        if(socket->poll(isr, timeout_) == 0) {
+        auto state = Socket::poll(&pollToken, 1, timeout_);
+        if(state == 0) {
             EventArgs e;
             onTimeout.invoke(self, e);
         }
-        else if((checkFlags(isr) & POLLIN) > 0) {
-            int bytesReceived = socket->recv(eback(), BUF_SIZE);
-            setg(eback(), eback(), eback() + bytesReceived);
-            return *eback();
+        else {
+            checkFlags();
+            if((pollToken.revents & POLLIN) > 0) {
+                int bytesReceived = socket->recv(eback(), BUF_SIZE);
+                setg(eback(), eback(), eback() + bytesReceived);
+                return *eback();
+            }
         }
     }
     return EOF;

@@ -16,9 +16,7 @@
 *   along with this program; if not, write to the Free Software
 *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 *
-*   Modified by TekuConcept on May 12, 2017, for Windows support.
-*   Modified by TekuConcept on July 18, 2017, for Mac support.
-*   Modified by TekuConcept on July 23, 2017, for poll feature.
+*   Modified by TekuConcept
 */
 
 #ifndef __PRACTICALSOCKET_INCLUDED__
@@ -41,6 +39,28 @@
 #define exception std::exception
 
 namespace Impact {
+	/**
+	*   Holds onto the socket descriptor and allows for
+	*	class-restricted socket manipulation.
+	*/
+	class SocketHandle {
+	protected:
+		int descriptor;
+	public:
+		virtual ~SocketHandle() {}
+		virtual SocketHandle& getHandle() = 0;
+		friend class Socket;
+	};
+	
+	/**
+	*   SocketPollToken replaces the pollfd struct by using
+	*   SocketHandles instead of raw socket descriptors.
+	*/
+	typedef struct SocketPollToken {
+		SocketHandle* handle;
+		short events;
+		short revents;
+	} SocketPollToken;
 
 	/**
 	*   Signals a problem with the execution of a socket call.
@@ -73,12 +93,17 @@ namespace Impact {
 	/**
 	*   Base class representing basic communication endpoint
 	*/
-	class Socket {
+	class Socket : public SocketHandle {
 	public:
 		/**
 		*   Close and deallocate this socket
 		*/
 		~Socket();
+		
+		/**
+		*   Returns the underlying memento handle for the socket descriptor.
+		*/
+		SocketHandle& getHandle();
 
 		/**
 		*   Get the local address
@@ -125,22 +150,35 @@ namespace Impact {
 		/**
 		*   Allows a program to monitor 'readability' multiple sockets.
 		*   WARNING: Only tested on Linux
-		*   @param handles Socket handles to all sockets
+		*   @param handles SocketHandles to collection of sockets
 		*   @param timeout Time in seconds before timing out
 		*   @return 1 for success, 0 for timeout
 		*/
-		static int select(Socket** handles, int length, int timeout);
+		static int select(SocketHandle** handles, int length, unsigned int timeout);
+		static int select(SocketHandle** handles, int length, struct timeval* timeout=NULL);
+		
+		/*
+		*   Polls sockets for events.
+		*   @param handles Contains an array of SocketHandles and event information.
+		*   @return 1 for success, 0 for timeout
+		*   @exception SocketException thrown if poll failed
+		*/
+		static int poll(SocketPollToken* handles, int length, int timeout=-1);
 
 	private:
 		// Prevent the user from trying to use value semantics on this object
 		Socket(const Socket &sock);
-		//void operator=(const Socket &sock);
+		void operator=(const Socket &sock) = delete;
+		
+		struct FastFD {
+			int fd;
+			short& events;
+			short& revents;
+		};
 
 	protected:
-		int sockDesc;              // Socket descriptor
-		struct pollfd fds[1];
 		Socket(int type, int protocol) throw(SOC_EXCEPTION);
-		Socket(int sockDesc);
+		Socket(int socketDescriptor);
 	};
 
 	/**
@@ -179,19 +217,19 @@ namespace Impact {
 		*/
 		int recv(void *buffer, int bufferLen) throw(SOC_EXCEPTION);
 		
-		/**
-		*   Sets the events that will be used when polling.
-		*   @param events requested events
-		*/
-		void setEvents(short events);
+		// /**
+		// *   Sets the events that will be used when polling.
+		// *   @param events requested events
+		// */
+		// void setEvents(short events);
 		
-		/**
-		*   Polls the socket for the requested events.
-		*   @param revents return events
-		*   @return 1 for success, 0 for timeout
-		*   @exception SocketException thrown if poll failed
-		*/
-		int poll(short &revents, int timeout) throw(SOC_EXCEPTION);
+		// /**
+		// *   Polls the socket for the requested events.
+		// *   @param revents return events
+		// *   @return 1 for success, 0 for timeout
+		// *   @exception SocketException thrown if poll failed
+		// */
+		// int poll(short &revents, int timeout) throw(SOC_EXCEPTION);
 
 		/**
 		*   Get the foreign address.  Call connect() before calling recv()

@@ -17,10 +17,10 @@ TcpServer::~TcpServer() {}
 TcpSocPtr TcpServer::accept() {
     std::shared_ptr<TCPSocket> socket(server.accept());
     TcpSocPtr connection = std::make_shared<TcpClient>();
-    socket->setEvents(POLLIN);
     connection->socket = socket;
     connection->connected = true;
-    connection->peerConnected = true;
+    connection->pollToken.handle = &socket->getHandle();
+    connection->pollToken.events = POLLIN;
     return connection;
 }
 
@@ -33,6 +33,6 @@ int TcpServer::getPort() {
 
 
 int TcpServer::waitForClient(int timeout) {
-    Socket* handles[] = {&server};
+    SocketHandle* handles[] = {&server.getHandle()};
     return Socket::select(handles, 1, timeout);
 }

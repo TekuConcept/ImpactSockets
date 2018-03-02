@@ -120,25 +120,22 @@ Socket::Socket(int type, int protocol) throw(SOC_EXCEPTION) {
 	}
 #endif
 	// Make a new socket
-	if ((sockDesc = socket(PF_INET, type, protocol)) < 0) {
+	if ((descriptor = socket(PF_INET, type, protocol)) < 0) {
 		throw SocketException("Socket creation failed (socket())", true);
 	}
-	fds[0].fd = sockDesc;
 }
 
 
 
-Socket::Socket(int sockDesc) {
-	this->sockDesc = sockDesc;
-	fds[0].fd = sockDesc;
+Socket::Socket(int socketDescriptor) {
+	descriptor = socketDescriptor;
 }
 
 
 
 Socket::~Socket() {
-	CLOSE_SOCKET(sockDesc);
-	sockDesc = -1;
-	fds[0].fd = -1;
+	CLOSE_SOCKET(descriptor);
+	descriptor = -1;
 
 #if defined(_MSC_VER)
 	WSACleanup();
@@ -147,11 +144,17 @@ Socket::~Socket() {
 
 
 
+SocketHandle& Socket::getHandle() {
+	return *this;
+}
+
+
+
 string Socket::getLocalAddress() throw(SOC_EXCEPTION) {
 	sockaddr_in addr;
 	unsigned int addr_len = sizeof(addr);
 
-	if (getsockname(sockDesc, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
+	if (getsockname(descriptor, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
 		throw SocketException("Fetch of local address failed (getsockname())", true);
 	}
 	return inet_ntoa(addr.sin_addr);
@@ -163,7 +166,7 @@ unsigned short Socket::getLocalPort() throw(SOC_EXCEPTION) {
 	sockaddr_in addr;
 	unsigned int addr_len = sizeof(addr);
 
-	if (getsockname(sockDesc, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
+	if (getsockname(descriptor, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
 		throw SocketException("Fetch of local port failed (getsockname())", true);
 	}
 	return ntohs(addr.sin_port);
@@ -179,7 +182,7 @@ void Socket::setLocalPort(unsigned short localPort) throw(SOC_EXCEPTION) {
 	localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	localAddr.sin_port = htons(localPort);
 
-	if (::bind(sockDesc, (sockaddr *)&localAddr, sizeof(sockaddr_in)) < 0) {
+	if (::bind(descriptor, (sockaddr *)&localAddr, sizeof(sockaddr_in)) < 0) {
 		throw SocketException("Set of local port failed (bind())", true);
 	}
 }
@@ -192,7 +195,7 @@ void Socket::setLocalAddressAndPort(const string &localAddress,
 	sockaddr_in localAddr;
 	fillAddr(localAddress, localPort, localAddr);
 
-	if (::bind(sockDesc, (sockaddr *)&localAddr, sizeof(sockaddr_in)) < 0) {
+	if (::bind(descriptor, (sockaddr *)&localAddr, sizeof(sockaddr_in)) < 0) {
 		throw SocketException("Set of local address and port failed (bind())", true);
 	}
 }
@@ -211,23 +214,45 @@ unsigned short Socket::resolveService(const string &service,
 
 
 
-int Socket::select(Socket** handles, int length, int timeout) {
+int Socket::select(SocketHandle** handles, int length, struct timeval* timeout) {
 	fd_set set;
-	struct timeval time_s;
 	int nfds = 0, rval;
-	
-	time_s.tv_sec = timeout;
-	time_s.tv_usec = 0;
 	
 	FD_ZERO(&set);
 	for(int i = 0; i < length; i++) {
-		auto handle = handles[i]->sockDesc;
+		auto handle = handles[i]->descriptor;
 		FD_SET(handle, &set);
 		if(handle > nfds) nfds = handle;
 	}
 	
-	rval = ::select(nfds + 1, &set, NULL, NULL, (timeout<0?NULL:&time_s));
+	rval = ::select(nfds + 1, &set, NULL, NULL, timeout);
 	return rval;
+}
+
+
+
+int Socket::select(SocketHandle** handles, int length, unsigned int timeout) {
+	struct timeval time_s;
+	time_s.tv_sec = timeout;
+	time_s.tv_usec = 0;
+	return Socket::select(handles, length, &time_s);
+}
+
+
+
+int Socket::poll(SocketPollToken* handles, int length, int timeout) {
+	int rtn;
+	struct pollfd* fds = new pollfd[length];
+	for(int i = 0; i < length; i++) {
+		fds[i].fd = handles[i].handle->descriptor;
+		fds[i].events = handles[i].events;
+		fds[i].revents = 0;
+	}
+	rtn = SOC_POLL(fds, length, timeout);
+	for(int i = 0; i < length; i++)
+		handles[i].revents = fds[i].revents;
+	delete[] fds;
+	return rtn;
 }
 
 
@@ -237,13 +262,11 @@ int Socket::select(Socket** handles, int length, int timeout) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
 
 CommunicatingSocket::CommunicatingSocket(int type, int protocol)
-throw(SOC_EXCEPTION) : Socket(type, protocol) {
-}
+throw(SOC_EXCEPTION) : Socket(type, protocol) {}
 
 
 
-CommunicatingSocket::CommunicatingSocket(int newConnSD) : Socket(newConnSD) {
-}
+CommunicatingSocket::CommunicatingSocket(int newConnSD) : Socket(newConnSD) {}
 
 
 
@@ -254,7 +277,7 @@ void CommunicatingSocket::connect(const string &foreignAddress,
 	fillAddr(foreignAddress, foreignPort, destAddr);
 
 	// Try to connect to the given port
-	if (::connect(sockDesc, (sockaddr *)&destAddr, sizeof(destAddr)) < 0) {
+	if (::connect(descriptor, (sockaddr *)&destAddr, sizeof(destAddr)) < 0) {
 		throw SocketException("Connect failed (connect())", true);
 	}
 }
@@ -263,7 +286,7 @@ void CommunicatingSocket::connect(const string &foreignAddress,
 
 void CommunicatingSocket::disconnect()
 throw(SOC_EXCEPTION) {
-	if (shutdown(sockDesc, SOC_SD_HOW) < 0) {
+	if (shutdown(descriptor, SOC_SD_HOW) < 0) {
 		throw SocketException("Shutdown failed (disconnect())", true);
 	}
 }
@@ -272,7 +295,7 @@ throw(SOC_EXCEPTION) {
 
 void CommunicatingSocket::send(const void *buffer, int bufferLen)
 throw(SOC_EXCEPTION) {
-	if (::send(sockDesc, (CCHAR_PTR)buffer, bufferLen, 0) < 0) {
+	if (::send(descriptor, (CCHAR_PTR)buffer, bufferLen, 0) < 0) {
 		throw SocketException("Send failed (send())", true);
 	}
 }
@@ -282,7 +305,7 @@ throw(SOC_EXCEPTION) {
 int CommunicatingSocket::recv(void *buffer, int bufferLen)
 throw(SOC_EXCEPTION) {
 	int rtn;
-	if ((rtn = ::recv(sockDesc, (CHAR_PTR)buffer, bufferLen, 0)) < 0) {
+	if ((rtn = ::recv(descriptor, (CHAR_PTR)buffer, bufferLen, 0)) < 0) {
 		throw SocketException("Received failed (recv())", true);
 	}
 
@@ -291,22 +314,22 @@ throw(SOC_EXCEPTION) {
 
 
 
-void CommunicatingSocket::setEvents(short events) {
-	fds[0].events = events;
-}
+// void CommunicatingSocket::setEvents(short events) {
+// 	fds[0].events = events;
+// }
 
 
 
-int CommunicatingSocket::poll(short &revents, int timeout)
-throw(SOC_EXCEPTION) {
-	int rtn;
-	fds[0].revents = 0;
-	if((rtn = SOC_POLL(fds, 1, timeout)) < 0) {
-		throw SocketException("Poll failed (poll())", true);
-	}
-	revents = fds[0].revents;
-	return rtn;
-}
+// int CommunicatingSocket::poll(short &revents, int timeout)
+// 	throw(SOC_EXCEPTION) {
+// 	int rtn;
+// 	fds[0].revents = 0;
+// 	if((rtn = SOC_POLL(fds, 1, timeout)) < 0) {
+// 		throw SocketException("Poll failed (poll())", true);
+// 	}
+// 	revents = fds[0].revents;
+// 	return rtn;
+// }
 
 
 
@@ -315,7 +338,7 @@ throw(SOC_EXCEPTION) {
 	sockaddr_in addr;
 	unsigned int addr_len = sizeof(addr);
 
-	if (getpeername(sockDesc, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
+	if (getpeername(descriptor, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
 		throw SocketException("Fetch of foreign address failed (getpeername())", true);
 	}
 	return inet_ntoa(addr.sin_addr);
@@ -327,7 +350,7 @@ unsigned short CommunicatingSocket::getForeignPort() throw(SOC_EXCEPTION) {
 	sockaddr_in addr;
 	unsigned int addr_len = sizeof(addr);
 
-	if (getpeername(sockDesc, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
+	if (getpeername(descriptor, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
 		throw SocketException("Fetch of foreign port failed (getpeername())", true);
 	}
 	return ntohs(addr.sin_port);
@@ -340,9 +363,7 @@ unsigned short CommunicatingSocket::getForeignPort() throw(SOC_EXCEPTION) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
 
 TCPSocket::TCPSocket()
-throw(SOC_EXCEPTION) : CommunicatingSocket(SOCK_STREAM,
-	IPPROTO_TCP) {
-}
+throw(SOC_EXCEPTION) : CommunicatingSocket(SOCK_STREAM, IPPROTO_TCP) {}
 
 
 
@@ -353,8 +374,7 @@ throw(SOC_EXCEPTION) : CommunicatingSocket(SOCK_STREAM, IPPROTO_TCP) {
 
 
 
-TCPSocket::TCPSocket(int newConnSD) : CommunicatingSocket(newConnSD) {
-}
+TCPSocket::TCPSocket(int newConnSD) : CommunicatingSocket(newConnSD) {}
 
 
 
@@ -381,7 +401,7 @@ TCPServerSocket::TCPServerSocket(const string &localAddress,
 
 TCPSocket *TCPServerSocket::accept() throw(SOC_EXCEPTION) {
 	int newConnSD;
-	if ((newConnSD = ::accept(sockDesc, NULL, 0)) < 0) {
+	if ((newConnSD = ::accept(descriptor, NULL, 0)) < 0) {
 		throw SocketException("Accept failed (accept())", true);
 	}
 
@@ -391,7 +411,7 @@ TCPSocket *TCPServerSocket::accept() throw(SOC_EXCEPTION) {
 
 
 void TCPServerSocket::setListen(int queueLen) throw(SOC_EXCEPTION) {
-	if (listen(sockDesc, queueLen) < 0) {
+	if (listen(descriptor, queueLen) < 0) {
 		throw SocketException("Set listening socket failed (listen())", true);
 	}
 }
@@ -429,7 +449,7 @@ void UDPSocket::setBroadcast() {
 	// If this fails, we'll hear about it when we try to send.  This will allow
 	// system that cannot broadcast to continue if they don't plan to broadcast
 	int broadcastPermission = 1;
-	setsockopt(sockDesc, SOL_SOCKET, SO_BROADCAST,
+	setsockopt(descriptor, SOL_SOCKET, SO_BROADCAST,
 		(CCHAR_PTR)&broadcastPermission, sizeof(broadcastPermission));
 }
 
@@ -441,7 +461,7 @@ void UDPSocket::disconnect() throw(SOC_EXCEPTION) {
 	nullAddr.sin_family = AF_UNSPEC;
 
 	// Try to disconnect
-	if (::connect(sockDesc, (sockaddr *)&nullAddr, sizeof(nullAddr)) < 0) {
+	if (::connect(descriptor, (sockaddr *)&nullAddr, sizeof(nullAddr)) < 0) {
 		if (errno != EAFNOSUPPORT) {
 			throw SocketException("Disconnect failed (connect())", true);
 		}
@@ -457,7 +477,7 @@ void UDPSocket::sendTo(const void *buffer, int bufferLen,
 	fillAddr(foreignAddress, foreignPort, destAddr);
 
 	// Write out the whole buffer as a single message.
-	if (sendto(sockDesc, (CCHAR_PTR)buffer, bufferLen, 0,
+	if (sendto(descriptor, (CCHAR_PTR)buffer, bufferLen, 0,
 		(sockaddr *)&destAddr, sizeof(destAddr)) != bufferLen) {
 		throw SocketException("Send failed (sendto())", true);
 	}
@@ -470,7 +490,7 @@ int UDPSocket::recvFrom(void *buffer, int bufferLen, string &sourceAddress,
 	sockaddr_in clntAddr;
 	socklen_t addrLen = sizeof(clntAddr);
 	int rtn;
-	if ((rtn = recvfrom(sockDesc, (CHAR_PTR)buffer, bufferLen, 0,
+	if ((rtn = recvfrom(descriptor, (CHAR_PTR)buffer, bufferLen, 0,
 		(sockaddr *)&clntAddr, (socklen_t *)&addrLen)) < 0) {
 		throw SocketException("Receive failed (recvfrom())", true);
 	}
@@ -483,7 +503,7 @@ int UDPSocket::recvFrom(void *buffer, int bufferLen, string &sourceAddress,
 
 
 void UDPSocket::setMulticastTTL(unsigned char multicastTTL) throw(SOC_EXCEPTION) {
-	if (setsockopt(sockDesc, IPPROTO_IP, IP_MULTICAST_TTL,
+	if (setsockopt(descriptor, IPPROTO_IP, IP_MULTICAST_TTL,
 		(CCHAR_PTR)&multicastTTL, sizeof(multicastTTL)) < 0) {
 		throw SocketException("Multicast TTL set failed (setsockopt())", true);
 	}
@@ -496,7 +516,7 @@ void UDPSocket::joinGroup(const string &multicastGroup) throw(SOC_EXCEPTION) {
 
 	multicastRequest.imr_multiaddr.s_addr = inet_addr(multicastGroup.c_str());
 	multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
-	if (setsockopt(sockDesc, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+	if (setsockopt(descriptor, IPPROTO_IP, IP_ADD_MEMBERSHIP,
 		(CCHAR_PTR)&multicastRequest,
 		sizeof(multicastRequest)) < 0) {
 		throw SocketException("Multicast group join failed (setsockopt())", true);
@@ -510,7 +530,7 @@ void UDPSocket::leaveGroup(const string &multicastGroup) throw(SOC_EXCEPTION) {
 
 	multicastRequest.imr_multiaddr.s_addr = inet_addr(multicastGroup.c_str());
 	multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
-	if (setsockopt(sockDesc, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+	if (setsockopt(descriptor, IPPROTO_IP, IP_DROP_MEMBERSHIP,
 		(CCHAR_PTR)&multicastRequest,
 		sizeof(multicastRequest)) < 0) {
 		throw SocketException("Multicast group leave failed (setsockopt())", true);

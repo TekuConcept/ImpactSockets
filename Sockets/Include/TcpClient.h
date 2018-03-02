@@ -30,7 +30,6 @@ namespace Impact {
 		int API_DECLSPEC underflow();
 		bool API_DECLSPEC isConnected();
 		void API_DECLSPEC setTimeout(int time_ms);
-		int API_DECLSPEC poll(int& isr, int timeout = -1);
 		EventHandler<EventArgs> onTimeout;
 
 	private:
@@ -38,12 +37,13 @@ namespace Impact {
 		char* outputBuffer_;
 		char* inputBuffer_;
 		std::shared_ptr<TCPSocket> socket;
-		bool connected, peerConnected;
+		SocketPollToken pollToken;
+		bool connected;;
 		int timeout_ = -1;
 		Object self;
 
 		void init();
-		short checkFlags(short events);
+		void checkFlags();
 	};
 }
 
