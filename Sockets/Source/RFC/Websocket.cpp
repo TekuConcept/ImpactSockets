@@ -93,6 +93,7 @@ void Websocket::initFrame(DataFrame &frame) {
 
 DataFrame Websocket::read() {
     DataFrame result = serializeIn();
+    if(result.bad) return result;
     if(!(_isClient_ ^ result.masked)) {
         close();
     }
