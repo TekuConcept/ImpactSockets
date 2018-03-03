@@ -7,6 +7,8 @@
 #include <RFC/4648>
 #include <RFC/6455>
 #include <sstream>
+#include <iostream>
+#include <iomanip>
 
 using namespace Impact;
 using namespace RFC6455;
@@ -182,39 +184,55 @@ TEST(TestWebsocket, serializeOut) {
 #define DMSG(x) std::cerr << x << std::endl
 #endif
 
-DataFrame serializeIn(std::stringstream &_stream_) {
+// TODO: Make direct unit test for this function instead of indirect
+DataFrame serializeIn(std::iostream& _stream_) {
+    #define BAD_FRAME_TEST(c) if(!(_stream_ >> c)) return frame;
     DataFrame frame;
-    unsigned char c;
+    frame.bad = true;
+    char byte;
     
-    _stream_ >> c;
-    frame.finished = ((c & 0x80) == 0x80);
-    frame.reserved = ((c >> 4) & 0x7);
-    frame.opcode   = (c & 0xF);
+    BAD_FRAME_TEST(byte)
+    frame.finished = ((byte & 0x80) == 0x80);
+    frame.reserved = ((byte >> 4) & 0x7);
+    frame.opcode   = (byte & 0xF);
     
-    _stream_ >> c;
-    frame.masked         = ((c & 0x80) == 0x80);
-    unsigned char length = (c & 0x7F);
+    BAD_FRAME_TEST(byte)
+    frame.masked         = ((byte & 0x80) == 0x80);
+    unsigned char length = (byte & 0x7F);
     if(length <= 125)
         frame.data.resize(length, '\0');
-    else if(length == 126)
-        frame.data.resize((_stream_.get() << 8) | _stream_.get(), '\0');
+    else if(length == 126) {
+        char msb, lsb;
+        BAD_FRAME_TEST(msb)
+        BAD_FRAME_TEST(lsb)
+        frame.data.resize((msb << 8) | lsb, '\0');
+    }
     else {
         unsigned long long int pad = 0;
-        for(unsigned short i = 0; i < 8; i++)
-            pad = (pad << 8) | _stream_.get();
+        for(unsigned short i = 0; i < 8; i++) {
+            BAD_FRAME_TEST(byte);
+            pad = (pad << 8) | byte;
+        }
         frame.data.resize(pad, '\0');
     }
     
     unsigned char maskKey[4];
     for(unsigned short i = 0; i < 4; i++) {
-        if(frame.masked) maskKey[i] = (char)_stream_.get();
-        else             maskKey[i] = '\0';
+        if(frame.masked) {
+            BAD_FRAME_TEST(byte);
+            maskKey[i] = byte;
+        }
+        else maskKey[i] = '\0';
     }
-	for (uint64_t i = 0; i < frame.data.length(); i++)
+	for (uint64_t i = 0; i < frame.data.length(); i++) {
 		// limited array size; for 64-bit sizes, try queued processing
-		frame.data[(const unsigned int)i] = (char)(_stream_.get() ^ maskKey[i%4]);
+		BAD_FRAME_TEST(byte);
+		frame.data[(const unsigned int)i] = (char)((int)(0xFF&byte) ^ maskKey[i%4]);
+	}
     
+    frame.bad = false;
     return frame;
+    #undef BAD_FRAME_TEST
 }
 
 TEST(TestWebsocket, serializeIn) {
@@ -236,4 +254,31 @@ TEST(TestWebsocket, serializeIn) {
     EXPECT_TRUE(frame4.masked);
     EXPECT_EQ(frame4.data.length(), 5);
     EXPECT_EQ(frame4.data, "Hello");
+}
+
+TEST(TestWebsocket, badFrame) {
+    std::string binary = "\x81\x05\x48\x65\x6C\x6C\x6F";
+    std::stringstream tcpStream(binary);
+    DataFrame frame = serializeIn(tcpStream);
+    EXPECT_FALSE(frame.bad);
+    
+    for(unsigned int i = 0; i < binary.length(); i++) {
+        tcpStream.clear();
+        tcpStream.str(binary.substr(0,i));
+        frame = serializeIn(tcpStream);
+        EXPECT_TRUE(frame.bad);
+    }
+    
+    binary = "\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58";
+    tcpStream.clear();
+    tcpStream.str(binary);
+    frame = serializeIn(tcpStream);
+    EXPECT_FALSE(frame.bad);
+    
+    for(unsigned int i = 0; i < binary.length(); i++) {
+        tcpStream.clear();
+        tcpStream.str(binary.substr(0,i));
+        frame = serializeIn(tcpStream);
+        EXPECT_TRUE(frame.bad);
+    }
 }

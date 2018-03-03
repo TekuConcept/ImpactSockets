@@ -93,14 +93,6 @@ bool TcpClient::isConnected() {
 
 
 
-void TcpClient::setTimeout(int time_ms) {
-	// -1 means waiting indefinitely ie no timeout
-	if (time_ms < -1) timeout_ = -1; // normalize
-	else              timeout_ = time_ms;
-}
-
-
-
 int TcpClient::sync() {
     int len = int(pptr() - pbase());
     if(socket != nullptr && connected)
@@ -128,4 +120,18 @@ int TcpClient::underflow() {
         }
     }
     return EOF;
+}
+
+
+
+void TcpClient::setTimeout(int time_ms) {
+	// -1 means waiting indefinitely ie no timeout
+	if (time_ms < -1) timeout_ = -1; // normalize
+	else              timeout_ = time_ms;
+}
+
+
+
+SocketHandle& TcpClient::getHandle() {
+    return socket->getHandle();
 }

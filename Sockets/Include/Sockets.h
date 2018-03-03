@@ -216,20 +216,6 @@ namespace Impact {
 		*   @exception SocketException thrown if unable to receive data
 		*/
 		int recv(void *buffer, int bufferLen) throw(SOC_EXCEPTION);
-		
-		// /**
-		// *   Sets the events that will be used when polling.
-		// *   @param events requested events
-		// */
-		// void setEvents(short events);
-		
-		// /**
-		// *   Polls the socket for the requested events.
-		// *   @param revents return events
-		// *   @return 1 for success, 0 for timeout
-		// *   @exception SocketException thrown if poll failed
-		// */
-		// int poll(short &revents, int timeout) throw(SOC_EXCEPTION);
 
 		/**
 		*   Get the foreign address.  Call connect() before calling recv()

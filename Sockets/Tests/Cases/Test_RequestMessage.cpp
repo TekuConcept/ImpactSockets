@@ -67,6 +67,45 @@ TEST(TestRequestMessage, RequestParse) {
     EXPECT_EQ(message.minor(), 1);
 }
 
+TEST(TestRequestMessage, BadParse) {
+    using RFC2616::RequestMessage;
+    std::stringstream request;
+    bool check;
+    
+    // good
+    request.str("GET /path?query HTTP/1.1\r\n\r\n");
+    RequestMessage::tryParse(request, check);
+    EXPECT_TRUE(check);
+    
+    // bad
+    request.clear();
+    request.str("GET /path?qu"); // message timed out or diconnect
+    auto message = RequestMessage::tryParse(request, check);
+    EXPECT_FALSE(check);
+    
+    // good
+    request.str("");
+    request.clear();
+    request << "GET /path?query HTTP/1.1\r\n";
+    request << "Connection: upgrade\r\n";
+    request << "Upgrade: websocket\r\n";
+    request << "Host: localhost:8080\r\n";
+    request << "Sec-WebSocket-Key: 3dAU/4d4GcU+oHj/dYAX0Q==\r\n";
+    request << "Sec-WebSocket-Version: 13\r\n\r\n";
+    RequestMessage::tryParse(request, check);
+    EXPECT_TRUE(check);
+    
+    // bad
+    request.str("");
+    request.clear();
+    request << "GET /path?query HTTP/1.1\r\n";
+    request << "Connection: upgrade\r\n";
+    request << "Upgrade: websocket\r\n";
+    request << "Host: loca"; // message timed out or disconnect
+    RequestMessage::tryParse(request, check);
+    EXPECT_FALSE(check);
+}
+
 TEST(TestMessage, ParseHeaders) {
     std::stringstream request[7];
     bool check[7];

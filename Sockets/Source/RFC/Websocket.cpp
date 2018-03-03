@@ -16,7 +16,7 @@ using namespace RFC6455;
 #define OP_PONG    10
 
 DataFrame::DataFrame() : finished(true), reserved(0),
-	opcode(0), masked(false), data("") {}
+	opcode(0), masked(false), bad(false), data("") {}
 
 Websocket::Websocket(std::iostream& stream, bool isClient)
     : _stream_(stream), _connectionState_(STATE::CLOSED),
@@ -171,36 +171,51 @@ void Websocket::serializeOut(DataFrame frame) {
 }
 
 DataFrame Websocket::serializeIn() {
+    #define BAD_FRAME_TEST(c) if(!(_stream_ >> c)) return frame;
     DataFrame frame;
-    unsigned char c;
+    frame.bad = true;
+    char byte;
     
-    _stream_ >> c;
-    frame.finished = ((c & 0x80) == 0x80);
-    frame.reserved = ((c >> 4) & 0x7);
-    frame.opcode   = (c & 0xF);
+    BAD_FRAME_TEST(byte)
+    frame.finished = ((byte & 0x80) == 0x80);
+    frame.reserved = ((byte >> 4) & 0x7);
+    frame.opcode   = (byte & 0xF);
     
-    _stream_ >> c;
-    frame.masked         = ((c & 0x80) == 0x80);
-    unsigned char length = (c & 0x7F);
+    BAD_FRAME_TEST(byte)
+    frame.masked         = ((byte & 0x80) == 0x80);
+    unsigned char length = (byte & 0x7F);
     if(length <= 125)
         frame.data.resize(length, '\0');
-    else if(length == 126)
-        frame.data.resize((_stream_.get() << 8) | _stream_.get(), '\0');
+    else if(length == 126) {
+        char msb, lsb;
+        BAD_FRAME_TEST(msb)
+        BAD_FRAME_TEST(lsb)
+        frame.data.resize((msb << 8) | lsb, '\0');
+    }
     else {
         unsigned long long int pad = 0;
-        for(unsigned short i = 0; i < 8; i++)
-            pad = (pad << 8) | _stream_.get();
+        for(unsigned short i = 0; i < 8; i++) {
+            BAD_FRAME_TEST(byte);
+            pad = (pad << 8) | byte;
+        }
         frame.data.resize(pad, '\0');
     }
     
     unsigned char maskKey[4];
     for(unsigned short i = 0; i < 4; i++) {
-        if(frame.masked) maskKey[i] = (char)_stream_.get();
-        else             maskKey[i] = '\0';
+        if(frame.masked) {
+            BAD_FRAME_TEST(byte);
+            maskKey[i] = byte;
+        }
+        else maskKey[i] = '\0';
     }
-	for (uint64_t i = 0; i < frame.data.length(); i++)
+	for (uint64_t i = 0; i < frame.data.length(); i++) {
 		// limited array size; for 64-bit sizes, try queued processing
-		frame.data[(const unsigned int)i] = (char)(_stream_.get() ^ maskKey[i%4]);
+		BAD_FRAME_TEST(byte);
+		frame.data[(const unsigned int)i] = (char)((int)(0xFF&byte) ^ maskKey[i%4]);
+	}
     
+    frame.bad = false;
     return frame;
+    #undef BAD_FRAME_TEST
 }
