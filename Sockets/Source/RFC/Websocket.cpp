@@ -165,7 +165,7 @@ void Websocket::serializeOut(DataFrame frame) {
         }
         else maskKey[i] = '\0';
     }
-    for(uint64_t i = 0; i < length; i++)
+    for(unsigned int i = 0; i < length; i++)
         _stream_ << (char)(frame.data[i]^maskKey[i%4]);
     
     _stream_ << std::flush;
@@ -194,12 +194,13 @@ DataFrame Websocket::serializeIn() {
         frame.data.resize((msb << 8) | lsb, '\0');
     }
     else {
+		// 64-bit messages not supported yet
         unsigned long long int pad = 0;
         for(unsigned short i = 0; i < 8; i++) {
             BAD_FRAME_TEST(byte);
             pad = (pad << 8) | byte;
         }
-        frame.data.resize(pad, '\0');
+        frame.data.resize((unsigned int)pad, '\0');
     }
     
     unsigned char maskKey[4];

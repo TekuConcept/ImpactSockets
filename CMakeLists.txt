@@ -80,7 +80,9 @@ if(BUILD_EXAMPLES)
 		add_executable(${PROGRAM} "${EXAMPLES_PATH}/${PROGRAM}.cpp")
 		target_link_libraries(${PROGRAM} ${LIBRARY_NAME})
 	endforeach()
-	TARGET_LINK_LIBRARIES(DemoWebsocketServer pthread)
+	if(NOT MSVC)
+		TARGET_LINK_LIBRARIES(DemoWebsocketServer pthread)
+	endif()
 endif()
 
 set(TARGETS

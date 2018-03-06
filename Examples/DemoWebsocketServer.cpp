@@ -20,7 +20,7 @@ using namespace RFC6455;
 
 #define VERBOSE(x) std::cout << x << std::endl
 
-std::atomic<bool> shutdown;
+std::atomic<bool> shutingdown;
 
 void signalHandler( int signum ) {
     VERBOSE("Interrupt signal (" << signum << ") received.");
@@ -36,7 +36,7 @@ int main() {
     
     TcpServer server(8082);
     std::thread service;
-    shutdown = false;
+    shutingdown = false;
 
     VERBOSE("- SERVER STARTED -");
 
@@ -50,7 +50,7 @@ int main() {
         service = std::thread([&](){
             std::ostringstream msg;
             unsigned int count = 0;
-            while(!shutdown) {
+            while(!shutingdown) {
                 // send a packet of information
                 msg.clear();
                 msg.str("{\"message\":\"Hello Client ");
@@ -65,7 +65,7 @@ int main() {
                 std::cout << std::endl;
                 
                 if(packet.opcode == WS_OP_CLOSE)
-                    shutdown = true;
+                    shutingdown = true;
             }
             
             std::cout << "> Websocket disconnecting...";
