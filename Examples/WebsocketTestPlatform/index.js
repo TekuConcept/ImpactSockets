@@ -66,7 +66,9 @@ function configureWSMessage(connection) {
         if(message.type === "utf8") {
             try{
                 console.log(message.utf8Data);
-                connection.send(JSON.stringify({ token: token }));
+                token++;
+                connection.send(
+                    JSON.stringify({ message: "Hello Client " + token }));
             } catch(e) {
                 console.log("WebSocket Message: " + e.message);
             }

@@ -23,7 +23,7 @@
             }
             function sendMessage() {
                 var message = document.getElementById('message').value;
-                ws.send(message);
+                ws.send(JSON.stringify({message: message}));
             }
         </script>
     </head>
