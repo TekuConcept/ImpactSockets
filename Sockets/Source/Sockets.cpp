@@ -100,13 +100,27 @@ SocketPollToken::~SocketPollToken() {}
 
 
 
-int SocketPollToken::add(SocketHandle* handle, int events) {
+void SocketPollToken::add(SocketHandle* handle, int events) {
 	struct pollfd sfd;
 	sfd.fd = handle->descriptor;
 	sfd.events = events;
 	sfd.revents = 0;
 	_handles_.push_back(sfd);
-	return _handles_.size() - 1;
+}
+
+
+
+void SocketPollToken::remove(int idx) {
+	auto back = _handles_.size()-1;
+	if(back > 0)
+		_handles_[idx] = _handles_[back];
+	_handles_.pop_back();
+}
+
+
+
+unsigned int SocketPollToken::size() const {
+	return _handles_.size();
 }
 
 

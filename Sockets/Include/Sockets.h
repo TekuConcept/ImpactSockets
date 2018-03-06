@@ -67,9 +67,18 @@ namespace Impact {
 		~SocketPollToken();
 		/**
 		 * Adds a handle to the queue with the given events to listen for.
-		 * Returns the cache index to access the return events with.
 		 */
-		int add(SocketHandle* handle,int events);
+		void add(SocketHandle* handle, int events);
+		/**
+		 * Removes the handle at the specified index by swapping it with
+		 * the last handle added. The index of the last handle then assumes
+		 * the index of the removed handle and the token's size decreases by 1.
+		 */
+		void remove(int idx);
+		/**
+		 * Returns the number of handles in this token.
+		 */
+		unsigned int size() const;
 		/**
 		 * Resets all the return events to 0.
 		 */
