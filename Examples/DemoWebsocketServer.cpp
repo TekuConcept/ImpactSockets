@@ -13,6 +13,7 @@
 #include <atomic>
 #include <thread>
 #include <chrono>
+#include <csignal>
 
 using namespace Impact;
 using namespace RFC6455;
@@ -21,25 +22,18 @@ using namespace RFC6455;
 
 std::atomic<bool> shutdown;
 
-void close() {
-    while(!shutdown) {
-        // check console override once every second
-        if(std::cin) {
-            std::string line;
-            // This will block until \n is received;
-            // from the terminal, user input almost always ends
-            // with \n but program/console input might not.
-            std::getline(std::cin, line);
-            if(line == "quit" || line == "exit") {
-                shutdown = true;
-                break;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
+void signalHandler( int signum ) {
+    VERBOSE("Interrupt signal (" << signum << ") received.");
+
+    // immediate shutdown and cleanup
+
+    VERBOSE("- END OF LINE -");
+    exit(signum);  
 }
 
 int main() {
+    signal(SIGINT, signalHandler);
+    
     TcpServer server(8082);
     std::thread service;
     shutdown = false;
@@ -85,7 +79,6 @@ int main() {
         return 0;
     }
     
-    close();
     service.join();
     VERBOSE("- END OF LINE -");
     return 0;
