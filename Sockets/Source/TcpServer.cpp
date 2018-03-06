@@ -32,6 +32,12 @@ int TcpServer::getPort() {
 
 
 
+SocketHandle& TcpServer::getHandle() {
+    return server.getHandle();
+}
+
+
+
 int TcpServer::waitForClient(int timeout) {
     SocketHandle* handles[] = {&server.getHandle()};
     return Socket::select(handles, 1, timeout);

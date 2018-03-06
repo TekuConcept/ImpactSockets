@@ -22,6 +22,7 @@ namespace Impact {
 		TcpSocPtr API_DECLSPEC accept();
 		virtual API_DECLSPEC ~TcpServer();
 		int API_DECLSPEC getPort();
+		SocketHandle& getHandle();
 		int API_DECLSPEC waitForClient(int timeout = -1);
 	};
 }
