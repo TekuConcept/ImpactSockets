@@ -43,7 +43,7 @@ void TcpClient::init() {
 
 void TcpClient::checkFlags() {
     // set internal flags to handle user actions in advance
-    if((pollToken.revents & POLLHUP) != 0)
+    if((pollToken[0] & POLLHUP) != 0)
         connected = false;
     // Todo: handle POLLERR event?
 }
@@ -54,8 +54,7 @@ int TcpClient::connect(int port, std::string address) {
     if(connected) return -2;
     try {
         socket = std::make_shared<TCPSocket>(address, port);
-        pollToken.handle = &socket->getHandle();
-        pollToken.events = POLLIN;
+        pollToken.add(&socket->getHandle(), POLLIN | POLLHUP);
         connected = true;
     }
     catch (SocketException &e) {
@@ -84,7 +83,8 @@ void TcpClient::disconnect() {
 
 bool TcpClient::isConnected() {
     if(connected) {
-        Socket::poll(&pollToken, 1, 0); // Todo: poll error handling?
+        pollToken.reset();
+        Socket::poll(pollToken, 0); // Todo: poll error handling?
         checkFlags();
         return connected;
     }
@@ -105,14 +105,15 @@ int TcpClient::sync() {
 
 int TcpClient::underflow() {
     if(socket != nullptr && connected) {
-        auto state = Socket::poll(&pollToken, 1, timeout_);
+        pollToken.reset();
+        auto state = Socket::poll(pollToken, timeout_);
         if(state == 0) {
             EventArgs e;
             onTimeout.invoke(self, e);
         }
         else {
             checkFlags();
-            if((pollToken.revents & POLLIN) > 0) {
+            if((pollToken[0] & POLLIN) > 0) {
                 int bytesReceived = socket->recv(eback(), BUF_SIZE);
                 setg(eback(), eback(), eback() + bytesReceived);
                 return *eback();

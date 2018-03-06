@@ -26,6 +26,7 @@
 #include <string>            // For string
 #include <cstring>           // For strerror, atoi, and memset
 #include <exception>         // For exception class
+#include <vector>
 
 #if defined(_MSC_VER)
 	#include <winsock2.h>
@@ -50,17 +51,38 @@ namespace Impact {
 		virtual ~SocketHandle() {}
 		virtual SocketHandle& getHandle() = 0;
 		friend class Socket;
+		friend class SocketPollToken;
 	};
 	
 	/**
 	*   SocketPollToken replaces the pollfd struct by using
 	*   SocketHandles instead of raw socket descriptors.
 	*/
-	typedef struct SocketPollToken {
-		SocketHandle* handle;
-		short events;
-		short revents;
-	} SocketPollToken;
+	class SocketPollToken {
+	protected:
+		friend class Socket;
+		std::vector<struct pollfd> _handles_;
+	public:
+		SocketPollToken();
+		~SocketPollToken();
+		/**
+		 * Adds a handle to the queue with the given events to listen for.
+		 * Returns the cache index to access the return events with.
+		 */
+		int add(SocketHandle* handle,int events);
+		/**
+		 * Resets all the return events to 0.
+		 */
+		void reset();
+		/**
+		 * Removes all handles from the token.
+		 */
+		void clear();
+		/**
+		 * Access the return event for the handle.
+		 */
+		short int& operator[] (int);
+	};
 
 	/**
 	*   Signals a problem with the execution of a socket call.
@@ -163,7 +185,7 @@ namespace Impact {
 		*   @return 1 for success, 0 for timeout
 		*   @exception SocketException thrown if poll failed
 		*/
-		static int poll(SocketPollToken* handles, int length, int timeout=-1);
+		static int poll(SocketPollToken& token, int timeout=-1);
 
 	private:
 		// Prevent the user from trying to use value semantics on this object

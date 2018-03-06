@@ -88,6 +88,48 @@ const char *SocketException::what() const throw() {
 
 
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
+//                          SOCKET POLL TOKEN CODE                           //
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
+
+SocketPollToken::SocketPollToken() {}
+
+
+
+SocketPollToken::~SocketPollToken() {}
+
+
+
+int SocketPollToken::add(SocketHandle* handle, int events) {
+	struct pollfd sfd;
+	sfd.fd = handle->descriptor;
+	sfd.events = events;
+	sfd.revents = 0;
+	_handles_.push_back(sfd);
+	return _handles_.size() - 1;
+}
+
+
+
+void SocketPollToken::reset() {
+	for(unsigned int i = 0; i < _handles_.size(); i++)
+		_handles_[i].revents = 0;
+}
+
+
+
+void SocketPollToken::clear() {
+	_handles_.clear();
+}
+
+
+
+short int& SocketPollToken::operator[] (int idx) {
+	return _handles_[idx].revents;
+}
+
+
+
 // Function to fill in address structure given an address and port
 static void fillAddr(const string &address, unsigned short port,
 	sockaddr_in &addr) {
@@ -240,19 +282,8 @@ int Socket::select(SocketHandle** handles, int length, unsigned int timeout) {
 
 
 
-int Socket::poll(SocketPollToken* handles, int length, int timeout) {
-	int rtn;
-	struct pollfd* fds = new pollfd[length];
-	for(int i = 0; i < length; i++) {
-		fds[i].fd = handles[i].handle->descriptor;
-		fds[i].events = handles[i].events;
-		fds[i].revents = 0;
-	}
-	rtn = SOC_POLL(fds, length, timeout);
-	for(int i = 0; i < length; i++)
-		handles[i].revents = fds[i].revents;
-	delete[] fds;
-	return rtn;
+int Socket::poll(SocketPollToken& token, int timeout) {
+	return SOC_POLL(&token._handles_[0], token._handles_.size(), timeout);
 }
 
 

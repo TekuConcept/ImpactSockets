@@ -19,8 +19,7 @@ TcpSocPtr TcpServer::accept() {
     TcpSocPtr connection = std::make_shared<TcpClient>();
     connection->socket = socket;
     connection->connected = true;
-    connection->pollToken.handle = &socket->getHandle();
-    connection->pollToken.events = POLLIN;
+    connection->pollToken.add(&socket->getHandle(), POLLIN | POLLHUP);
     return connection;
 }
 
