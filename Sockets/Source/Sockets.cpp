@@ -273,14 +273,14 @@ unsigned short Socket::resolveService(const string &service,
 int Socket::select(SocketHandle** handles, int length, struct timeval* timeout) {
 	fd_set set;
 	int nfds = 0;
-	
+
 	FD_ZERO(&set);
 	for(int i = 0; i < length; i++) {
 		auto handle = handles[i]->descriptor;
 		FD_SET(handle, &set);
 		if(handle > nfds) nfds = handle;
 	}
-	
+
 	return ::select(nfds + 1, &set, NULL, NULL, timeout);
 }
 
@@ -296,7 +296,9 @@ int Socket::select(SocketHandle** handles, int length, unsigned int timeout) {
 
 
 int Socket::poll(SocketPollToken& token, int timeout) {
-	return SOC_POLL(&token._handles_[0], token._handles_.size(), timeout);
+  struct pollfd* fds = token._handles_.data();
+  int size = token._handles_.size();
+	return SOC_POLL(fds, size, timeout);
 }
 
 
@@ -355,25 +357,6 @@ throw(SOC_EXCEPTION) {
 
 	return rtn;
 }
-
-
-
-// void CommunicatingSocket::setEvents(short events) {
-// 	fds[0].events = events;
-// }
-
-
-
-// int CommunicatingSocket::poll(short &revents, int timeout)
-// 	throw(SOC_EXCEPTION) {
-// 	int rtn;
-// 	fds[0].revents = 0;
-// 	if((rtn = SOC_POLL(fds, 1, timeout)) < 0) {
-// 		throw SocketException("Poll failed (poll())", true);
-// 	}
-// 	revents = fds[0].revents;
-// 	return rtn;
-// }
 
 
 
