@@ -41,23 +41,26 @@
 typedef void raw_type;         // Type used for raw data on this platform
 
 #if defined(_MSC_VER)
-#define CLOSE_SOCKET(x) closesocket(x)
-#define SOC_SD_HOW SD_BOTH
-#define SOC_POLL WSAPoll
-#define CCHAR_PTR const char *
-#define CHAR_PTR char *
-#define errno WSAGetLastError()
+    #define CLOSE_SOCKET(x) closesocket(x)
+    #define SOC_SD_HOW SD_BOTH
+    #define SOC_POLL WSAPoll
+    #define CCHAR_PTR const char *
+    #define CHAR_PTR char *
+    #if defined(errno)
+        #undef errno
+    #endif
+    #define errno WSAGetLastError()
 
-#pragma warning(disable:4996)
-#pragma comment (lib, "Ws2_32.lib")
-#pragma comment (lib, "Mswsock.lib")
-#pragma comment (lib, "AdvApi32.lib")
+    #pragma warning(disable:4996)
+    #pragma comment (lib, "Ws2_32.lib")
+    #pragma comment (lib, "Mswsock.lib")
+    #pragma comment (lib, "AdvApi32.lib")
 #else
-#define CLOSE_SOCKET(x) ::close(x)
-#define SOC_SD_HOW SHUT_RDWR
-#define SOC_POLL ::poll
-#define CCHAR_PTR raw_type *
-#define CHAR_PTR raw_type *
+    #define CLOSE_SOCKET(x) ::close(x)
+    #define SOC_SD_HOW SHUT_RDWR
+    #define SOC_POLL ::poll
+    #define CCHAR_PTR raw_type *
+    #define CHAR_PTR raw_type *
 #endif
 
 #define string std::string
