@@ -241,6 +241,7 @@ namespace Impact {
 		*   @exception SocketException thrown if unable to send data
 		*/
 		void send(const void *buffer, int bufferLen) throw(SOC_EXCEPTION);
+		void send(const void *buffer, int bufferLen, int flags) throw(SOC_EXCEPTION);
 
 		/**
 		*   Read into the given buffer up to bufferLen bytes data from this
@@ -251,6 +252,7 @@ namespace Impact {
 		*   @exception SocketException thrown if unable to receive data
 		*/
 		int recv(void *buffer, int bufferLen) throw(SOC_EXCEPTION);
+		int recv(void *buffer, int bufferLen, int flags) throw(SOC_EXCEPTION);
 
 		/**
 		*   Get the foreign address.  Call connect() before calling recv()

@@ -368,10 +368,32 @@ throw(SOC_EXCEPTION) {
 
 
 
+void CommunicatingSocket::send(const void *buffer, int bufferLen, int flags)
+throw(SOC_EXCEPTION) {
+	if (::send(handle.descriptor, (CCHAR_PTR)buffer, bufferLen, flags) < 0) {
+		throw SocketException("Send failed (send())", true);
+	}
+}
+
+
+
 int CommunicatingSocket::recv(void *buffer, int bufferLen)
 throw(SOC_EXCEPTION) {
 	int rtn;
 	if ((rtn = ::recv(handle.descriptor, (CHAR_PTR)buffer, bufferLen, 0)) < 0) {
+		throw SocketException("Received failed (recv())", true);
+	}
+
+	return rtn;
+}
+
+
+
+int CommunicatingSocket::recv(void *buffer, int bufferLen, int flags)
+throw(SOC_EXCEPTION) {
+	int rtn;
+	if ((rtn = ::recv(handle.descriptor, (CHAR_PTR)buffer,
+		bufferLen, flags)) < 0) {
 		throw SocketException("Received failed (recv())", true);
 	}
 
