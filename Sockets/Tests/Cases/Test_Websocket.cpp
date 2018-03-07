@@ -208,12 +208,13 @@ DataFrame serializeIn(std::iostream& _stream_) {
         frame.data.resize((msb << 8) | lsb, '\0');
     }
     else {
+		// 64-bit messages not supported yet
         unsigned long long int pad = 0;
         for(unsigned short i = 0; i < 8; i++) {
             BAD_FRAME_TEST(byte);
             pad = (pad << 8) | byte;
         }
-        frame.data.resize(pad, '\0');
+        frame.data.resize((unsigned int)pad, '\0');
     }
     
     unsigned char maskKey[4];

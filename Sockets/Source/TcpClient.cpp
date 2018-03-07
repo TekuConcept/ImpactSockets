@@ -6,8 +6,11 @@
 #include <iostream>
 
 #if defined(_MSC_VER)
-#include <windows.h>
-#define errno WSAGetLastError()
+    #include <windows.h>
+    #if defined(errno)
+        #undef errno
+    #endif
+    #define errno WSAGetLastError()
 #endif
 
 using namespace Impact;
