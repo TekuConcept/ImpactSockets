@@ -177,6 +177,13 @@ namespace Impact {
 		*/
 		static unsigned short resolveService(const string &service,
 			const string &protocol = "tcp");
+		
+		/**
+		*   Configure TCP KEEPALIVE flag.
+		*   @param handle Handle to the socket which to configure.
+		*   @param enable True enables keep-alive.
+		*/
+		static void keepalive(SocketHandle& handle, bool enable=true) throw(SOC_EXCEPTION);
 
 		/**
 		*   Allows a program to monitor 'readability' multiple sockets.
@@ -190,8 +197,10 @@ namespace Impact {
 
 		/*
 		*   Polls sockets for events.
-		*   @param handles Contains an array of SocketHandles and event information.
-		*   @return 1 for success, 0 for timeout
+		*   @param token Contains a list of SocketHandles and event information.
+		*   @param timeout Time in milliseconds to poll. -1: indefinite, 0:
+		*   return immediately
+		*   @return 1 for success, 0 for timeout, -1 if an error occurred.
 		*   @exception SocketException thrown if poll failed
 		*/
 		static int poll(SocketPollToken& token, int timeout = -1);

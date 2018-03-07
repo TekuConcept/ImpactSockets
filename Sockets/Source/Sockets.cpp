@@ -24,16 +24,17 @@
 #include "Sockets.h"
 
 #include <sys/types.h>         // For data types
+#include <sstream>
 
 #if defined(_MSC_VER)
-#include <ws2tcpip.h>
+    #include <ws2tcpip.h>
 #else
-#include <sys/socket.h>    // For socket(), connect(), send(), and recv()
-#include <netdb.h>         // For gethostbyname()
-#include <arpa/inet.h>     // For inet_addr()
-#include <unistd.h>        // For close()
-#include <netinet/in.h>    // For sockaddr_in
-#include <errno.h>         // For errno
+    #include <sys/socket.h>    // For socket(), connect(), send(), and recv()
+    #include <netdb.h>         // For gethostbyname()
+    #include <arpa/inet.h>     // For inet_addr()
+    #include <unistd.h>        // For close()
+    #include <netinet/in.h>    // For sockaddr_in
+    #include <errno.h>         // For errno
 #endif
 
 #include <cstring>             // For strerror and memset
@@ -270,6 +271,21 @@ unsigned short Socket::resolveService(const string &service,
 		return static_cast<unsigned short>(atoi(service.c_str()));  /* Service is port number */
 	else
 		return ntohs(serv->s_port);    /* Found port (network byte order) by name */
+}
+
+
+
+void Socket::keepalive(SocketHandle& handle, bool enable) throw(SOC_EXCEPTION) {
+	int flag = enable?1:0;
+	if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(flag)) < 0) {
+		std::ostringstream ss;
+		ss << "Failed to set flag KEEPALIVE: " << errno;
+		throw SocketException(ss.str(), true);
+	}
+	// future items
+	// setsockopt(3, SOL_TCP, TCP_KEEPCNT, [20], 4) = 0
+    // setsockopt(3, SOL_TCP, TCP_KEEPIDLE, [180], 4) = 0
+    // setsockopt(3, SOL_TCP, TCP_KEEPINTVL, [60], 4) = 0
 }
 
 
