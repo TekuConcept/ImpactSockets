@@ -93,23 +93,31 @@ void TcpClient::disconnect() {
 
 
 bool TcpClient::isConnected() {
-	if (connected) {
+	if (connected) { // test for POLLHUP
 		pollToken.reset();
-		Socket::poll(pollToken, 0); // Todo: poll error handling?
+		if(Socket::poll(pollToken, 0) < 0) {
+			// Todo: poll error handling?
+			std::cout << "TCP Client: Connection poll failed with error code ";
+			std::cout << errno << " (";
+			std::cout << std::strerror(errno) << ")" << std::endl;
+		}
 		checkFlags(pollToken[0]);
-		return connected;
 	}
-	return false;
+	return connected;
 }
 
 
 
 int TcpClient::sync() {
-	int len = int(pptr() - pbase());
-	if (socket != nullptr && connected)
-		socket->send(pbase(), len);
-	setp(pbase(), epptr());
-	return 0;
+	try {
+		int len = int(pptr() - pbase());
+		if (socket != nullptr && connected)
+			socket->send(pbase(), len);
+		setp(pbase(), epptr());
+		return 0;
+	} catch(SocketException) {
+		return -1;
+	}
 }
 
 
