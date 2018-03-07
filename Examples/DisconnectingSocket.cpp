@@ -29,6 +29,7 @@ int main() {
 
     auto connection = server.accept();
     KeepAliveOptions opts = {
+        .enabled = true,
         .idle = 5,
         .interval = 1,
         .count = 2,

@@ -288,13 +288,12 @@ void Socket::keepalive(SocketHandle& handle, bool enable) throw(SOC_EXCEPTION) {
 
 
 
-void Socket::keepalive(SocketHandle& handle, KeepAliveOptions options,
-    bool enable) throw(SOC_EXCEPTION) {
+void Socket::keepalive(SocketHandle& handle, KeepAliveOptions options)
+throw(SOC_EXCEPTION) {
     // http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
-    int flag = enable?1:0;
     std::ostringstream ss("[TCP] Failed to set ");
 	
-    if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE, &flag,
+    if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE, &options.enabled,
         sizeof(int)) < 0) {
         ss << "keepalive flag";
         goto KEEPALIVE_ERROR;
