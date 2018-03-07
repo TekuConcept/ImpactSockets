@@ -29,11 +29,11 @@
 #include <vector>
 
 #if defined(_MSC_VER)
-	#include <winsock2.h>
-	#define SOC_EXCEPTION ...
+#include <winsock2.h>
+#define SOC_EXCEPTION ...
 #else
-	#include <sys/poll.h>    // For struct pollfd, poll()
-	#define SOC_EXCEPTION SocketException
+#include <sys/poll.h>    // For struct pollfd, poll()
+#define SOC_EXCEPTION SocketException
 #endif
 
 #define string std::string
@@ -47,13 +47,13 @@ namespace Impact {
 	class SocketHandle {
 	protected:
 		int descriptor;
-	public:
-		virtual ~SocketHandle() {}
-		virtual SocketHandle& getHandle() = 0;
 		friend class Socket;
 		friend class SocketPollToken;
+		friend class CommunicatingSocket;
+		friend class TCPServerSocket;
+		friend class UDPSocket;
 	};
-	
+
 	/**
 	*   SocketPollToken replaces the pollfd struct by using
 	*   SocketHandles instead of raw socket descriptors.
@@ -66,30 +66,30 @@ namespace Impact {
 		SocketPollToken();
 		~SocketPollToken();
 		/**
-		 * Adds a handle to the queue with the given events to listen for.
-		 */
-		void add(SocketHandle* handle, int events);
+		* Adds a handle to the queue with the given events to listen for.
+		*/
+		void add(SocketHandle& handle, int events);
 		/**
-		 * Removes the handle at the specified index by swapping it with
-		 * the last handle added. The index of the last handle then assumes
-		 * the index of the removed handle and the token's size decreases by 1.
-		 */
+		* Removes the handle at the specified index by swapping it with
+		* the last handle added. The index of the last handle then assumes
+		* the index of the removed handle and the token's size decreases by 1.
+		*/
 		void remove(int idx);
 		/**
-		 * Returns the number of handles in this token.
-		 */
+		* Returns the number of handles in this token.
+		*/
 		unsigned int size() const;
 		/**
-		 * Resets all the return events to 0.
-		 */
+		* Resets all the return events to 0.
+		*/
 		void reset();
 		/**
-		 * Removes all handles from the token.
-		 */
+		* Removes all handles from the token.
+		*/
 		void clear();
 		/**
-		 * Access the return event for the handle.
-		 */
+		* Access the return event for the handle.
+		*/
 		short int& operator[] (int);
 	};
 
@@ -124,15 +124,15 @@ namespace Impact {
 	/**
 	*   Base class representing basic communication endpoint
 	*/
-	class Socket : public SocketHandle {
+	class Socket {
 	public:
 		/**
 		*   Close and deallocate this socket
 		*/
 		~Socket();
-		
+
 		/**
-		*   Returns the underlying memento handle for the socket descriptor.
+		*   Get the handle of this socket
 		*/
 		SocketHandle& getHandle();
 
@@ -177,7 +177,7 @@ namespace Impact {
 		*/
 		static unsigned short resolveService(const string &service,
 			const string &protocol = "tcp");
-		
+
 		/**
 		*   Allows a program to monitor 'readability' multiple sockets.
 		*   WARNING: Only tested on Linux
@@ -186,30 +186,25 @@ namespace Impact {
 		*   @return 1 for success, 0 for timeout
 		*/
 		static int select(SocketHandle** handles, int length, unsigned int timeout);
-		static int select(SocketHandle** handles, int length, struct timeval* timeout=NULL);
-		
+		static int select(SocketHandle** handles, int length, struct timeval* timeout = NULL);
+
 		/*
 		*   Polls sockets for events.
 		*   @param handles Contains an array of SocketHandles and event information.
 		*   @return 1 for success, 0 for timeout
 		*   @exception SocketException thrown if poll failed
 		*/
-		static int poll(SocketPollToken& token, int timeout=-1);
+		static int poll(SocketPollToken& token, int timeout = -1);
 
 	private:
 		// Prevent the user from trying to use value semantics on this object
 		Socket(const Socket &sock);
 		void operator=(const Socket &sock) = delete;
-		
-		struct FastFD {
-			int fd;
-			short& events;
-			short& revents;
-		};
 
 	protected:
+		SocketHandle handle;
 		Socket(int type, int protocol) throw(SOC_EXCEPTION);
-		Socket(int socketDescriptor);
+		Socket(int sockDesc);
 	};
 
 	/**

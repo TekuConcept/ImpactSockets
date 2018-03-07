@@ -23,17 +23,17 @@ namespace Impact {
 		API_DECLSPEC TcpClient();
 		API_DECLSPEC TcpClient(int port, std::string address = "127.0.0.1");
 		virtual API_DECLSPEC ~TcpClient();
-		
+
 		int API_DECLSPEC connect(int port, std::string address);
 		void API_DECLSPEC disconnect();
 		bool API_DECLSPEC isConnected();
-		
+
 		int API_DECLSPEC sync();
 		int API_DECLSPEC underflow();
-		
+
 		void API_DECLSPEC setTimeout(int time_ms);
 		EventHandler<EventArgs> onTimeout;
-		
+
 		SocketHandle& getHandle();
 
 	private:
@@ -43,11 +43,11 @@ namespace Impact {
 		std::shared_ptr<TCPSocket> socket;
 		SocketPollToken pollToken;
 		bool connected;
-		int timeout_;
+		int timeout;
 		Object self;
 
 		void init();
-		void checkFlags();
+		short checkFlags(short events);
 	};
 }
 
