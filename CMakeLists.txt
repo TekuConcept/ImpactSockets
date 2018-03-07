@@ -75,6 +75,7 @@ if(BUILD_EXAMPLES)
 		"DemoTCPServer"
 		"DemoWebsocketClient"
 		"DemoWebsocketServer"
+		"DisconnectingSocket"
 	)
 	foreach(PROGRAM ${EXAMPLE_PROGRAMS})
 		add_executable(${PROGRAM} "${EXAMPLES_PATH}/${PROGRAM}.cpp")
@@ -82,6 +83,7 @@ if(BUILD_EXAMPLES)
 	endforeach()
 	if(NOT MSVC)
 		TARGET_LINK_LIBRARIES(DemoWebsocketServer pthread)
+		TARGET_LINK_LIBRARIES(DisconnectingSocket pthread)
 	endif()
 endif()
 
