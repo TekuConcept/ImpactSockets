@@ -4,6 +4,13 @@
 
 #include "TcpClient.h"
 #include <iostream>
+#include <errno.h>
+#include <cstring>
+
+#if defined(_MSC_VER)
+	#include <windows.h>
+	#define errno WSAGetLastError()
+#endif
 
 using namespace Impact;
 
@@ -34,6 +41,7 @@ TcpClient::~TcpClient() {}
 
 void TcpClient::init() {
     connected = false;
+	timeout_ = -1;
     
     setp(outputBuffer_, outputBuffer_ + BUF_SIZE - 1);
     setg(inputBuffer_, inputBuffer_ + BUF_SIZE - 1, inputBuffer_ + BUF_SIZE - 1);
@@ -107,7 +115,12 @@ int TcpClient::underflow() {
     if(socket != nullptr && connected) {
         pollToken.reset();
         auto state = Socket::poll(pollToken, timeout_);
-        if(state == 0) {
+        if (state < 0) {
+            std::cout << "TCP Client: Poll failed with error code ";
+            std::cout << errno << " (";
+            std::cout << std::strerror(errno) << ")" << std::endl;
+        }
+        else if(state == 0) {
             EventArgs e;
             onTimeout.invoke(self, e);
         }

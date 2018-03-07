@@ -42,8 +42,8 @@ namespace Impact {
 		char* inputBuffer_;
 		std::shared_ptr<TCPSocket> socket;
 		SocketPollToken pollToken;
-		bool connected;;
-		int timeout_ = -1;
+		bool connected;
+		int timeout_;
 		Object self;
 
 		void init();

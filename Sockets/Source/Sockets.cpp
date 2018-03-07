@@ -23,30 +23,30 @@
 
 #include "Sockets.h"
 
-#include <sys/types.h>       // For data types
+#include <sys/types.h>         // For data types
 
 #if defined(_MSC_VER)
   #include <ws2tcpip.h>
-  #define SOC_POLL WSAPoll
 #else
   #include <sys/socket.h>      // For socket(), connect(), send(), and recv()
   #include <netdb.h>           // For gethostbyname()
   #include <arpa/inet.h>       // For inet_addr()
   #include <unistd.h>          // For close()
   #include <netinet/in.h>      // For sockaddr_in
-  #define SOC_POLL ::poll
+  #include <errno.h>             // For errno
 #endif
 
-#include <cstring>           // For strerror and memset
-#include <stdlib.h>          // For atoi
-typedef void raw_type;       // Type used for raw data on this platform
-#include <errno.h>           // For errno
+#include <cstring>             // For strerror and memset
+#include <stdlib.h>            // For atoi
+typedef void raw_type;         // Type used for raw data on this platform
 
 #if defined(_MSC_VER)
 	#define CLOSE_SOCKET(x) closesocket(x)
 	#define SOC_SD_HOW SD_BOTH
+	#define SOC_POLL WSAPoll
 	#define CCHAR_PTR const char *
 	#define CHAR_PTR char *
+	#define errno WSAGetLastError()
 
 	#pragma warning(disable:4996)
 	#pragma comment (lib, "Ws2_32.lib")
@@ -55,6 +55,7 @@ typedef void raw_type;       // Type used for raw data on this platform
 #else
 	#define CLOSE_SOCKET(x) ::close(x)
 	#define SOC_SD_HOW SHUT_RDWR
+	#define SOC_POLL ::poll
 	#define CCHAR_PTR raw_type *
 	#define CHAR_PTR raw_type *
 #endif
@@ -77,8 +78,7 @@ throw() : userMessage(message) {
 
 
 
-SocketException::~SocketException() throw() {
-}
+SocketException::~SocketException() throw() {}
 
 
 
@@ -272,7 +272,7 @@ unsigned short Socket::resolveService(const string &service,
 
 int Socket::select(SocketHandle** handles, int length, struct timeval* timeout) {
 	fd_set set;
-	int nfds = 0, rval;
+	int nfds = 0;
 	
 	FD_ZERO(&set);
 	for(int i = 0; i < length; i++) {
@@ -281,8 +281,7 @@ int Socket::select(SocketHandle** handles, int length, struct timeval* timeout) 
 		if(handle > nfds) nfds = handle;
 	}
 	
-	rval = ::select(nfds + 1, &set, NULL, NULL, timeout);
-	return rval;
+	return ::select(nfds + 1, &set, NULL, NULL, timeout);
 }
 
 
