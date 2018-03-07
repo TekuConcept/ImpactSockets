@@ -41,11 +41,20 @@ int main() {
     auto flag = connection->isConnected();
     VERBOSE((flag?"still connected":"disconnected"));
     
+    VERBOSE("> Breaking the pipe by sending data!");
+    *connection << "Ping" << std::flush;
+    
+    std::cout << "> Checking connection...";
+    flag = connection->isConnected();
+    VERBOSE((flag?"still connected":"disconnected"));
+    
     if(flag) {
         std::cout << "> Closing connection...";
         connection->disconnect();
         VERBOSE("Done!");
     }
+    
+    clientThread.join();
     
     VERBOSE("- END OF LINE -");
     return 0;
