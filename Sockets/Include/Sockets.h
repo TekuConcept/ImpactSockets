@@ -94,6 +94,16 @@ namespace Impact {
 	};
 
 	/**
+	*   KeepAlive Options
+	*/
+	typedef struct KeepAliveOptions {
+		int idle;     /* Number of idle seconds before sending a KA probe.   */
+		int interval; /* How often in seconds to resend an unacked KA probe. */
+		int count;    /* How many times to resend a KA probe if previous
+		                 probe was unacked.                                  */
+	} KeepAliveOptions;
+
+	/**
 	*   Signals a problem with the execution of a socket call.
 	*/
 	class SocketException : public exception {
@@ -184,6 +194,8 @@ namespace Impact {
 		*   @param enable True enables keep-alive.
 		*/
 		static void keepalive(SocketHandle& handle, bool enable=true) throw(SOC_EXCEPTION);
+		static void keepalive(SocketHandle& handle, KeepAliveOptions options,
+			bool enable=true) throw(SOC_EXCEPTION);
 
 		/**
 		*   Allows a program to monitor 'readability' multiple sockets.

@@ -28,6 +28,7 @@
 
 #if defined(_MSC_VER)
     #include <ws2tcpip.h>
+    //#include <Ws2def.h>
 #else
     #include <sys/socket.h>    // For socket(), connect(), send(), and recv()
     #include <netdb.h>         // For gethostbyname()
@@ -35,6 +36,7 @@
     #include <unistd.h>        // For close()
     #include <netinet/in.h>    // For sockaddr_in
     #include <errno.h>         // For errno
+	#include <netinet/tcp.h>   // IPPROTO_TCP flags
 #endif
 
 #include <cstring>             // For strerror and memset
@@ -282,10 +284,42 @@ void Socket::keepalive(SocketHandle& handle, bool enable) throw(SOC_EXCEPTION) {
 		ss << "Failed to set flag KEEPALIVE: " << errno;
 		throw SocketException(ss.str(), true);
 	}
-	// future items
-	// setsockopt(3, SOL_TCP, TCP_KEEPCNT, [20], 4) = 0
-    // setsockopt(3, SOL_TCP, TCP_KEEPIDLE, [180], 4) = 0
-    // setsockopt(3, SOL_TCP, TCP_KEEPINTVL, [60], 4) = 0
+}
+
+
+
+void Socket::keepalive(SocketHandle& handle, KeepAliveOptions options,
+    bool enable) throw(SOC_EXCEPTION) {
+    // http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
+    int flag = enable?1:0;
+    std::ostringstream ss("[TCP] Failed to set ");
+	
+    if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE, &flag,
+        sizeof(int)) < 0) {
+        ss << "keepalive flag";
+        goto KEEPALIVE_ERROR;
+    }
+    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPIDLE, &options.idle,
+        sizeof(int)) < 0) {
+        ss << "idle value";
+        goto KEEPALIVE_ERROR;
+    }
+    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPINTVL,
+        &options.interval, sizeof(int)) < 0) {
+        ss << "interval value";
+        goto KEEPALIVE_ERROR;
+    }
+    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPCNT, &options.count,
+        sizeof(int)) < 0) {
+        ss << "count value";
+        goto KEEPALIVE_ERROR;
+    }
+    return;
+    
+KEEPALIVE_ERROR:
+    ss << ": " << errno << " (";
+    ss << std::strerror(errno) << ")";
+    throw SocketException(ss.str(), true);
 }
 
 
