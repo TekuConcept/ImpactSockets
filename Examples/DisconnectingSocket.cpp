@@ -30,12 +30,11 @@ int main() {
     auto connection = server.accept();
     // KeepAlive is not really used in this demo
     // but was paced here to show how may be used.
-    KeepAliveOptions opts = {
-        .enabled = true,
-        .idle = 5,
-        .interval = 1,
-        .count = 2,
-    };
+	KeepAliveOptions opts;
+	opts.enabled = true;
+	opts.idle = 5;
+	opts.interval = 1;
+	opts.count = 2;
     Socket::keepalive(connection->getHandle(), opts);
     VERBOSE("> Found new Client");
     // wait for client tear-down

@@ -93,7 +93,8 @@ std::string Base64::decode(const std::string data, bool &status) {
                 os << (unsigned char)(reg24 >> 16);
                 os << (unsigned char)((reg24 >> 8)&BYTE);
                 os << (unsigned char)(reg24&BYTE);
-                tally = reg24 = 0;
+                tally = (unsigned short)0;
+				reg24 = 0;
             }
             else reg24 <<= SYMBOL_SIZE;
         }

@@ -28,7 +28,8 @@
 
 #if defined(_MSC_VER)
     #include <ws2tcpip.h>
-    //#include <Ws2def.h>
+	#include "mstcpip.h"       // struct tcp_keepalive
+	//#include <ws2def.h>
 #else
     #include <sys/socket.h>    // For socket(), connect(), send(), and recv()
     #include <netdb.h>         // For gethostbyname()
@@ -86,7 +87,7 @@ SocketPollToken::~SocketPollToken() {}
 void SocketPollToken::add(SocketHandle& handle, int events) {
 	struct pollfd sfd;
 	sfd.fd = handle.descriptor;
-	sfd.events = events;
+	sfd.events = (short)events;
 	sfd.revents = 0;
 	_handles_.push_back(sfd);
 }
@@ -279,7 +280,8 @@ unsigned short Socket::resolveService(const string &service,
 
 void Socket::keepalive(SocketHandle& handle, bool enable) throw(SOC_EXCEPTION) {
 	int flag = enable?1:0;
-	if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(flag)) < 0) {
+	if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE,
+		(const char*)&flag, sizeof(flag)) < 0) {
 		std::ostringstream ss;
 		ss << "Failed to set flag KEEPALIVE: " << errno;
 		throw SocketException(ss.str(), true);
@@ -293,23 +295,39 @@ throw(SOC_EXCEPTION) {
     // http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
     std::ostringstream ss("[TCP] Failed to set ");
 	
-    if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE, &options.enabled,
-        sizeof(int)) < 0) {
+#if defined(_MSC_VER)
+	DWORD bytesReturned = 0;
+	struct tcp_keepalive config;
+	config.onoff = options.enabled;
+	config.keepalivetime = options.idle;
+	config.keepaliveinterval = options.interval;
+
+	if (WSAIoctl(handle.descriptor, SIO_KEEPALIVE_VALS, &config,
+		sizeof(config), NULL, 0, &bytesReturned, NULL, NULL) == -1) {
+		printf("WSAIotcl(SIO_KEEPALIVE_VALS) failed; %d\n",
+			WSAGetLastError());
+		ss << "[enabled, idle, interval]";
+		goto KEEPALIVE_ERROR;
+	}
+#else
+    if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE,
+		(const char*)&options.enabled, sizeof(int)) < 0) {
         ss << "keepalive flag";
         goto KEEPALIVE_ERROR;
     }
-    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPIDLE, &options.idle,
-        sizeof(int)) < 0) {
+    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPIDLE,
+		(const char*)&options.idle, sizeof(int)) < 0) {
         ss << "idle value";
         goto KEEPALIVE_ERROR;
     }
     if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPINTVL,
-        &options.interval, sizeof(int)) < 0) {
+        (const char*)&options.interval, sizeof(int)) < 0) {
         ss << "interval value";
         goto KEEPALIVE_ERROR;
     }
-    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPCNT, &options.count,
-        sizeof(int)) < 0) {
+#endif
+    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPCNT,
+		(const char*)&options.count, sizeof(int)) < 0) {
         ss << "count value";
         goto KEEPALIVE_ERROR;
     }
@@ -325,11 +343,11 @@ KEEPALIVE_ERROR:
 
 int Socket::select(SocketHandle** handles, int length, struct timeval* timeout) {
 	fd_set set;
-	int nfds = 0;
+	unsigned int nfds = 0;
 
 	FD_ZERO(&set);
 	for (int i = 0; i < length; i++) {
-		auto handle = handles[i]->descriptor;
+		unsigned int handle = (unsigned int)(0xFFFFFFFF&handles[i]->descriptor);
 		FD_SET(handle, &set);
 		if (handle > nfds) nfds = handle;
 	}

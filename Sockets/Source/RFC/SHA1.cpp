@@ -104,8 +104,8 @@ SHA1::SHA_STATE SHA1::result(Context *context, unsigned char* messageDigest) {
     }
 
     for(unsigned int i = 0; i < HASH_SIZE; i++) {
-        messageDigest[i] =
-            context->IntermediateHash[i>>2] >> 8 * (3 - (i & 0x03));
+        messageDigest[i] = (unsigned char)(
+			context->IntermediateHash[i>>2] >> 8 * (3 - (i & 0x03)));
     }
 
     return SHA_STATE::Success;
@@ -310,8 +310,8 @@ void SHA1::padMessage(Context *context) {
     // Store the message length as the last 8 octets
     for(unsigned short i = 0, j; i < 4; i++) {
         j = 24 - (8 * i);
-        context->MessageBlock[56+i] = context->LengthHigh >> j;
-        context->MessageBlock[60+i] = context->LengthLow  >> j;
+        context->MessageBlock[56+i] = (unsigned char)(context->LengthHigh >> j);
+        context->MessageBlock[60+i] = (unsigned char)(context->LengthLow  >> j);
     }
 
     processMessageBlock(context);
