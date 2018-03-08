@@ -28,6 +28,8 @@ int main() {
 
 
     auto connection = server.accept();
+    // KeepAlive is not really used in this demo
+    // but was paced here to show how may be used.
     KeepAliveOptions opts = {
         .enabled = true,
         .idle = 5,
@@ -44,7 +46,7 @@ int main() {
     for(int i = 0; i < 10; i++)
         std::cout << connection->get() << " ";
     std::cout << std::endl;
-    VERBOSE("> Was the message 0s as expected?");
+    VERBOSE("> Was the message 0s or EOFs (-1)?");
 
     
     std::cout << "> Checking connection...";

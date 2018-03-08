@@ -103,6 +103,8 @@ bool TcpClient::isConnected() {
 		}
 		checkFlags(pollToken[0]);
 	}
+	// TODO if possible: PSH null tcp frame in an attempt
+	// to exploit broken connections
 	return connected;
 }
 
@@ -130,6 +132,7 @@ int TcpClient::underflow() {
 			std::cout << "TCP Client: Poll failed with error code ";
 			std::cout << errno << " (";
 			std::cout << std::strerror(errno) << ")" << std::endl;
+			connected = false;
 		}
 		else if (status == 0) {
 			EventArgs e;
@@ -137,8 +140,14 @@ int TcpClient::underflow() {
 		}
 		else if ((checkFlags(pollToken[0]) & POLLIN) > 0) {
 			int bytesReceived = socket->recv(eback(), BUF_SIZE);
-			setg(eback(), eback(), eback() + bytesReceived);
-			return *eback();
+			if(bytesReceived == 0) {
+				connected = false;
+				return EOF;
+			}
+			else {
+				setg(eback(), eback(), eback() + bytesReceived);
+				return *eback();
+			}
 		}
 	}
 	return EOF;
