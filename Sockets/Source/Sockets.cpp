@@ -465,8 +465,7 @@ unsigned short CommunicatingSocket::getForeignPort() throw(SOC_EXCEPTION) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
 
 TCPSocket::TCPSocket()
-throw(SOC_EXCEPTION) : CommunicatingSocket(SOCK_STREAM,
-	IPPROTO_TCP) {}
+throw(SOC_EXCEPTION) : CommunicatingSocket(SOCK_STREAM, IPPROTO_TCP) {}
 
 
 
