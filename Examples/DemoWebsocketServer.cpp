@@ -64,7 +64,7 @@ int main() {
                 else std::cout << "Op Code: " << (int)packet.opcode;
                 std::cout << std::endl;
                 
-                if(packet.opcode == WS_OP_CLOSE)
+                if(packet.opcode == WS_OP_CLOSE || !connection->isConnected())
                     shutingdown = true;
             }
             
