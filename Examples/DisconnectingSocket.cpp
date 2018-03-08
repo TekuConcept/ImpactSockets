@@ -23,18 +23,18 @@ int main() {
         TcpClient client(25565);
         VERBOSE("> Client started");
         std::this_thread::sleep_for(std::chrono::seconds(3));
-        VERBOSE("> Client disconnecting ungracefully");
+        VERBOSE("> Client disconnecting");
     });
 
 
     auto connection = server.accept();
     // KeepAlive is not really used in this demo
-    // but was paced here to show how may be used.
-	KeepAliveOptions opts;
-	opts.enabled = true;
-	opts.idle = 5;
-	opts.interval = 1;
-	opts.count = 2;
+    // but was paced here to show how it may be used.
+    KeepAliveOptions opts;
+    opts.enabled = true;
+    opts.idle = 5;
+    opts.interval = 1;
+    opts.count = 2;
     Socket::keepalive(connection->getHandle(), opts);
     VERBOSE("> Found new Client");
     // wait for client tear-down
