@@ -144,7 +144,7 @@ INSTALL (
 if(BUILD_TESTS AND GTEST_FOUND)
   include_directories(
     ${GTEST_INCLUDE_DIRS}
-    "Tests/Mocks"
+    "${SOCKETS_PATH}/Tests/Include"
   )
 
   file(GLOB_RECURSE TEST_FILES "${SOCKETS_PATH}/Tests/Cases/*.cpp")
@@ -155,6 +155,17 @@ if(BUILD_TESTS AND GTEST_FOUND)
   if(NOT MSVC)
   	target_link_libraries(${TESTS} pthread)
   endif()
+  
+  file(GLOB_RECURSE SYSTEM_TESTS "${SOCKETS_PATH}/Tests/System/*.cpp")
+  foreach(PROGRAM ${SYSTEM_TESTS})
+  	get_filename_component(PROGRAM_FILE ${PROGRAM} NAME)
+  	string(REGEX REPLACE "\\.[^.]*$" "" PROGRAM_EXT ${PROGRAM_FILE})
+		add_executable(${PROGRAM_EXT} ${PROGRAM})
+		target_link_libraries(${PROGRAM_EXT} ${LIBRARY_NAME})
+		if(NOT MSVC)
+			target_link_libraries(${PROGRAM_EXT} pthread)
+		endif()
+	endforeach()
 
   install_targets(/bin ${TESTS})
 endif()

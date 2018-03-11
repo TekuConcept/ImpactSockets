@@ -11,7 +11,7 @@
 
 namespace Impact {
 namespace RFC6455 {
-    class WebsocketClientNode : public Websocket {
+    class WebsocketClientNode : public RFCWebsocket {
     public:
         WebsocketClientNode(std::iostream &stream, URI uri);
         

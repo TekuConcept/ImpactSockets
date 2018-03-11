@@ -30,10 +30,10 @@ namespace RFC6455 {
 		DataFrame();
     } DataFrame;
     
-    class Websocket {
+    class RFCWebsocket {
     public:
-        Websocket(std::iostream& stream, bool isClient);
-        virtual ~Websocket();
+        RFCWebsocket(std::iostream& stream, bool isClient);
+        virtual ~RFCWebsocket();
         
         virtual bool initiateHandshake();
         

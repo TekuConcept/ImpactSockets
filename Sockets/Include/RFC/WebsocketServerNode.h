@@ -11,7 +11,7 @@
 
 namespace Impact {
 namespace RFC6455 {
-    class WebsocketServerNode : public Websocket {
+    class WebsocketServerNode : public RFCWebsocket {
     public:
         WebsocketServerNode(std::iostream &stream);
         bool initiateHandshake();

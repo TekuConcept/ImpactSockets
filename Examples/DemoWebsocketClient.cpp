@@ -15,7 +15,7 @@ using namespace RFC6455;
 
 #define VERBOSE(x) std::cout << x << std::endl
 
-void messenger(Websocket& ws) {
+void messenger(RFCWebsocket& ws) {
     std::string line;
     std::ostringstream ss;
     do {

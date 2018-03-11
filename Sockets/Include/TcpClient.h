@@ -40,6 +40,7 @@ namespace Impact {
 		static const unsigned int BUF_SIZE = 256;
 		char* outputBuffer_;
 		char* inputBuffer_;
+		
 		std::shared_ptr<TCPSocket> socket;
 		SocketPollToken pollToken;
 		bool connected;

@@ -15,10 +15,10 @@ using namespace Impact;
 using namespace RFC6455;
 
 WebsocketClientNode::WebsocketClientNode(std::iostream &stream, URI uri)
-    : Websocket(stream, true), _uri_(uri) {}
+    : RFCWebsocket(stream, true), _uri_(uri) {}
 
 bool WebsocketClientNode::initiateHandshake() {
-    Websocket::initiateHandshake();
+    RFCWebsocket::initiateHandshake();
     RFC2616::RequestMessage message(
         RFC2616::METHOD::GET,
         _uri_.resource()

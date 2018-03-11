@@ -18,7 +18,7 @@ using namespace RFC6455;
 DataFrame::DataFrame() : finished(true), reserved(0),
 	opcode(0), masked(false), bad(false), data("") {}
 
-Websocket::Websocket(std::iostream& stream, bool isClient)
+RFCWebsocket::RFCWebsocket(std::iostream& stream, bool isClient)
     : _stream_(stream), _connectionState_(STATE::CLOSED),
 	_distribution_(0,255), _isClient_(isClient) {
     auto now = std::chrono::high_resolution_clock::now();
@@ -30,28 +30,28 @@ Websocket::Websocket(std::iostream& stream, bool isClient)
     ));
 }
 
-Websocket::~Websocket() {}
+RFCWebsocket::~RFCWebsocket() {}
 
-bool Websocket::initiateHandshake() {
+bool RFCWebsocket::initiateHandshake() {
     _connectionState_ = STATE::CONNECTING;
     return true;
 }
 
-void Websocket::ping() {
+void RFCWebsocket::ping() {
     DataFrame frame;
     initFrame(frame);
     frame.opcode     = OP_PING;
     serializeOut(frame);
 }
 
-void Websocket::pong() {
+void RFCWebsocket::pong() {
     DataFrame frame;
     initFrame(frame);
     frame.opcode = OP_PONG;
     serializeOut(frame);
 }
 
-void Websocket::pong(DataFrame frame) {
+void RFCWebsocket::pong(DataFrame frame) {
     // RFC 6455 Section 5.5.3 Paragraph 3: Identical Application Data
     DataFrame nextFrame;
     initFrame(nextFrame);
@@ -61,7 +61,7 @@ void Websocket::pong(DataFrame frame) {
     serializeOut(nextFrame);
 }
 
-void Websocket::close() {
+void RFCWebsocket::close() {
     DataFrame frame;
     initFrame(frame);
     frame.opcode     = OP_CLOSE;
@@ -69,7 +69,7 @@ void Websocket::close() {
     _connectionState_ = STATE::CLOSED;
 }
 
-void Websocket::sendText(std::string text) {
+void RFCWebsocket::sendText(std::string text) {
     DataFrame frame;
     initFrame(frame);
     frame.opcode     = OP_TEXT;
@@ -77,7 +77,7 @@ void Websocket::sendText(std::string text) {
     serializeOut(frame);
 }
 
-void Websocket::sendBinary(const char* data, unsigned int length) {
+void RFCWebsocket::sendBinary(const char* data, unsigned int length) {
     DataFrame frame;
     initFrame(frame);
     frame.opcode     = OP_BINARY;
@@ -85,13 +85,13 @@ void Websocket::sendBinary(const char* data, unsigned int length) {
     serializeOut(frame);
 }
 
-void Websocket::initFrame(DataFrame &frame) {
+void RFCWebsocket::initFrame(DataFrame &frame) {
     frame.finished   = true;
     frame.reserved   = '\0';
     frame.masked     = _isClient_;
 }
 
-DataFrame Websocket::read() {
+DataFrame RFCWebsocket::read() {
     DataFrame result = serializeIn();
     if(result.bad) return result;
     if(!(_isClient_ ^ result.masked)) {
@@ -106,7 +106,7 @@ DataFrame Websocket::read() {
     return result;
 }
 
-STATE Websocket::getState() {
+STATE RFCWebsocket::getState() {
     return _connectionState_;
 }
 
@@ -131,7 +131,7 @@ STATE Websocket::getState() {
  +---------------------------------------------------------------+
 */
 
-void Websocket::serializeOut(DataFrame frame) {
+void RFCWebsocket::serializeOut(DataFrame frame) {
     if(_connectionState_ == STATE::CLOSED) return;
     
     _stream_ << (unsigned char)((frame.finished ? 0x80 : 0x0) |
@@ -171,7 +171,7 @@ void Websocket::serializeOut(DataFrame frame) {
     _stream_ << std::flush;
 }
 
-DataFrame Websocket::serializeIn() {
+DataFrame RFCWebsocket::serializeIn() {
     #define BAD_FRAME_TEST(c) if(!(_stream_ >> c)) return frame;
     DataFrame frame;
     frame.bad = true;

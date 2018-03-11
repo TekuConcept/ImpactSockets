@@ -17,8 +17,8 @@ using namespace Impact;
 
 TcpClient::TcpClient() :
 	std::iostream(this),
-	outputBuffer_(new char[BUF_SIZE + 1]),
-	inputBuffer_(new char[BUF_SIZE + 1]),
+    outputBuffer_(new char[BUF_SIZE + 1]),
+    inputBuffer_(new char[BUF_SIZE + 1]),
 	self(typeid(this), this) {
 	init();
 }
@@ -27,8 +27,8 @@ TcpClient::TcpClient() :
 
 TcpClient::TcpClient(int port, std::string address) :
 	std::iostream(this),
-	outputBuffer_(new char[BUF_SIZE + 1]),
-	inputBuffer_(new char[BUF_SIZE + 1]),
+    outputBuffer_(new char[BUF_SIZE + 1]),
+    inputBuffer_(new char[BUF_SIZE + 1]),
 	self(typeid(this), this) {
 	init();
 	connect(port, address);
@@ -36,7 +36,10 @@ TcpClient::TcpClient(int port, std::string address) :
 
 
 
-TcpClient::~TcpClient() {}
+TcpClient::~TcpClient() {
+	delete[] outputBuffer_;
+	delete[] inputBuffer_;
+}
 
 
 
