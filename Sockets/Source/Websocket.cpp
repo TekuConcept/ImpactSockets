@@ -190,7 +190,7 @@ void Websocket::send() {
 // if streaming, send 0s until streaming finished
 // then send close frame
 void Websocket::close() {
-    close(CODE_NORMAL,"normal closure");
+    close(CODE_NORMAL,"");
 }
 
 
@@ -208,9 +208,21 @@ void Websocket::close(unsigned int code, std::string reason) {
     if(shouldWriteReason) context.length = reason.length() + 2;
     
     WebsocketUtils::writeHeader(_stream_,context,_engine_);
+    
     if(shouldWriteReason) {
-        // RFC6455 Section 5.5.1 Paragraph 2
+        /**
+         * RFC6455 Section 5.5.1 Paragraph 2
+         * 
+         * If there is a body, the first two bytes of
+         * the body MUST be a 2-byte unsigned integer (in network byte order)
+         * representing a status code with value /code/ defined in Section 7.4.
+         */
         unsigned short _code_ = code&0xFFFF;
+        unsigned int endian = 1;
+        if (((char*)&endian)[0]) {
+            // little endian, swap bytes
+            _code_ = ((_code_&0xFF)<<8) | (_code_>>8);
+        }
         WebsocketUtils::writeData(_stream_,context,(const char*)&_code_,2);
         WebsocketUtils::writeData(_stream_,context,&reason[0],reason.length());
     }
@@ -248,7 +260,14 @@ void Websocket::wait() {
     do {
         WSFrameContext context;
         if(!WebsocketUtils::readHeader(_stream_,context)) {
-            close(); // connection timed out
+            close(CODE_GOING_AWAY, "Connection Timed Out");
+            return;
+        }
+        // The server MUST close the connection upon receiving a
+        // frame that is not masked. A server MUST NOT mask any
+        // frames that it sends to the client.
+        if(_type_ == WS_TYPE::WS_SERVER && !context.masked) {
+            close(CODE_PROTO_ERR, "Received Unmasked Frame");
             return;
         }
         

@@ -10,12 +10,16 @@
 namespace Impact{
     namespace StringCodec {
         // RFC 3629: UTF-8, a transformation format of ISO 10646
+        #define UTF8_BOM      0xFEFF /* "ZERO WIDTH NO-BREAK SPACE" */
+        #define UTF8_FAIL    -1
+        #define UTF8_SUCCESS  0
+        
         bool encodeUTF8(const std::string data, std::string& utf8);
         bool encodeUTF8(const char* data, unsigned int length, std::string& utf8);
-        bool encodeUTF8(const unsigned int* data, unsigned int length, std::string& utf8);
-        bool decodeUTF8(const std::string utf8, std::string data);
-        bool decodeUTF8(const std::string utf8, char* data, unsigned int length);
-        bool decodeUTF8(const std::string utf8, unsigned int* data, unsigned int length);
+        bool encodeUTF8(const unsigned int* data, unsigned int length,
+            std::string& utf8);
+        
+        void decodeUTF8(char utf8byte, unsigned int& codepoint, int& status);
     }
 }
 
