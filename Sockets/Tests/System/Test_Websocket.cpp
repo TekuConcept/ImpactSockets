@@ -36,14 +36,14 @@ int main() {
         VERBOSE("> Handshake accepted");
         DELAY_S(1);
         
-        // VERBOSE("> Sending non-fragmented data");
-        // web << "Hello Connection" << ws::send;
-        // DELAY_S(1);
+        VERBOSE("> Sending non-fragmented data");
+        web << "Hello Connection" << ws::send;
+        DELAY_S(1);
         
-        // VERBOSE("> Sending fragmented data");
-        // web << "To be " << std::flush;
-        // web << "continued." << ws::send;
-        // DELAY_S(1);
+        VERBOSE("> Sending fragmented data");
+        web << "To be " << std::flush;
+        web << "continued." << ws::send;
+        DELAY_S(1);
         
         // VERBOSE("> Ping");
         // web << ws::ping; // no data

@@ -26,13 +26,15 @@ bool StringCodec::encodeUTF8(const std::string data, std::string& utf8) {
     return encodeUTF8(&data[0],data.length(),utf8);
 }
 
+#include <iomanip>
 bool StringCodec::encodeUTF8(const char* data, unsigned int length,
     std::string& utf8) {
     std::ostringstream os;
     unsigned short symbol;
     for(unsigned int i = 0; i < length; i++) {
         symbol = static_cast<unsigned short>(data[i]&0xFF);
-        if(symbol <= 0x007F) os << static_cast<unsigned char>(symbol);
+        if(symbol <= 0x007F)
+            os << static_cast<unsigned char>(symbol);
         else {
             os << static_cast<unsigned char>(0xC0|(symbol>>6));
             os << static_cast<unsigned char>(0x80|(symbol&0x3F));

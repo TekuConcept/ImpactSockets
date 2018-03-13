@@ -3,6 +3,7 @@
  */
 
 #include "Websocket.h"
+#include "RFC/StringCodec.h"
 
 #include <chrono>
 #include <string>
@@ -35,11 +36,14 @@ using namespace Internal;
 #define CODE_TLS_HANDSHAKE    1015 /* TLS handshake               */
 
 
-Websocket::Websocket(std::iostream& stream, URI uri, WS_TYPE type,
-    unsigned int bufferSize) : std::iostream(this), _stream_(stream),
-    _uri_(uri), _type_(type), _connectionState_(STATE::CLOSED),
-    _bufferSize_(bufferSize), _obuffer_(new char[bufferSize+1]),
-    _ibuffer_(new char[bufferSize+1]), _echo_(false) {
+Websocket::Websocket(
+    std::iostream& stream, URI uri, WS_TYPE type, unsigned int bufferSize) :
+    std::iostream(this), _stream_(stream), _uri_(uri), _type_(type),
+    _connectionState_(STATE::CLOSED), _bufferSize_(bufferSize),
+    _obuffer_(new char[bufferSize+1]), _outKeyOffset_(0), _outContinued_(false),
+    _outOpCode_(OP_TEXT), _ibuffer_(new char[bufferSize+1]),
+    _inKeyOffset_(0),  _inContinued_(false), _inOpCode_(OP_TEXT)
+    {
     
     auto now = std::chrono::high_resolution_clock::now();
     _engine_.seed(static_cast<unsigned int>(
@@ -99,8 +103,10 @@ void Websocket::ping(std::string data) {
     context.opcode = OP_PING;
     context.masked = _type_==WS_TYPE::WS_CLIENT;
     context.length = data.length();
+    auto keyOffset = 0;
     WebsocketUtils::writeHeader(_stream_, context, _engine_);
-    WebsocketUtils::writeData(_stream_, context, &data[0], data.length());
+    WebsocketUtils::writeData(_stream_, context, &data[0],
+        data.length(), keyOffset);
 }
 
 
@@ -121,8 +127,6 @@ void Websocket::pong(unsigned long long int) {
 }
 
 
-// do not write header in stream mode
-// check queue if done streaming
 void Websocket::push() {
     push_s();
 }
@@ -130,60 +134,69 @@ void Websocket::push() {
 
 int Websocket::push_s() {
     if(_connectionState_ == STATE::CLOSED) return -1;
-    WSFrameContext context;
-    context.finished = false;
-    context.masked   = _type_ == WS_TYPE::WS_CLIENT;
-    context.length   = int(pptr() - pbase());
-    if(!_outContext_._continued_) {
-        _outContext_._continued_ = true;
-        context.opcode = _outContext_.opcode;
+    bool finished = false;
+    unsigned char opcode;
+    if(!_outContinued_) {
+        _outContinued_ = true;
+        opcode = _outOpCode_;
     }
-    else context.opcode = OP_CONTINUE;
+    else opcode = OP_CONTINUE;
     
-    std::stringstream ss;
-    if(WebsocketUtils::writeHeader(ss,context,_engine_)) {
-        auto str = ss.str();
-        std::cout << "push: ";
-        for(unsigned int i = 0; i < 2; i++)
-            std::cout << std::hex << (int)(0xFF&str[i]) << " ";
-        std::cout << std::endl;
+    return writeAndReset(finished, opcode);
+}
+
+
+void Websocket::send() {
+    if(_connectionState_ == STATE::CLOSED) return;
+    bool finished = true;
+    unsigned char opcode;
+    if(_outContinued_) {
+        opcode = OP_CONTINUE;
+        _outContinued_ = false;
     }
+    else opcode = _outOpCode_;
     
-    if(WebsocketUtils::writeHeader(_stream_, context, _engine_)) {
-        WebsocketUtils::writeData(_stream_, context, pbase(), context.length);
-        setp(pbase(), epptr());
-        return 0;
-    }
-    return -1;
+    writeAndReset(finished, opcode);
 }
 
 
 // don't write header in stream mode
 // check queue if done streaming
-void Websocket::send() {
-    if(_connectionState_ == STATE::CLOSED) return;
+int Websocket::writeAndReset(bool finished, unsigned char opcode) {
     WSFrameContext context;
-    context.finished = true;
-    context.masked = _type_ == WS_TYPE::WS_CLIENT;
-    context.length = int(pptr() - pbase());
-    if(_outContext_._continued_) {
-        context.opcode = OP_CONTINUE;
-        _outContext_._continued_ = false;
-    }
-    else context.opcode = _outContext_.opcode;
+    context.finished = finished;
+    context.opcode   = opcode;
+    context.masked   = _type_ == WS_TYPE::WS_CLIENT;
+    context.length   = int(pptr() - pbase());
     
-    std::stringstream ss;
-    if(WebsocketUtils::writeHeader(ss,context,_engine_)) {
-        auto str = ss.str();
-        std::cout << "send: ";
-        for(unsigned int i = 0; i < 2; i++)
-            std::cout << std::hex << (int)(0xFF&str[i]) << " ";
-        std::cout << std::endl;
+    if(WebsocketUtils::writeHeader(_stream_, context, _engine_)) {
+        _outKeyOffset_ = 0;
+        if(_outOpCode_ == OP_TEXT) {
+            // Avoid worst case utf8 stream length:
+            // 2*context.length > UINT32_MAX by writing the
+            // first and second half of the data seperately
+            std::string utf8;
+            unsigned int length[2];
+            
+            length[0] = static_cast<unsigned int>(context.length>>2);
+            length[1] = static_cast<unsigned int>(context.length-length[0]);
+            int offset = 0;
+            
+            for(auto i = 0; i < 2; i++) {
+                StringCodec::encodeUTF8(pbase()+offset,length[i],utf8);
+                offset = length[0];
+                
+                WebsocketUtils::writeData(_stream_, context,
+                    &utf8[0], utf8.length(), _outKeyOffset_);
+            }
+        }
+        else WebsocketUtils::writeData(_stream_, context, pbase(),
+            static_cast<unsigned int>(context.length), _outKeyOffset_);
+        
+        setp(pbase(), epptr());
+        return 0;
     }
-    
-    WebsocketUtils::writeHeader(_stream_, context, _engine_);
-    WebsocketUtils::writeData(_stream_, context, pbase(), context.length);
-    setp(pbase(), epptr());
+    return -1;
 }
 
 
@@ -223,8 +236,11 @@ void Websocket::close(unsigned int code, std::string reason) {
             // little endian, swap bytes
             _code_ = ((_code_&0xFF)<<8) | (_code_>>8);
         }
-        WebsocketUtils::writeData(_stream_,context,(const char*)&_code_,2);
-        WebsocketUtils::writeData(_stream_,context,&reason[0],reason.length());
+        auto keyOffset = 0;
+        WebsocketUtils::writeData(
+            _stream_,context,(const char*)&_code_,2,keyOffset);
+        WebsocketUtils::writeData(
+            _stream_,context,&reason[0],reason.length(),keyOffset);
     }
 
     _connectionState_ = STATE::CLOSED;
@@ -232,14 +248,14 @@ void Websocket::close(unsigned int code, std::string reason) {
 
 
 WS_MODE Websocket::in_mode() {
-    if(_inContext_.opcode == OP_TEXT)
+    if(_inOpCode_ == OP_TEXT)
         return WS_MODE::TEXT;
     return WS_MODE::BINARY;
 }
 
 
 WS_MODE Websocket::out_mode() {
-    if(_outContext_.opcode == OP_TEXT)
+    if(_outOpCode_ == OP_TEXT)
         return WS_MODE::TEXT;
     return WS_MODE::BINARY;
 }
@@ -247,15 +263,15 @@ WS_MODE Websocket::out_mode() {
 // prevent change in streaming mode
 void Websocket::out_mode(WS_MODE mode) {
     switch(mode) {
-    case WS_MODE::TEXT:   _outContext_.opcode = OP_TEXT;   break;
-    case WS_MODE::BINARY: _outContext_.opcode = OP_BINARY; break;
+    case WS_MODE::TEXT:   _outOpCode_ = OP_TEXT;   break;
+    case WS_MODE::BINARY: _outOpCode_ = OP_BINARY; break;
     }
 }
 
 
 void Websocket::wait() {
     if(_connectionState_ == STATE::CLOSED) return;
-    if(_inContext_._processed_ != _inContext_.length) return;
+    // if(_inContext_._processed_ != _inContext_.length) return;
     bool available = false;
     do {
         WSFrameContext context;
@@ -319,7 +335,6 @@ int Websocket::overflow(int c) {
 
 
 int Websocket::underflow() {
-    std::cout << "> Underflow" << std::endl;
     // RFC6455 Section 7.1.7 Paragraph 2
     if(_connectionState_ == STATE::CLOSED) return EOF;
     

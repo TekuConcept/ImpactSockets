@@ -198,12 +198,13 @@ bool WebsocketUtils::writeHeader(std::ostream& stream,
 
 
 bool WebsocketUtils::writeData(std::ostream& stream, WSFrameContext context,
-    const char* data, unsigned int length) {
+    const char* data, unsigned int length, int& keyOffset) {
     #define BAD_WRITE_CHECK(x) if(!(stream << x)) return false;
     
     for(unsigned int i = 0; i < length; i++) {
-        BAD_WRITE_CHECK((unsigned char)(data[i]^context.mask_key[i%4]))
+        BAD_WRITE_CHECK((unsigned char)(data[i]^context.mask_key[keyOffset]))
         if(i%256==0) stream << std::flush;
+        keyOffset = (keyOffset+1)%4;
     }
     stream << std::flush;
     
@@ -251,7 +252,7 @@ bool WebsocketUtils::readHeader(std::istream& stream, WSFrameContext& header) {
 
 
 int WebsocketUtils::readData(std::istream& stream, WSFrameContext context,
-    char* data, int length) {
+    char* data, int length, int& keyOffset) {
     #define EOF_READ_CHECK(x) if(!stream.get(x)) return count;
     if(length < 0) return -1;
     else if (length == 0) return 0;
@@ -260,8 +261,9 @@ int WebsocketUtils::readData(std::istream& stream, WSFrameContext context,
     char byte;
     for(int i = 0; i < length; i++) {
         EOF_READ_CHECK(byte);
-        data[i] = (char)((int)(0xFF&byte) ^ context.mask_key[i%4]);
+        data[i] = (char)((int)(0xFF&byte) ^ context.mask_key[keyOffset]);
         count++;
+        keyOffset = (keyOffset+1)%4;
     }
     
     return count;

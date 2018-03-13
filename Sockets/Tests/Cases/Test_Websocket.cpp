@@ -119,10 +119,12 @@ TEST(TestWebsocket, writeHeader) {
 TEST(TestWebsocket, writeData) {
     #define RESET \
         stream.clear();\
-        stream.str("")
+        stream.str("");\
+        keyOffset = 0
     std::stringstream stream;
     std::string message = "Hello World!", result;
     WSFrameContext context;
+    int keyOffset;
     
     //
     // writeData only needs 'mask_key' from the context
@@ -137,7 +139,7 @@ TEST(TestWebsocket, writeData) {
     for(auto i = 0; i < 4; i++)
         context.mask_key[i] = 0;
     ASSERT_TRUE(WebsocketUtils::writeData(stream, context,
-        message.c_str(), message.length()));
+        message.c_str(), message.length(), keyOffset));
     result = stream.str();
     EXPECT_EQ(result, message);
 
@@ -153,7 +155,7 @@ TEST(TestWebsocket, writeData) {
     context.mask_key[3] = 0xD8;
     
     ASSERT_TRUE(WebsocketUtils::writeData(stream, context,
-        message.c_str(), message.length()));
+        message.c_str(), message.length(), keyOffset));
     result = stream.str();
     std::string scrambled(
         "\xC4\xF2\xDB\xB4\xE3\xB7\xE0\xB7\xFE\xFB\xD3\xF9", 12);
@@ -221,6 +223,7 @@ TEST(TestWebsocket, readHeader) {
 TEST(TestWebsocket, readData) {
     std::stringstream stream;
     WSFrameContext context;
+    int keyOffset = 0;
     std::string result, message = "Hello World!", data;
     data.resize(message.length(),'\0');
     
@@ -237,7 +240,8 @@ TEST(TestWebsocket, readData) {
     stream.clear();
     stream.str(message);
     EXPECT_EQ(
-        WebsocketUtils::readData(stream,context,&data[0],data.length()),
+        WebsocketUtils::readData(
+            stream,context,&data[0],data.length(),keyOffset),
         data.length()
     );
     EXPECT_EQ(data, message);
@@ -247,8 +251,10 @@ TEST(TestWebsocket, readData) {
     //
     stream.clear();
     stream.str("yes");
+    keyOffset = 0;
     EXPECT_EQ(
-        WebsocketUtils::readData(stream,context,&data[0],data.length()),
+        WebsocketUtils::readData(
+            stream,context,&data[0],data.length(),keyOffset),
         3
     );
     
@@ -265,8 +271,10 @@ TEST(TestWebsocket, readData) {
         "\xC4\xF2\xDB\xB4\xE3\xB7\xE0\xB7\xFE\xFB\xD3\xF9", 12);
     stream.str(scrambled);
     for(unsigned int i = 0; i < data.length(); i++) data[0] = '\0';
+    keyOffset = 0;
     EXPECT_EQ(
-        WebsocketUtils::readData(stream,context,&data[0],data.length()),
+        WebsocketUtils::readData(
+            stream,context,&data[0],data.length(),keyOffset),
         12
     );
     EXPECT_EQ(data, message);

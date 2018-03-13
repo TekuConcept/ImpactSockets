@@ -40,9 +40,9 @@ namespace Internal {
         
         static bool writeHeader(std::ostream&, WSFrameContext&, std::mt19937);
         static bool writeData(std::ostream&, WSFrameContext,
-            const char*, unsigned int);
+            const char*, unsigned int, int&);
         static bool readHeader(std::istream&, WSFrameContext&);
-        static int readData(std::istream&,WSFrameContext,char*,int);
+        static int readData(std::istream&,WSFrameContext,char*,int,int&);
     };
 }}
 

@@ -26,23 +26,40 @@ namespace Impact {
     };
     
     class Websocket : private std::streambuf, public std::iostream {
-        // socket variables
+        /////////////////////////////////////////
+        // Class Variables                     //
+        /////////////////////////////////////////
+        
         std::iostream& _stream_;
         URI _uri_;
         WS_TYPE _type_;
         std::mt19937 _engine_;
         RFC6455::STATE _connectionState_;
-        
-        // stream variables
         unsigned int _bufferSize_;
-        char* _obuffer_;
-    	char* _ibuffer_;
     	
-    	// frame variables
-    	Internal::WSFrameContext _inContext_;
-    	Internal::WSFrameContext _outContext_;
-    	bool _echo_;
+        /////////////////////////////////////////
+        // Out Stream                          //
+        /////////////////////////////////////////
         
+        char* _obuffer_;
+    	int _outKeyOffset_;
+    	bool _outContinued_;
+    	unsigned char _outOpCode_;
+    	
+        /////////////////////////////////////////
+        // In Stream                           //
+        /////////////////////////////////////////
+        
+        char* _ibuffer_;
+        int _inKeyOffset_;
+        bool _inContinued_;
+        unsigned char _inOpCode_;
+    	
+        /////////////////////////////////////////
+        // private functions                   //
+        /////////////////////////////////////////
+        
+        int writeAndReset(bool finished, unsigned char opcode);
         void pong(unsigned long long int length=0);
         void close(unsigned int code, std::string reason);
         
@@ -50,7 +67,9 @@ namespace Impact {
         Websocket(std::iostream& stream, URI uri, WS_TYPE type,
             unsigned int bufferSize=256);
         ~Websocket();
+        
         bool shakeHands();
+        void wait();
 
         void ping();
         void ping(std::string data);
@@ -59,14 +78,9 @@ namespace Impact {
         void send();
         void close();
         
-        // message finished
-        // end of frame data
-        
         WS_MODE in_mode();
         WS_MODE out_mode();
         void out_mode(WS_MODE mode);
-        
-        void wait();
         
         int sync();
         int overflow(int c);

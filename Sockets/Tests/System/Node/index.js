@@ -56,7 +56,7 @@ function configure(connection) {
             else if(message.utf8Data === "ping me data") {
                 connection.ping(count);
             }
-            else {
+            else if(message.utf8Data === "send me data") {
                 connection.send("hello from server "+count);
                 count++;
             }
