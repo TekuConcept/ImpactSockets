@@ -4,6 +4,7 @@
 
 #include "TcpClient.h"
 #include <iostream>
+#include <stdexcept>
 
 #if defined(_MSC_VER)
     #include <windows.h>
@@ -162,6 +163,20 @@ void TcpClient::setTimeout(int time_ms) {
 	// -1 means waiting indefinitely ie no timeout
 	if (time_ms < -1) timeout = -1; // normalize
 	else              timeout = time_ms;
+}
+
+
+
+void TcpClient::send(const void *buffer, int bufferLen, int flags)
+throw(SOC_EXCEPTION) {
+	socket->send(buffer,bufferLen,flags);
+}
+
+
+
+int TcpClient::recv(void *buffer, int bufferLen, int flags)
+throw(SOC_EXCEPTION) {
+	return socket->recv(buffer,bufferLen,flags);
 }
 
 
