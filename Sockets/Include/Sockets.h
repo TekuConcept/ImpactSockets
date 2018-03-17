@@ -70,9 +70,7 @@ namespace Impact {
 		*/
 		void add(SocketHandle& handle, int events);
 		/**
-		* Removes the handle at the specified index by swapping it with
-		* the last handle added. The index of the last handle then assumes
-		* the index of the removed handle and the token's size decreases by 1.
+		* Removes the handle at the specified index.
 		*/
 		void remove(int idx);
 		/**

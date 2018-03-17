@@ -95,6 +95,7 @@ void SocketPollToken::add(SocketHandle& handle, int events) {
 
 
 void SocketPollToken::remove(int idx) {
+	// _handles_.erase(_handles_.begin()+idx);
 	auto back = _handles_.size() - 1;
 	if (back > 0)
 		_handles_[idx] = _handles_[back];

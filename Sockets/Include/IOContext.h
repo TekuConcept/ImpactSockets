@@ -19,12 +19,12 @@ namespace Impact {
     class IOContext {
         typedef std::function<void (char*&,int&)> FunctionCallback;
         typedef struct Entity {
-            SocketHandle& handle;
+            CommunicatingSocket* socket;
             char* buffer;
             int length;
             std::promise<int> promise;
             FunctionCallback callback;
-            Entity(SocketHandle&,char*,int,FunctionCallback);
+            Entity(CommunicatingSocket*,char*,int,FunctionCallback);
         } Entity;
         
         std::thread _service_;
@@ -36,14 +36,19 @@ namespace Impact {
         std::atomic<bool> _active_;
         
         std::vector<Entity> _queue_;
+        SocketPollToken _polltoken_;
+        std::atomic<int> _polltimeout_;
         
         void update(unsigned int&);
+        void updateEntity(unsigned int&);
+        bool updateState(unsigned int,ssize_t);
+        void dequeue(unsigned int);
         
     public:
         IOContext();
         ~IOContext();
         
-        std::future<int> enqueue(SocketHandle& handle, char* buffer,
+        std::future<int> enqueue(CommunicatingSocket& socket, char* buffer,
             int length, FunctionCallback whenDone);
     };
 }
