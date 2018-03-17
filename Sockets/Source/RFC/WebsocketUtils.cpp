@@ -16,8 +16,7 @@ WebsocketUtils::_distribution_(0,255);
 std::string WebsocketUtils::SECRET = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 WSFrameContext::WSFrameContext() : finished(true), reserved(0), opcode(1),
-    masked(false), length(0), mask_key{0x0,0x0,0x0,0x0}, _processed_(0),
-    _continued_(false) {}
+    masked(false), length(0), mask_key{0x0,0x0,0x0,0x0} {}
 
 
 std::string WebsocketUtils::generateKey(std::mt19937 _engine_) {

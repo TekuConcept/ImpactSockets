@@ -53,6 +53,7 @@ namespace Impact {
         char* _ibuffer_;
         int _inKeyOffset_;
         bool _inContinued_;
+        Internal::WSFrameContext _inContext_;
         unsigned char _inOpCode_;
     	
         /////////////////////////////////////////
@@ -60,8 +61,12 @@ namespace Impact {
         /////////////////////////////////////////
         
         int writeAndReset(bool finished, unsigned char opcode);
-        void pong(unsigned long long int length=0);
+        void pong();
         void close(unsigned int code, std::string reason);
+        
+        int processNextFrame();
+        unsigned long long int min(
+            unsigned long long int, unsigned long long int);
         
     public:
         Websocket(std::iostream& stream, URI uri, WS_TYPE type,
@@ -69,7 +74,7 @@ namespace Impact {
         ~Websocket();
         
         bool shakeHands();
-        void wait();
+        bool wait();
 
         void ping();
         void ping(std::string data);

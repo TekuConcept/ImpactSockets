@@ -54,10 +54,10 @@ function configure(connection) {
                 connection.ping();
             }
             else if(message.utf8Data === "ping me data") {
-                connection.ping(count);
+                connection.ping(count+"\n");
             }
             else if(message.utf8Data === "send me data") {
-                connection.send("hello from server "+count);
+                connection.send("hello from server "+count+"\n");
                 count++;
             }
         }

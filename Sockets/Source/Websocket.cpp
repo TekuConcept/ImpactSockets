@@ -9,6 +9,7 @@
 #include <string>
 #include <iomanip>
 #include <sstream>
+#include <climits>
 
 using namespace Impact;
 using namespace RFC6455;
@@ -34,6 +35,8 @@ using namespace Internal;
 #define CODE_MANDATORY_EXT    1010 /* mandatory extension         */
 #define CODE_INTERNAL_ERROR   1011 /* internal server error       */
 #define CODE_TLS_HANDSHAKE    1015 /* TLS handshake               */
+
+#define VERBOSE(x) std::cout << x << std::endl
 
 
 Websocket::Websocket(
@@ -86,6 +89,18 @@ bool Websocket::shakeHands() {
 }
 
 
+bool Websocket::wait() {
+    if(_inContext_.length == 0) {
+        int result;
+        do {
+            result = processNextFrame();
+            if(result < 0) return false;
+        } while(result == 1);
+    }
+    return true;
+}
+
+
 // enqueue ping, do not write during stream
 void Websocket::ping() {
     if(_connectionState_ == STATE::CLOSED) return;
@@ -110,20 +125,35 @@ void Websocket::ping(std::string data) {
 }
 
 
-void Websocket::pong(unsigned long long int) {
+unsigned long long int Websocket::min(
+    unsigned long long int A, unsigned long long int B) {
+    if(A < B) return A;
+    else return B;
+}
+
+
+void Websocket::pong() {
     // if(_connectionState_ == STATE::CLOSED) return;
-    // WSFrameContext context;
-    // context.opcode = OP_PONG;
-    // context.masked = _type_==WS_TYPE::WS_CLIENT;
-    // context.length = length;
-    // WebsocketUtils::writeHeader(_stream_, context, _engine_);
+    WSFrameContext context;
+    context.opcode = OP_PONG;
+    context.masked = _type_==WS_TYPE::WS_CLIENT;
+    context.length = _inContext_.length;
+    
+    WebsocketUtils::writeHeader(_stream_, context, _engine_);
     
     // // RFC 6455 Section 5.5.3 Paragraph 3: Identical Application Data
-    // if(_echo_) {
-    //     _outContext_.masked = context.masked;
-    //     for(auto i = 0; i < 4; i++)
-    //         _outContext_.mask_key[i] = context.mask_key[i];
-    // }
+    if(context.length > 0) {
+        char* buffer = new char[256];
+        do {
+            int len = min(context.length,256);
+            context.length-=len;
+            WebsocketUtils::readData(
+                _stream_,_inContext_,buffer,len,_inKeyOffset_);
+            WebsocketUtils::writeData(
+                _stream_,context,buffer,len,_outKeyOffset_);
+        } while(context.length > 0);
+        delete[] buffer;
+    }
 }
 
 
@@ -247,6 +277,51 @@ void Websocket::close(unsigned int code, std::string reason) {
 }
 
 
+int Websocket::processNextFrame() {
+    const int ERROR = -1, CONTINUE = 1, DATA = 0;
+    auto result = WebsocketUtils::readHeader(_stream_, _inContext_);
+    if(!result) {
+        if(_connectionState_ != STATE::CLOSED)
+            close(CODE_GOING_AWAY, "Connection Read Timed Out");
+        return ERROR;
+    }
+    // The server MUST close the connection upon receiving a
+    // frame that is not masked. A server MUST NOT mask any
+    // frames that it sends to the client.
+    if(_type_ == WS_TYPE::WS_SERVER && !_inContext_.masked) {
+        if(_connectionState_ != STATE::CLOSED)
+            close(CODE_PROTO_ERR, "Received Unmasked Frame");
+        return ERROR;
+    }
+    
+    switch(_inContext_.opcode) {
+    case OP_BINARY:
+    case OP_TEXT:
+    case OP_CONTINUE:
+        VERBOSE("-> data");
+        if(_inContext_.length == 0) return CONTINUE;
+        else return DATA;
+    case OP_CLOSE:
+        VERBOSE("-> close");
+        if(_connectionState_ != STATE::CLOSED)
+            close();
+        return CONTINUE;
+    case OP_PING:
+        VERBOSE("-> ping");
+        pong();
+        return CONTINUE;
+    case OP_PONG:
+        VERBOSE("-> pong");
+        /* flush input stream */
+        return CONTINUE;
+    }
+    
+    if(_connectionState_ != STATE::CLOSED)
+        close(CODE_PROTO_ERR, "Unknown OpCode");
+    return ERROR;
+}
+
+
 WS_MODE Websocket::in_mode() {
     if(_inOpCode_ == OP_TEXT)
         return WS_MODE::TEXT;
@@ -269,59 +344,6 @@ void Websocket::out_mode(WS_MODE mode) {
 }
 
 
-void Websocket::wait() {
-    if(_connectionState_ == STATE::CLOSED) return;
-    // if(_inContext_._processed_ != _inContext_.length) return;
-    bool available = false;
-    do {
-        WSFrameContext context;
-        if(!WebsocketUtils::readHeader(_stream_,context)) {
-            close(CODE_GOING_AWAY, "Connection Timed Out");
-            return;
-        }
-        // The server MUST close the connection upon receiving a
-        // frame that is not masked. A server MUST NOT mask any
-        // frames that it sends to the client.
-        if(_type_ == WS_TYPE::WS_SERVER && !context.masked) {
-            close(CODE_PROTO_ERR, "Received Unmasked Frame");
-            return;
-        }
-        
-    //     switch(context.opcode) {
-    //     case OP_CLOSE:
-    //         // MAY process application data in a future update
-    //         close();
-    //         return;
-    //     case OP_PING:
-    //         available = context.length > 0;
-    //         if(available) {
-    //             _echo_ = true;
-    //             _inContext_.finished = true;
-    //             _inContext_.length   = context.length;
-    //             _inContext_.masked   = context.masked;
-    //             for(auto i = 0; i < 4; i++)
-    //                 _inContext_.mask_key[i] = context.mask_key[i];
-    //             _inContext_._processed_ = 0;
-    //         }
-    //         pong(context.length);
-    //         break;
-    //     case OP_PONG:
-    //         // read in and discard all data
-    //         // warning: infinite loop on disconnect
-    //         break;
-    //     default:
-    //         /*
-    // 		case data:
-    // 			set input context
-    // 			data = true
-    // 			break
-    //         */
-    //         break;
-    //     }
-    } while(!available);
-}
-
-
 int Websocket::sync() {
     return push_s();
 }
@@ -338,8 +360,13 @@ int Websocket::underflow() {
     // RFC6455 Section 7.1.7 Paragraph 2
     if(_connectionState_ == STATE::CLOSED) return EOF;
     
-    // - return when either the stream buffer
-    //   is filled or the entire frame was read in
-    // - return EOF on close frame
-    return EOF;
+    if(!wait()) return EOF;
+    
+    auto len = min(_inContext_.length,_bufferSize_);
+    WebsocketUtils::readData(
+        _stream_, _inContext_, eback(), len, _inKeyOffset_);
+    setg(eback(), eback(), eback() + len);
+    _inContext_.length -= len;
+    
+    return *eback();
 }

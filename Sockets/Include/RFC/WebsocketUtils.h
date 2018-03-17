@@ -19,8 +19,6 @@ namespace Internal {
         bool masked;
         unsigned long long int length;
         unsigned char mask_key[4];
-        unsigned long long int _processed_;
-        bool _continued_;
         WSFrameContext();
     } WSFrameContext;
     
