@@ -2,7 +2,7 @@
  * Created by TekuConcept on March 8, 2018
  */
 
-#include "RFC/wsmanip.h"
+#include "wsmanip.h"
 #include "Websocket.h"
 
 using namespace Impact;

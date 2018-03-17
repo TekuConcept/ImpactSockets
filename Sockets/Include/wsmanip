@@ -5,6 +5,6 @@
 #ifndef _WSMANIP_
 #define _WSMANIP_
 
-#include <RFC/wsmanip.h>
+#include <wsmanip.h>
 
 #endif

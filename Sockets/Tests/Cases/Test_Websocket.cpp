@@ -14,7 +14,7 @@
 #include <RFC/6455>
 #include <Websocket.h>
 #include <wsmanip>
-#include <RFC/WebsocketUtils.h>
+#include <Internal/WebsocketUtils.h>
 
 using namespace Impact;
 using namespace Internal;

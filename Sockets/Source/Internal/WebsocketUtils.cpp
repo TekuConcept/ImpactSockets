@@ -2,7 +2,7 @@
  * Created by TekuConcept on March 8, 2018
  */
 
-#include "RFC/WebsocketUtils.h"
+#include "Internal/WebsocketUtils.h"
 #include "RFC/3174"
 #include "RFC/4648"
 #include "RFC/6455"

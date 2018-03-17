@@ -9,10 +9,11 @@
 #include <streambuf>
 #include <random>
 #include <string>
+#include <memory>
 
 #include "RFC/URI.h"
 #include "RFC/6455"
-#include "RFC/WebsocketUtils.h"
+#include "Internal/WebsocketUtils.h"
 
 namespace Impact {
     enum class WS_TYPE {
