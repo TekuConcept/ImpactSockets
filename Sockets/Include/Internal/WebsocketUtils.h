@@ -41,6 +41,9 @@ namespace Internal {
             const char*, unsigned int, int&);
         static bool readHeader(std::istream&, WSFrameContext&);
         static int readData(std::istream&,WSFrameContext,char*,int,int&);
+        
+        static void readHeader(const char[2],WSFrameContext&);
+        static void readExtendedHeader(const char*,WSFrameContext&);
     };
 }}
 

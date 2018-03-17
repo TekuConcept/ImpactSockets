@@ -268,3 +268,28 @@ int WebsocketUtils::readData(std::istream& stream, WSFrameContext context,
     return count;
     #undef EOF_READ_CHECK
 }
+
+void WebsocketUtils::readHeader(const char data[2], WSFrameContext& header) {
+    header.finished = (data[0] >> 7);
+    header.reserved = (data[0] >> 4) & 0x7;
+    header.opcode   = data[0] & 0xF;
+    header.masked   = (data[1] >> 7);
+    header.length   = (unsigned char)(data[1] & 0x7F);
+    for(auto i = 0; i < 4; i++) header.mask_key[i] = 0x00;
+}
+
+void WebsocketUtils::readExtendedHeader(const char* data, WSFrameContext& header) {
+    if(header.length == 126) {
+        header.length = (data[0] << 8) | data[1];
+        data+=2;
+    }
+    else if(header.length == 127) {
+        for(auto i = 0; i < 8; i++) {
+            header.length = (header.length<<8) | data[0];
+            data++;
+        }
+    }
+    
+    for(auto i = 0; header.masked && i < 4; i++)
+        header.mask_key[i] = data[i];
+}

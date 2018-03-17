@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <sstream>
 #include <climits>
+#include <stdexcept>
 
 using namespace Impact;
 using namespace RFC6455;
@@ -37,17 +38,26 @@ using namespace Internal;
 #define CODE_TLS_HANDSHAKE    1015 /* TLS handshake               */
 
 #define VERBOSE(x) std::cout << x << std::endl
+#define FRAME_HEADER_SIZE 2
+#define CTOR_INIT(c, s, u, t, b)\
+    std::iostream(this),\
+    _socket_(s), _context_(c), _uri_(u), _type_(type),\
+    _connectionState_(STATE::CLOSED), _bufferSize_(b),\
+    _obuffer_(new char[b+1]), _outKeyOffset_(0), _outContinued_(false),\
+    _outOpCode_(OP_TEXT), _ibuffer_(new char[b+1]), _inKeyOffset_(0),\
+    _inContinued_(false), _readState_(0)
 
 
-Websocket::Websocket(
-    std::iostream& stream, URI uri, WS_TYPE type, unsigned int bufferSize) :
-    std::iostream(this), _stream_(stream), _uri_(uri), _type_(type),
-    _connectionState_(STATE::CLOSED), _bufferSize_(bufferSize),
-    _obuffer_(new char[bufferSize+1]), _outKeyOffset_(0), _outContinued_(false),
-    _outOpCode_(OP_TEXT), _ibuffer_(new char[bufferSize+1]),
-    _inKeyOffset_(0),  _inContinued_(false), _inOpCode_(OP_TEXT)
-    {
-    
+Websocket::Websocket(IOContext& context, std::shared_ptr<TcpClient> socket,
+    URI uri, WS_TYPE type, unsigned int bufferSize) :
+    CTOR_INIT(context, socket, uri, type, bufferSize) {
+    if(socket == nullptr)
+        throw std::runtime_error("Received Null Socket Pointer");
+    init();
+}
+
+
+void Websocket::init() {
     auto now = std::chrono::high_resolution_clock::now();
     _engine_.seed(static_cast<unsigned int>(
         std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -56,8 +66,10 @@ Websocket::Websocket(
         // 'this' prevents two instances having the same seed
     ));
     
-    setp(_obuffer_, _obuffer_ + bufferSize - 1);
-	setg(_ibuffer_, _ibuffer_ + bufferSize - 1, _ibuffer_ + bufferSize - 1);
+    setp(_obuffer_, _obuffer_ + _bufferSize_ - 1);
+	setg(_ibuffer_, _ibuffer_ + _bufferSize_ - 1, _ibuffer_ + _bufferSize_ - 1);
+	
+	enqueue();
 }
 
 
@@ -75,11 +87,11 @@ bool Websocket::shakeHands() {
     bool success = false;
     switch(_type_) {
     case WS_TYPE::WS_CLIENT:
-        key = WebsocketUtils::SYN(_stream_,_uri_,_engine_);
-        success = WebsocketUtils::ACK(_stream_,key);
+        key = WebsocketUtils::SYN(*_socket_,_uri_,_engine_);
+        success = WebsocketUtils::ACK(*_socket_,key);
         break;
     case WS_TYPE::WS_SERVER:
-        key = WebsocketUtils::SYNACK(_stream_);
+        key = WebsocketUtils::SYNACK(*_socket_);
         success = (key.length() > 0);
         break;
     }
@@ -107,7 +119,7 @@ void Websocket::ping() {
     WSFrameContext context;
     context.opcode = OP_PING;
     context.masked = _type_==WS_TYPE::WS_CLIENT;
-    WebsocketUtils::writeHeader(_stream_, context, _engine_);
+    WebsocketUtils::writeHeader(*_socket_, context, _engine_);
 }
 
 
@@ -119,8 +131,8 @@ void Websocket::ping(std::string data) {
     context.masked = _type_==WS_TYPE::WS_CLIENT;
     context.length = data.length();
     auto keyOffset = 0;
-    WebsocketUtils::writeHeader(_stream_, context, _engine_);
-    WebsocketUtils::writeData(_stream_, context, &data[0],
+    WebsocketUtils::writeHeader(*_socket_, context, _engine_);
+    WebsocketUtils::writeData(*_socket_, context, &data[0],
         data.length(), keyOffset);
 }
 
@@ -139,7 +151,7 @@ void Websocket::pong() {
     context.masked = _type_==WS_TYPE::WS_CLIENT;
     context.length = _inContext_.length;
     
-    WebsocketUtils::writeHeader(_stream_, context, _engine_);
+    WebsocketUtils::writeHeader(*_socket_, context, _engine_);
     
     // // RFC 6455 Section 5.5.3 Paragraph 3: Identical Application Data
     if(context.length > 0) {
@@ -148,9 +160,9 @@ void Websocket::pong() {
             int len = min(context.length,256);
             context.length-=len;
             WebsocketUtils::readData(
-                _stream_,_inContext_,buffer,len,_inKeyOffset_);
+                *_socket_,_inContext_,buffer,len,_inKeyOffset_);
             WebsocketUtils::writeData(
-                _stream_,context,buffer,len,_outKeyOffset_);
+                *_socket_,context,buffer,len,_outKeyOffset_);
         } while(context.length > 0);
         delete[] buffer;
     }
@@ -199,7 +211,7 @@ int Websocket::writeAndReset(bool finished, unsigned char opcode) {
     context.masked   = _type_ == WS_TYPE::WS_CLIENT;
     context.length   = int(pptr() - pbase());
     
-    if(WebsocketUtils::writeHeader(_stream_, context, _engine_)) {
+    if(WebsocketUtils::writeHeader(*_socket_, context, _engine_)) {
         _outKeyOffset_ = 0;
         if(_outOpCode_ == OP_TEXT) {
             // Avoid worst case utf8 stream length:
@@ -216,11 +228,11 @@ int Websocket::writeAndReset(bool finished, unsigned char opcode) {
                 StringCodec::encodeUTF8(pbase()+offset,length[i],utf8);
                 offset = length[0];
                 
-                WebsocketUtils::writeData(_stream_, context,
+                WebsocketUtils::writeData(*_socket_, context,
                     &utf8[0], utf8.length(), _outKeyOffset_);
             }
         }
-        else WebsocketUtils::writeData(_stream_, context, pbase(),
+        else WebsocketUtils::writeData(*_socket_, context, pbase(),
             static_cast<unsigned int>(context.length), _outKeyOffset_);
         
         setp(pbase(), epptr());
@@ -239,6 +251,7 @@ void Websocket::close() {
 
 void Websocket::close(unsigned int code, std::string reason) {
     if(_connectionState_ == STATE::CLOSED) return;
+    _readState_ = 3;
     WSFrameContext context;
     context.finished = true;
     context.opcode = OP_CLOSE;
@@ -250,7 +263,7 @@ void Websocket::close(unsigned int code, std::string reason) {
         code == CODE_TLS_HANDSHAKE);
     if(shouldWriteReason) context.length = reason.length() + 2;
     
-    WebsocketUtils::writeHeader(_stream_,context,_engine_);
+    WebsocketUtils::writeHeader(*_socket_,context,_engine_);
     
     if(shouldWriteReason) {
         /**
@@ -268,18 +281,88 @@ void Websocket::close(unsigned int code, std::string reason) {
         }
         auto keyOffset = 0;
         WebsocketUtils::writeData(
-            _stream_,context,(const char*)&_code_,2,keyOffset);
+            *_socket_,context,(const char*)&_code_,2,keyOffset);
         WebsocketUtils::writeData(
-            _stream_,context,&reason[0],reason.length(),keyOffset);
+            *_socket_,context,&reason[0],reason.length(),keyOffset);
     }
 
     _connectionState_ = STATE::CLOSED;
 }
 
 
+void Websocket::enqueue() {
+    _reading_ = _context_.enqueue(_socket_->getSocket(),_iswap_,
+        FRAME_HEADER_SIZE,[&](char*& b, int& l){whenReadDone(b,l);});
+}
+
+
+void Websocket::whenReadDone(char*& nextBuffer, int& nextLength) {
+    switch(_readState_) {
+    case 0: state2ByteHeader(nextBuffer, nextLength); break;
+    case 1: stateExtendedHeader(nextBuffer, nextLength); break;
+    case 2: stateBody(nextBuffer, nextLength); break;
+    default: // close
+        nextBuffer = NULL;
+        nextLength = 0;
+        break;
+    }
+}
+
+
+void Websocket::state2ByteHeader(char*& nextBuffer, int& nextLength) {
+    WebsocketUtils::readHeader(_iswap_, _inContext_);
+    if(_inContext_.length == 126) nextLength = 2;
+    else if(_inContext_.length == 127) nextLength = 8;
+    if(_inContext_.masked) {
+        if(this->_type_ == WS_TYPE::WS_CLIENT) {
+            nextBuffer = NULL;
+            nextLength = 0;
+            close(CODE_PROTO_ERR,"Received Masked Frame");
+            return;
+        }
+        else nextLength += 4;
+    }
+    if(nextLength > 0) {
+        nextBuffer = _iswap_;
+        _readState_ = 1;
+    }
+    else if(_inContext_.length > 0) {
+        nextBuffer = eback();
+        nextLength = min(_bufferSize_,_inContext_.length);
+        _inContext_.length -= nextLength;
+        _readState_ = 2;
+    }
+    // process frame if command
+}
+
+
+void Websocket::stateExtendedHeader(char*& nextBuffer, int& nextLength) {
+    WebsocketUtils::readExtendedHeader(_iswap_, _inContext_);
+    if(_inContext_.length > 0) {
+        nextBuffer = eback();
+        nextLength = min(_bufferSize_,_inContext_.length);
+        _inContext_.length -= nextLength;
+        _readState_ = 2;
+    }
+    else {
+        // process frame if command
+        nextBuffer = _iswap_;
+        nextLength = FRAME_HEADER_SIZE;
+        _readState_ = 0;
+    }
+}
+
+
+void Websocket::stateBody(char*& nextBuffer, int& nextLength) {
+    // re-enque on underflow
+    nextBuffer = NULL;
+    nextLength = 0;
+}
+
+
 int Websocket::processNextFrame() {
     const int ERROR = -1, CONTINUE = 1, DATA = 0;
-    auto result = WebsocketUtils::readHeader(_stream_, _inContext_);
+    auto result = WebsocketUtils::readHeader(*_socket_, _inContext_);
     if(!result) {
         if(_connectionState_ != STATE::CLOSED)
             close(CODE_GOING_AWAY, "Connection Read Timed Out");
@@ -323,7 +406,7 @@ int Websocket::processNextFrame() {
 
 
 WS_MODE Websocket::in_mode() {
-    if(_inOpCode_ == OP_TEXT)
+    if(_inContext_.opcode == OP_TEXT)
         return WS_MODE::TEXT;
     return WS_MODE::BINARY;
 }
@@ -360,13 +443,17 @@ int Websocket::underflow() {
     // RFC6455 Section 7.1.7 Paragraph 2
     if(_connectionState_ == STATE::CLOSED) return EOF;
     
-    if(!wait()) return EOF;
+    _reading_.wait();
+    // auto result = _reading_.get();
+    // if(result <= 0) { close(); state = 3; return EOF }
+    // else enqueue(state?more data:next frame)
     
-    auto len = min(_inContext_.length,_bufferSize_);
-    WebsocketUtils::readData(
-        _stream_, _inContext_, eback(), len, _inKeyOffset_);
-    setg(eback(), eback(), eback() + len);
-    _inContext_.length -= len;
+    // if(!wait()) return EOF;
+    // auto len = min(_inContext_.length,_bufferSize_);
+    // WebsocketUtils::readData(
+    //     *_socket_, _inContext_, eback(), len, _inKeyOffset_);
+    // setg(eback(), eback(), eback() + len);
+    // _inContext_.length -= len;
     
     return *eback();
 }

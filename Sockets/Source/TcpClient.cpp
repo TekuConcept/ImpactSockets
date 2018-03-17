@@ -184,3 +184,9 @@ throw(SOC_EXCEPTION) {
 SocketHandle& TcpClient::getHandle() {
 	return socket->getHandle();
 }
+
+
+
+TCPSocket& TcpClient::getSocket() {
+	return *socket.get();
+}

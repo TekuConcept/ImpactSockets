@@ -38,6 +38,7 @@ namespace Impact {
 		int recv(void *buffer, int bufferLen, int flags=0) throw(SOC_EXCEPTION);
 
 		SocketHandle& getHandle();
+		TCPSocket& getSocket();
 
 	private:
 		static const unsigned int BUF_SIZE = 256;

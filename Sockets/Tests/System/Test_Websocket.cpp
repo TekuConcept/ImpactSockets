@@ -19,6 +19,7 @@
 #include <TcpClient.h>
 #include <Websocket.h>
 #include <wsmanip>
+#include <IOContext.h>
 
 #define VERBOSE(x) std::cout << x << std::endl
 #define DELAY_S(t) std::this_thread::sleep_for(std::chrono::seconds(t))
@@ -29,9 +30,10 @@ int main() {
     VERBOSE("- BEGIN -");
     
     URI uri("ws://localhost:8080/");
-    TcpClient socket(uri.port());
-    socket.setTimeout(1000);
-    Websocket web(socket,uri,WS_TYPE::WS_CLIENT);
+    IOContext context;
+    std::shared_ptr<TcpClient> socket = std::make_shared<TcpClient>(uri.port());
+    socket->setTimeout(1000);
+    Websocket web(context,socket,uri,WS_TYPE::WS_CLIENT);
     if(web.shakeHands()) {
         VERBOSE("> Handshake accepted");
         DELAY_S(1);
@@ -66,7 +68,7 @@ int main() {
     }
     else VERBOSE("> Handshake rejected");
     
-    socket.disconnect();
+    socket->disconnect();
     
     VERBOSE("- END OF LINE -");
     return 0;
