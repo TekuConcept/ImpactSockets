@@ -47,13 +47,13 @@ int main() {
         web << "continued." << ws::send;
         DELAY_S(1);
         
-        VERBOSE("> Ping");
-        web << "ping me" << ws::send;
-        web << "send me data" << ws::send;
-        web.wait();
-        std::string line;
-        std::getline(web,line);
-        VERBOSE("> " << line);
+        // VERBOSE("> Ping");
+        // web << "ping me" << ws::send;
+        // web << "send me data" << ws::send;
+        // web.wait();
+        // std::string line;
+        // std::getline(web,line);
+        // VERBOSE("> " << line);
         
         // web << ws::ping; // no data
         // web << "Some " << std::flush;

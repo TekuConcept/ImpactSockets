@@ -42,7 +42,7 @@ namespace Impact {
         void update(unsigned int&);
         void updateEntity(unsigned int&);
         bool updateState(unsigned int,ssize_t);
-        void dequeue(unsigned int);
+        void dequeue(unsigned int,int,bool=false);
         
     public:
         IOContext();

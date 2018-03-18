@@ -58,8 +58,9 @@ namespace Impact {
         char* _ibuffer_;
         int _inKeyOffset_;
         bool _inContinued_;
+        unsigned char _inOpCode_;
         Internal::WSFrameContext _inContext_;
-        char _iswap_[12];
+        char _iswap_[128];
         std::atomic<int> _readState_;
         std::future<int> _reading_;
     	
@@ -76,7 +77,9 @@ namespace Impact {
         void whenReadDone(char*&,int&);
         void state2ByteHeader(char*&,int&);
         void stateExtendedHeader(char*&,int&);
+        void stateBodyHelper(char*&,int&);
         void stateBody(char*&,int&);
+        void processFrame();
         // void readState4(char*&,int&);
         
         int processNextFrame();

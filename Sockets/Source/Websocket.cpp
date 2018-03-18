@@ -45,7 +45,7 @@ using namespace Internal;
     _connectionState_(STATE::CLOSED), _bufferSize_(b),\
     _obuffer_(new char[b+1]), _outKeyOffset_(0), _outContinued_(false),\
     _outOpCode_(OP_TEXT), _ibuffer_(new char[b+1]), _inKeyOffset_(0),\
-    _inContinued_(false), _readState_(0)
+    _inContinued_(false), _inOpCode_(OP_TEXT), _readState_(0)
 
 
 Websocket::Websocket(IOContext& context, std::shared_ptr<TcpClient> socket,
@@ -74,6 +74,7 @@ void Websocket::init() {
 
 
 Websocket::~Websocket() {
+    _reading_.wait();
     delete[] _obuffer_;
     delete[] _ibuffer_;
 }
@@ -311,41 +312,55 @@ void Websocket::whenReadDone(char*& nextBuffer, int& nextLength) {
 
 void Websocket::state2ByteHeader(char*& nextBuffer, int& nextLength) {
     WebsocketUtils::readHeader(_iswap_, _inContext_);
+
     if(_inContext_.length == 126) nextLength = 2;
     else if(_inContext_.length == 127) nextLength = 8;
-    if(_inContext_.masked) {
-        if(this->_type_ == WS_TYPE::WS_CLIENT) {
-            nextBuffer = NULL;
-            nextLength = 0;
-            close(CODE_PROTO_ERR,"Received Masked Frame");
-            return;
-        }
-        else nextLength += 4;
+    else nextLength = 0;
+    nextLength += _inContext_.masked?4:0;
+
+    if((!_inContext_.masked) ^ (this->_type_ == WS_TYPE::WS_CLIENT)) {
+        nextBuffer = NULL;
+        nextLength = 0;
+        close(CODE_PROTO_ERR,"Bad Frame Mask");
+        return;
     }
+
     if(nextLength > 0) {
         nextBuffer = _iswap_;
         _readState_ = 1;
     }
-    else if(_inContext_.length > 0) {
-        nextBuffer = eback();
-        nextLength = min(_bufferSize_,_inContext_.length);
-        _inContext_.length -= nextLength;
-        _readState_ = 2;
+    else {
+        processFrame();
+        stateBodyHelper(nextBuffer,nextLength);
     }
-    // process frame if command
 }
 
 
 void Websocket::stateExtendedHeader(char*& nextBuffer, int& nextLength) {
     WebsocketUtils::readExtendedHeader(_iswap_, _inContext_);
+    processFrame();
+    stateBodyHelper(nextBuffer,nextLength);
+}
+
+
+void Websocket::stateBodyHelper(char*& nextBuffer, int& nextLength) {
     if(_inContext_.length > 0) {
-        nextBuffer = eback();
-        nextLength = min(_bufferSize_,_inContext_.length);
+        switch(_inContext_.opcode) {
+        case OP_PING:
+        case OP_PONG:
+        case OP_CLOSE:
+            nextBuffer = _iswap_;
+            nextLength = min(128,_inContext_.length);
+            break;
+        default:
+            nextBuffer = eback();
+            nextLength = min(_bufferSize_,_inContext_.length);
+            break;
+        }
         _inContext_.length -= nextLength;
         _readState_ = 2;
     }
     else {
-        // process frame if command
         nextBuffer = _iswap_;
         nextLength = FRAME_HEADER_SIZE;
         _readState_ = 0;
@@ -355,8 +370,39 @@ void Websocket::stateExtendedHeader(char*& nextBuffer, int& nextLength) {
 
 void Websocket::stateBody(char*& nextBuffer, int& nextLength) {
     // re-enque on underflow
+    // continue if not data frame
+    // if context.opcode == text: decodeUTF8
+    // setg(eback(), eback(), eback() + len);
     nextBuffer = NULL;
     nextLength = 0;
+}
+
+
+void Websocket::processFrame() {
+    switch(_inContext_.opcode) {
+    case OP_BINARY:
+    case OP_TEXT:
+    case OP_CONTINUE:
+        VERBOSE("-> data");
+        // if(_inContext_.length == 0)
+        break;
+    case OP_CLOSE:
+        VERBOSE("-> close");
+        if(_connectionState_ != STATE::CLOSED) close();
+        break;
+    case OP_PING:
+        VERBOSE("-> ping");
+        // write pong header
+        break;
+    case OP_PONG:
+        VERBOSE("-> pong");
+        /* flush input stream */
+        break;
+    default:
+        if(_connectionState_ != STATE::CLOSED)
+            close(CODE_PROTO_ERR, "Unknown OpCode");
+        break;
+    }
 }
 
 

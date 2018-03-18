@@ -50,11 +50,7 @@ void IOContext::update(unsigned int& size) {
 }
 
 void IOContext::updateEntity(unsigned int& i) {
-    if(_polltoken_[i] & POLLHUP) {
-        _queue_[i].promise.set_value(IOC_EOF);
-        dequeue(i);
-        i--;
-    }
+    if(_polltoken_[i] & POLLHUP) { dequeue(i, IOC_EOF); i--; }
     else if(_polltoken_[i] & POLLIN) {
         try {
             auto rlength = _queue_[i].socket->recv(
@@ -64,11 +60,7 @@ void IOContext::updateEntity(unsigned int& i) {
             _queue_[i].buffer += rlength;
             _queue_[i].length -= rlength;
             if(updateState(i,rlength)) i--;
-        } catch (...) {
-            _queue_[i].promise.set_exception(std::current_exception());
-            dequeue(i);
-            i--;
-        }
+        } catch (...) { dequeue(i,0,true); i--; }
     }
 }
 
@@ -88,8 +80,7 @@ bool IOContext::updateState(unsigned int i, ssize_t rlength) {
     }
     else if(rlength == 0) value = IOC_EOF; 
     else value = IOC_ERROR;
-    _queue_[i].promise.set_value(value);
-    dequeue(i);
+    dequeue(i, value);
     return true;
 }
 
@@ -107,8 +98,14 @@ std::future<int> IOContext::enqueue(CommunicatingSocket& socket, char* buffer,
     return _queue_.back().promise.get_future();
 }
 
-void IOContext::dequeue(unsigned int index) {
-    // _queue_.erase(_queue_.begin()+index);
+void IOContext::dequeue(unsigned int index, int pvalue, bool exception) {
+    try {
+        if(exception)
+             _queue_[index].promise.set_exception(std::current_exception());
+        else _queue_[index].promise.set_value(pvalue);
+    } catch (...) {
+        std::cout << "Error In IOContext Dequeue Process" << std::endl;
+    }
     auto back = _queue_.size() - 1;
     if(back > 0) {
         _queue_[index] = std::move(_queue_[back]);
