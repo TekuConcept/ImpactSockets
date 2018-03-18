@@ -44,6 +44,7 @@ namespace Internal {
         
         static void readHeader(const char[2],WSFrameContext&);
         static void readExtendedHeader(const char*,WSFrameContext&);
+        static void xmaskData(char*,int,WSFrameContext,int&);
     };
 }}
 

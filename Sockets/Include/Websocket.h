@@ -10,6 +10,7 @@
 #include <random>
 #include <string>
 #include <memory>
+#include <mutex>
 #include <future>
 
 #include "RFC/URI.h"
@@ -35,6 +36,7 @@ namespace Impact {
         /////////////////////////////////////////
         
         std::shared_ptr<TcpClient> _socket_;
+        std::mutex _socmtx_;
         IOContext& _context_;
         URI _uri_;
         WS_TYPE _type_;
@@ -59,7 +61,7 @@ namespace Impact {
         int _inKeyOffset_;
         bool _inContinued_;
         unsigned char _inOpCode_;
-        Internal::WSFrameContext _inContext_;
+        Internal::WSFrameContext _inContext_, _echoContext_;
         char _iswap_[128];
         std::atomic<int> _readState_;
         std::future<int> _reading_;
@@ -68,23 +70,20 @@ namespace Impact {
         // private functions                   //
         /////////////////////////////////////////
         
-        int writeAndReset(bool finished, unsigned char opcode);
-        void pong();
         void close(unsigned int code, std::string reason);
         void init();
-        
+        unsigned long long int min(
+            unsigned long long int, unsigned long long int);
         void enqueue();
+        
+        int writeAndReset(bool finished, unsigned char opcode);
+        
         void whenReadDone(char*&,int&);
         void state2ByteHeader(char*&,int&);
         void stateExtendedHeader(char*&,int&);
         void stateBodyHelper(char*&,int&);
         void stateBody(char*&,int&);
         void processFrame();
-        // void readState4(char*&,int&);
-        
-        int processNextFrame();
-        unsigned long long int min(
-            unsigned long long int, unsigned long long int);
         
     public:
         Websocket(IOContext& context, std::shared_ptr<TcpClient> socket,
@@ -92,7 +91,9 @@ namespace Impact {
         ~Websocket();
         
         bool shakeHands();
-        bool wait();
+        WS_MODE in_mode();
+        WS_MODE out_mode();
+        void out_mode(WS_MODE mode);
 
         void ping();
         void ping(std::string data);
@@ -100,10 +101,6 @@ namespace Impact {
         int  push_s();
         void send();
         void close();
-        
-        WS_MODE in_mode();
-        WS_MODE out_mode();
-        void out_mode(WS_MODE mode);
         
         int sync();
         int overflow(int c);

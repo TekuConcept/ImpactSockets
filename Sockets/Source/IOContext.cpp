@@ -11,6 +11,9 @@ using namespace Impact;
 #define IOC_EOF    0
 #define IOC_DONE   1
 
+#include <iostream>
+#define VERBOSE(x) std::cout << x << std::endl
+
 IOContext::Entity::Entity(CommunicatingSocket* s, char* b, int l,
     FunctionCallback f) : socket(s), buffer(b), length(l), callback(f) {}
 
@@ -45,12 +48,13 @@ void IOContext::update(unsigned int& size) {
     auto result = Socket::poll(_polltoken_, _polltimeout_);
     if(result == 0) return;
     // else if(result < 0) /* error handling */
-    for(unsigned int i = 0; i < size; i++)
-        updateEntity(i);
+    for(unsigned int i = 0; i < size; i++) {
+        updateEntity(i, size);
+    }
 }
 
-void IOContext::updateEntity(unsigned int& i) {
-    if(_polltoken_[i] & POLLHUP) { dequeue(i, IOC_EOF); i--; }
+void IOContext::updateEntity(unsigned int& i, unsigned int& s) {
+    if(_polltoken_[i] & POLLHUP) { dequeue(i,s,IOC_EOF); }
     else if(_polltoken_[i] & POLLIN) {
         try {
             auto rlength = _queue_[i].socket->recv(
@@ -59,12 +63,13 @@ void IOContext::updateEntity(unsigned int& i) {
             );
             _queue_[i].buffer += rlength;
             _queue_[i].length -= rlength;
-            if(updateState(i,rlength)) i--;
-        } catch (...) { dequeue(i,0,true); i--; }
+            updateState(i,s,rlength);
+        } catch (...) { dequeue(i,s,0,true); }
     }
 }
 
-bool IOContext::updateState(unsigned int i, ssize_t rlength) {
+bool IOContext::updateState(unsigned int& i, unsigned int& s,
+    ssize_t rlength) {
     int value = 0;
     if(rlength > 0) {
         if(_queue_[i].length == 0) {
@@ -80,7 +85,7 @@ bool IOContext::updateState(unsigned int i, ssize_t rlength) {
     }
     else if(rlength == 0) value = IOC_EOF; 
     else value = IOC_ERROR;
-    dequeue(i, value);
+    dequeue(i,s,value);
     return true;
 }
 
@@ -98,7 +103,8 @@ std::future<int> IOContext::enqueue(CommunicatingSocket& socket, char* buffer,
     return _queue_.back().promise.get_future();
 }
 
-void IOContext::dequeue(unsigned int index, int pvalue, bool exception) {
+void IOContext::dequeue(unsigned int& index, unsigned int& size, int pvalue,
+    bool exception) {
     try {
         if(exception)
              _queue_[index].promise.set_exception(std::current_exception());
@@ -109,13 +115,18 @@ void IOContext::dequeue(unsigned int index, int pvalue, bool exception) {
     auto back = _queue_.size() - 1;
     if(back > 0) {
         _queue_[index] = std::move(_queue_[back]);
-        // Entity& entity = _queue_[back];
-        // _queue_[index].socket   = entity.socket;
+        // _queue_[index].socket   = _queue_[back].socket;
         // _queue_[index].buffer   = entity.buffer;
         // _queue_[index].length   = entity.length;
         // _queue_[index].promise  = std::move(entity.promise);
         // _queue_[index].callback = std::move(entity.callback);
     }
+    VERBOSE("> Dequeued [" << index << "]");
+    // (void)index;
+    // (void)pvalue;
+    // (void)exception;
     _queue_.pop_back();
     _polltoken_.remove(index);
+    size--;
+    index--;
 }

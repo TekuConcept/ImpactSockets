@@ -57,7 +57,8 @@ function configure(connection) {
                 connection.ping(count+"\n");
             }
             else if(message.utf8Data === "send me data") {
-                connection.send("hello from server "+count+"\n");
+                var str = "hello from server "+count+"\n";
+                connection.send(str);
                 count++;
             }
         }

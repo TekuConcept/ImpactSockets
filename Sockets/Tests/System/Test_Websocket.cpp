@@ -31,8 +31,9 @@ int main() {
     
     URI uri("ws://localhost:8080/");
     IOContext context;
+    
     std::shared_ptr<TcpClient> socket = std::make_shared<TcpClient>(uri.port());
-    socket->setTimeout(1000);
+    socket->setTimeout(10000); // 10 seconds
     Websocket web(context,socket,uri,WS_TYPE::WS_CLIENT);
     if(web.shakeHands()) {
         VERBOSE("> Handshake accepted");
@@ -47,23 +48,24 @@ int main() {
         web << "continued." << ws::send;
         DELAY_S(1);
         
-        // VERBOSE("> Ping");
-        // web << "ping me" << ws::send;
-        // web << "send me data" << ws::send;
-        // web.wait();
-        // std::string line;
-        // std::getline(web,line);
-        // VERBOSE("> " << line);
+        VERBOSE("> Ping");
+        web << "ping me" << ws::send;
+        DELAY_S(1);
+        web << "ping me data" << ws::send;
+    //     // web << "send me data" << ws::send;
+    //     // web.wait();
+    //     // std::string line;
+    //     // std::getline(web,line);
+    //     // VERBOSE("> " << line);
         
-        // web << ws::ping; // no data
-        // web << "Some " << std::flush;
-        // web.ping("Are you alive?"); // with data
-        // web << "data." << ws::send;
-        // DELAY_S(1);
+    //     // web << ws::ping; // no data
+    //     // web << "Some " << std::flush;
+    //     // web.ping("Are you alive?"); // with data
+    //     // web << "data." << ws::send;
+        DELAY_S(1);
         
         VERBOSE("> Closing connection");
         web << ws::close;
-        web.wait();
         DELAY_S(1);
     }
     else VERBOSE("> Handshake rejected");

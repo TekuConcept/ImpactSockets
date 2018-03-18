@@ -293,3 +293,11 @@ void WebsocketUtils::readExtendedHeader(const char* data, WSFrameContext& header
     for(auto i = 0; header.masked && i < 4; i++)
         header.mask_key[i] = data[i];
 }
+
+void WebsocketUtils::xmaskData(char* data, int length, WSFrameContext context,
+    int& keyOffset) {
+    for(int i = 0; i < length; i++) {
+        data[i] = (char)((int)(0xFF&data[i])^context.mask_key[keyOffset]);
+        keyOffset = (keyOffset+1)%4;
+    }
+}
