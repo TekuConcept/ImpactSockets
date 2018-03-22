@@ -142,6 +142,11 @@ void Websocket::out_mode(WS_MODE mode) {
 }
 
 
+RFC6455::STATE Websocket::getConnectionState() {
+    return _connectionState_;
+}
+
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
 |                                                                             |
 |  SEND FUNCTIONS                                                             |
@@ -396,6 +401,13 @@ void Websocket::stateBody(char*& nextBuffer, int& nextLength) {
         
         WebsocketUtils::writeData(*_socket_,_echoContext_,_iswap_,
             _echoContext_.length,_inKeyOffset_);
+    }
+    else if(_inContext_.opcode == OP_PONG) {
+        std::cout << "-> [" << _echoContext_.length << "] ";
+        for(int i = 0; i < static_cast<int>(_echoContext_.length); i++) {
+            std::cout << _iswap_[i];
+        }
+        std::cout << std::endl;
     }
     
     if(_inContext_.opcode == OP_TEXT || _inContext_.opcode == OP_BINARY ||

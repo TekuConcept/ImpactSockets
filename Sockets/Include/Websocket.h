@@ -94,6 +94,7 @@ namespace Impact {
         WS_MODE in_mode();
         WS_MODE out_mode();
         void out_mode(WS_MODE mode);
+        RFC6455::STATE getConnectionState();
 
         void ping();
         void ping(std::string data);
