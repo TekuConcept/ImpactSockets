@@ -220,7 +220,9 @@ int Websocket::writeAndReset(bool finished, unsigned char opcode) {
     context.finished = finished;
     context.opcode   = opcode;
     context.masked   = _type_ == WS_TYPE::WS_CLIENT;
-    context.length   = int(pptr() - pbase());
+    context.length = int(pptr() - pbase());
+    if(_outOpCode_ == OP_TEXT)
+        context.length = StringCodec::encodeLength(pbase(),context.length);
     
     std::lock_guard<std::mutex> lock(_socmtx_);
     if(WebsocketUtils::writeHeader(*_socket_, context, _engine_)) {
@@ -472,11 +474,13 @@ void Websocket::processFrame() {
 
 
 int Websocket::sync() {
+    std::cout << "-> sync" << std::endl;
     return push_s();
 }
 
 
 int Websocket::overflow(int c) {
+    std::cout << "-> overflow" << std::endl;
     if(push_s() < 0) return EOF;
     else if(c != EOF) put((char)c);
     return c;
@@ -484,6 +488,7 @@ int Websocket::overflow(int c) {
 
 
 int Websocket::underflow() {
+    std::cout << "-> underflow" << std::endl;
     // RFC6455 Section 7.1.7 Paragraph 2
     if(_connectionState_ == STATE::CLOSED) return EOF;
     
@@ -502,4 +507,10 @@ int Websocket::underflow() {
     // _inContext_.length -= len;
     
     return *eback();
+}
+
+int Websocket::uflow() {
+  if ( underflow() == EOF ) return EOF;
+  gbump(1);
+  return gptr()[-1];
 }

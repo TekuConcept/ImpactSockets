@@ -179,7 +179,7 @@ bool WebsocketUtils::writeHeader(std::ostream& stream,
     auto size = 0;
     if(preLength == 126) size = 2;
     else if(preLength == 127) size = 8;
-    if(size > 0 && !(stream.write((const char*)&header.length,size)))
+    if(size > 0 && !(stream.write((const char*)&header.length,size))) // endian check
         return false;
     
     if(header.masked) {
@@ -230,13 +230,13 @@ bool WebsocketUtils::readHeader(std::istream& stream, WSFrameContext& header) {
         unsigned char msb, lsb;
         EOF_READ_CHECK(msb)
         EOF_READ_CHECK(lsb)
-        header.length = (msb << 8) | lsb;
+        header.length = (msb << 8) | lsb; // endian check
     }
     else {
         header.length = 0;
         for(auto i = 0; i < 8; i++) {
             EOF_READ_CHECK(byte)
-            header.length = (header.length<<8) | byte;
+            header.length = (header.length<<8) | byte; // endian check
         }
     }
     
@@ -274,7 +274,7 @@ void WebsocketUtils::readHeader(const char data[2], WSFrameContext& header) {
     header.reserved = (data[0] >> 4) & 0x7;
     header.opcode   = data[0] & 0xF;
     header.masked   = (data[1] >> 7);
-    header.length   = (unsigned char)(data[1] & 0x7F);
+    header.length   = (unsigned char)(data[1] & 0x7F); // endian check
     for(auto i = 0; i < 4; i++) header.mask_key[i] = 0x00;
 }
 
