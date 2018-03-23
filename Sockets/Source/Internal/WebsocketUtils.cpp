@@ -179,8 +179,19 @@ bool WebsocketUtils::writeHeader(std::ostream& stream,
     auto size = 0;
     if(preLength == 126) size = 2;
     else if(preLength == 127) size = 8;
-    if(size > 0 && !(stream.write((const char*)&header.length,size)))
-        return false;
+    if(size > 0) { 
+         const char* s; 
+         if (size == 2){ 
+            uint16_t s16 = changeEndianness16((uint16_t)header.length); 
+            s = (const char*)&s16; 
+         } 
+         else{ 
+             uint16_t s64 = changeEndianness64(header.length); 
+             s = (const char*)&s64; 
+         } 
+         if (!(stream.write(s,size))) 
+                return false; 
+     } 
     
     if(header.masked) {
         for(int i = 0; i < 4; i++) {
