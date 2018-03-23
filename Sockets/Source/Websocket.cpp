@@ -414,8 +414,8 @@ void Websocket::stateBody(char*& nextBuffer, int& nextLength) {
     
     if(_inContext_.opcode == OP_TEXT || _inContext_.opcode == OP_BINARY ||
         _inContext_.opcode == OP_CONTINUE) {
-        nextBuffer = NULL;
-        nextLength = 0;
+        nextBuffer = pbase(); // NULL
+        nextLength = _bufferSize_; // 0
         // decodeUTF8 if TEXT
     }
     else {

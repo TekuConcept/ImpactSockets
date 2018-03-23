@@ -31,19 +31,11 @@ namespace Internal {
         static std::string getRequestKey(RFC2616::RequestMessage request);
         static std::string getResponseKey(RFC2616::ResponseMessage response);
         
-        static uint16_t changeEndianness16(uint16_t val){ 
-            return (val << 8) | ((val >> 8) & 0x00ff); 
-        } 
-        static uint64_t changeEndianness64(unsigned long long int val){ 
-            return (val << 56) | 
-                    ((val << 40) & 0x00ff000000000000) | 
-                    ((val << 24) & 0x0000ff0000000000) | 
-                    ((val << 8) & 0x000000ff00000000) | 
-                    ((val >> 8) & 0x00000000ff000000) | 
-                    ((val >> 24) & 0x0000000000ff0000) | 
-                    ((val >> 40) & 0x000000000000ff00) | 
-                    ((val >> 56) & 0x00000000000000ff); 
-        } 
+        // todo: update with system endian consideration
+        static unsigned short changeEndianness16(unsigned short val);
+        static unsigned long long int changeEndianness64(
+            unsigned long long int val);
+        
     public:
         static std::string SYN(std::iostream&, URI, std::mt19937);
         static std::string SYNACK(std::iostream&);

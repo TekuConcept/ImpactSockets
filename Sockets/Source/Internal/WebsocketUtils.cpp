@@ -159,6 +159,24 @@ bool WebsocketUtils::ACK(std::iostream& _stream_, std::string _key_) {
 */
 
 
+unsigned short WebsocketUtils::changeEndianness16(unsigned short val) {
+    return (val << 8) | ((val >> 8) & 0x00ff);
+}
+
+
+unsigned long long int WebsocketUtils::changeEndianness64(
+            unsigned long long int val) {
+    return (val << 56) |
+            ((val << 40) & 0x00ff000000000000) |
+            ((val << 24) & 0x0000ff0000000000) |
+            ((val << 8) & 0x000000ff00000000) |
+            ((val >> 8) & 0x00000000ff000000) |
+            ((val >> 24) & 0x0000000000ff0000) |
+            ((val >> 40) & 0x000000000000ff00) |
+            ((val >> 56) & 0x00000000000000ff);
+}
+
+
 bool WebsocketUtils::writeHeader(std::ostream& stream,
     WSFrameContext& header, std::mt19937 engine) {
     #define BAD_WRITE_CHECK(x) if(!(stream << x)) return false;
