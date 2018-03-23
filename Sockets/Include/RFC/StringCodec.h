@@ -20,6 +20,9 @@ namespace Impact{
             std::string& utf8);
         
         void decodeUTF8(char utf8byte, unsigned int& codepoint, int& status);
+        
+        unsigned long long int encodeLength(const char* data,
+            unsigned int length);
     }
 }
 

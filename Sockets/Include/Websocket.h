@@ -106,6 +106,7 @@ namespace Impact {
         int sync();
         int overflow(int c);
         int underflow();
+        int uflow();
         
         friend std::ostream& text(std::ostream& stream);
         friend std::ostream& binary(std::ostream& stream);

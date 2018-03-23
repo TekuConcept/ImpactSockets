@@ -125,3 +125,13 @@ void StringCodec::decodeUTF8(char u, unsigned int& s, int& status) {
     }
     else status = UTF8_FAIL;
 }
+
+unsigned long long int StringCodec::encodeLength(const char* data,
+    unsigned int length) {
+    unsigned long long int count = 0;
+    for(unsigned int i = 0; i < length; i++) {
+        if((int)(data[i]&0xFF) <= 0x7F) count++;
+        else count += 2;
+    }
+    return count;
+}
