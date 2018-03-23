@@ -78,7 +78,7 @@ bool StringCodec::encodeUTF8(const unsigned int* data, unsigned int length,
 }
 
 inline void __processUTF8Head(char u, unsigned int& s, int& status) {
-    unsigned char n;
+    unsigned char n = '\0';
     if((u&0x80) == 0x00) n = u;
     else if((u&0xE0) == 0xC0) {
         if((n = u&0x1F) < 0x02)  status = UTF8_FAIL;

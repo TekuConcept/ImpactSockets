@@ -316,11 +316,13 @@ throw(SOC_EXCEPTION) {
         ss << "keepalive flag";
         goto KEEPALIVE_ERROR;
     }
+#ifndef __APPLE__
     if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPIDLE,
 		(const char*)&options.idle, sizeof(int)) < 0) {
         ss << "idle value";
         goto KEEPALIVE_ERROR;
     }
+#endif
     if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPINTVL,
         (const char*)&options.interval, sizeof(int)) < 0) {
         ss << "interval value";

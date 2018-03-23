@@ -311,7 +311,7 @@ void Websocket::close(unsigned int code, std::string reason) {
 
 
 void Websocket::whenReadDone(char*& nextBuffer, int& nextLength) {
-    switch(_readState_) {
+    switch(+_readState_) {
     case 0: state2ByteHeader(nextBuffer, nextLength); break;
     case 1: stateExtendedHeader(nextBuffer, nextLength); break;
     case 2: stateBody(nextBuffer, nextLength); break;
