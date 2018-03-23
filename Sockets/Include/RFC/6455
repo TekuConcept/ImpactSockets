@@ -1,0 +1,14 @@
+/**
+ * Created by TekuConcept on July 25, 2017
+ *
+ * RFC 6455: The Websocket Protocol
+ */
+
+#ifndef RFC_6455_H
+#define RFC_6455_H
+
+#include "RFC/Const6455.h"
+#include "RFC/WebsocketClientNode.h"
+#include "RFC/WebsocketServerNode.h"
+
+#endif

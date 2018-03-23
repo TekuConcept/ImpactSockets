@@ -16,9 +16,7 @@
 *   along with this program; if not, write to the Free Software
 *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 *
-*   Modified by TekuConcept on May 12, 2017, for Windows support.
-*   Modified by TekuConcept on July 18, 2017, for Mac support.
-*   Modified by TekuConcept on July 23, 2017, for poll feature.
+*   Modified by TekuConcept
 */
 
 #ifndef __PRACTICALSOCKET_INCLUDED__
@@ -28,19 +26,81 @@
 #include <string>            // For string
 #include <cstring>           // For strerror, atoi, and memset
 #include <exception>         // For exception class
+#include <vector>
 
 #if defined(_MSC_VER)
-	#include <winsock2.h>
-	#define SOC_EXCEPTION ...
+#include <winsock2.h>
+#define SOC_EXCEPTION ...
 #else
-	#include <sys/poll.h>    // For struct pollfd, poll()
-	#define SOC_EXCEPTION SocketException
+#include <sys/poll.h>    // For struct pollfd, poll()
+#define SOC_EXCEPTION SocketException
 #endif
 
 #define string std::string
 #define exception std::exception
 
 namespace Impact {
+	/**
+	*   Holds onto the socket descriptor and allows for
+	*	class-restricted socket manipulation.
+	*/
+	class SocketHandle {
+	protected:
+		int descriptor;
+		friend class Socket;
+		friend class SocketPollToken;
+		friend class CommunicatingSocket;
+		friend class TCPServerSocket;
+		friend class UDPSocket;
+	};
+
+	/**
+	*   SocketPollToken replaces the pollfd struct by using
+	*   SocketHandles instead of raw socket descriptors.
+	*/
+	class SocketPollToken {
+	protected:
+		friend class Socket;
+		std::vector<struct pollfd> _handles_;
+	public:
+		SocketPollToken();
+		~SocketPollToken();
+		/**
+		* Adds a handle to the queue with the given events to listen for.
+		*/
+		void add(SocketHandle& handle, int events);
+		/**
+		* Removes the handle at the specified index.
+		*/
+		void remove(int idx);
+		/**
+		* Returns the number of handles in this token.
+		*/
+		unsigned int size() const;
+		/**
+		* Resets all the return events to 0.
+		*/
+		void reset();
+		/**
+		* Removes all handles from the token.
+		*/
+		void clear();
+		/**
+		* Access the return event for the handle.
+		*/
+		short int& operator[] (int);
+	};
+
+	/**
+	*   KeepAlive Options
+	*/
+	typedef struct KeepAliveOptions {
+		int enabled;  /* Enables KEEPALIVE on the target socket connection.  */
+		int idle;     /* Number of idle seconds before sending a KA probe.   */
+		int interval; /* How often in seconds to resend an unacked KA probe. */
+		int count;    /* How many times to resend a KA probe if previous
+		                 probe was unacked.                                  */
+	} KeepAliveOptions;
 
 	/**
 	*   Signals a problem with the execution of a socket call.
@@ -79,6 +139,11 @@ namespace Impact {
 		*   Close and deallocate this socket
 		*/
 		~Socket();
+
+		/**
+		*   Get the handle of this socket
+		*/
+		SocketHandle& getHandle();
 
 		/**
 		*   Get the local address
@@ -121,15 +186,42 @@ namespace Impact {
 		*/
 		static unsigned short resolveService(const string &service,
 			const string &protocol = "tcp");
+		
+		/**
+		*   Configure TCP KEEPALIVE flag.
+		*   @param handle Handle to the socket which to configure.
+		*   @param enable True enables keep-alive.
+		*/
+		static void keepalive(SocketHandle& handle, bool enable=true) throw(SOC_EXCEPTION);
+		static void keepalive(SocketHandle& handle, KeepAliveOptions options) throw(SOC_EXCEPTION);
+
+		/**
+		*   Allows a program to monitor 'readability' multiple sockets.
+		*   WARNING: Only tested on Linux
+		*   @param handles SocketHandles to collection of sockets
+		*   @param timeout Time in seconds before timing out
+		*   @return 1 for success, 0 for timeout
+		*/
+		static int select(SocketHandle** handles, int length, unsigned int timeout);
+		static int select(SocketHandle** handles, int length, struct timeval* timeout = NULL);
+
+		/*
+		*   Polls sockets for events.
+		*   @param token Contains a list of SocketHandles and event information.
+		*   @param timeout Time in milliseconds to poll. -1: indefinite, 0:
+		*   return immediately
+		*   @return 1 for success, 0 for timeout, -1 if an error occurred.
+		*   @exception SocketException thrown if poll failed
+		*/
+		static int poll(SocketPollToken& token, int timeout = -1);
 
 	private:
 		// Prevent the user from trying to use value semantics on this object
 		Socket(const Socket &sock);
-		//void operator=(const Socket &sock);
+		void operator=(const Socket &sock) = delete;
 
 	protected:
-		int sockDesc;              // Socket descriptor
-		struct pollfd fds[1];
+		SocketHandle handle;
 		Socket(int type, int protocol) throw(SOC_EXCEPTION);
 		Socket(int sockDesc);
 	};
@@ -158,7 +250,7 @@ namespace Impact {
 		*   @param bufferLen number of bytes from buffer to be written
 		*   @exception SocketException thrown if unable to send data
 		*/
-		void send(const void *buffer, int bufferLen) throw(SOC_EXCEPTION);
+		void send(const void *buffer, int bufferLen, int flags=0) throw(SOC_EXCEPTION);
 
 		/**
 		*   Read into the given buffer up to bufferLen bytes data from this
@@ -168,21 +260,7 @@ namespace Impact {
 		*   @return number of bytes read, 0 for EOF, and -1 for error
 		*   @exception SocketException thrown if unable to receive data
 		*/
-		int recv(void *buffer, int bufferLen) throw(SOC_EXCEPTION);
-		
-		/**
-		*   Sets the events that will be used when polling.
-		*   @param events requested events
-		*/
-		void setEvents(short events);
-		
-		/**
-		*   Polls the socket for the requested events.
-		*   @param revents return events
-		*   @return 1 for success, 0 for timeout
-		*   @exception SocketException thrown if poll failed
-		*/
-		int poll(short &revents, int timeout) throw(SOC_EXCEPTION);
+		int recv(void *buffer, int bufferLen, int flags=0) throw(SOC_EXCEPTION);
 
 		/**
 		*   Get the foreign address.  Call connect() before calling recv()

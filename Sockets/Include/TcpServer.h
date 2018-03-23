@@ -10,8 +10,7 @@
 #include "TcpClient.h"
 
 namespace Impact {
-	class TcpServer
-	{
+	class TcpServer {
 	private:
 		TCPServerSocket server;
 
@@ -21,6 +20,7 @@ namespace Impact {
 		TcpSocPtr API_DECLSPEC accept();
 		virtual API_DECLSPEC ~TcpServer();
 		int API_DECLSPEC getPort();
+		SocketHandle& API_DECLSPEC getHandle();
 	};
 }
 

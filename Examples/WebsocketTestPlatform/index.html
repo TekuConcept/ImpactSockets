@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script type="text/javascript">
+            var host = window.location.hostname;
+            var path = 'ws://'+host+':8080';
+            console.log(path);
+            var ws = undefined;
+            
+            function openws() {
+                if(ws !== undefined) return;
+                ws = new WebSocket(path);
+                ws.addEventListener("message", function(e) {
+                    var msg = e.data;
+                    document.getElementById("response").innerHTML = msg;
+                });
+            }
+            function closews() {
+                if(ws !== undefined) {
+                    ws.close();
+                    ws = undefined;
+                }
+            }
+            function sendMessage() {
+                var message = document.getElementById('message').value;
+                ws.send(JSON.stringify({message: message}));
+            }
+        </script>
+    </head>
+    <body>
+        Response: <span id="response"></span><br/>
+        <input type="text" id="message">
+        <button onclick="sendMessage()">Send Message</button><br />
+        Websocket Controls:
+        <button onclick="openws()">Connect</button>
+        <button onclick="closews()">Close</button>
+    </body>
+</html>

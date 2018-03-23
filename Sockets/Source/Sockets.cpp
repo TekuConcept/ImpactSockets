@@ -23,45 +23,111 @@
 
 #include "Sockets.h"
 
-#include <sys/types.h>       // For data types
+#include <sys/types.h>         // For data types
+#include <sstream>
 
 #if defined(_MSC_VER)
-  #include <ws2tcpip.h>
-  #define SOC_POLL WSAPoll
+    #include <ws2tcpip.h>
+	#include "mstcpip.h"       // struct tcp_keepalive
+	//#include <ws2def.h>
 #else
-  #include <sys/socket.h>      // For socket(), connect(), send(), and recv()
-  #include <netdb.h>           // For gethostbyname()
-  #include <arpa/inet.h>       // For inet_addr()
-  #include <unistd.h>          // For close()
-  #include <netinet/in.h>      // For sockaddr_in
-  #define SOC_POLL ::poll
+    #include <sys/socket.h>    // For socket(), connect(), send(), and recv()
+    #include <netdb.h>         // For gethostbyname()
+    #include <arpa/inet.h>     // For inet_addr()
+    #include <unistd.h>        // For close()
+    #include <netinet/in.h>    // For sockaddr_in
+    #include <errno.h>         // For errno
+	#include <netinet/tcp.h>   // IPPROTO_TCP flags
 #endif
 
-#include <cstring>           // For strerror and memset
-#include <stdlib.h>          // For atoi
-typedef void raw_type;       // Type used for raw data on this platform
-#include <errno.h>           // For errno
+#include <cstring>             // For strerror and memset
+#include <stdlib.h>            // For atoi
+typedef void raw_type;         // Type used for raw data on this platform
 
 #if defined(_MSC_VER)
-	#define CLOSE_SOCKET(x) closesocket(x)
-	#define SOC_SD_HOW SD_BOTH
-	#define CCHAR_PTR const char *
-	#define CHAR_PTR char *
+    #define CLOSE_SOCKET(x) closesocket(x)
+    #define SOC_SD_HOW SD_BOTH
+    #define SOC_POLL WSAPoll
+    #define CCHAR_PTR const char *
+    #define CHAR_PTR char *
+    #if defined(errno)
+        #undef errno
+    #endif
+    #define errno WSAGetLastError()
 
-	#pragma warning(disable:4996)
-	#pragma comment (lib, "Ws2_32.lib")
-	#pragma comment (lib, "Mswsock.lib")
-	#pragma comment (lib, "AdvApi32.lib")
+    #pragma warning(disable:4996)
+    #pragma comment (lib, "Ws2_32.lib")
+    #pragma comment (lib, "Mswsock.lib")
+    #pragma comment (lib, "AdvApi32.lib")
 #else
-	#define CLOSE_SOCKET(x) ::close(x)
-	#define SOC_SD_HOW SHUT_RDWR
-	#define CCHAR_PTR raw_type *
-	#define CHAR_PTR raw_type *
+    #define CLOSE_SOCKET(x) ::close(x)
+    #define SOC_SD_HOW SHUT_RDWR
+    #define SOC_POLL ::poll
+    #define CCHAR_PTR raw_type *
+    #define CHAR_PTR raw_type *
 #endif
 
 #define string std::string
 #define exception std::exception
 using namespace Impact;
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
+//                          SOCKET POLL TOKEN CODE                           //
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
+
+SocketPollToken::SocketPollToken() {}
+
+
+
+SocketPollToken::~SocketPollToken() {}
+
+
+
+void SocketPollToken::add(SocketHandle& handle, int events) {
+	struct pollfd sfd;
+	sfd.fd = handle.descriptor;
+	sfd.events = (short)events;
+	sfd.revents = 0;
+	_handles_.push_back(sfd);
+}
+
+
+
+void SocketPollToken::remove(int idx) {
+	// _handles_.erase(_handles_.begin()+idx);
+	auto back = _handles_.size() - 1;
+	if (back > 0)
+		_handles_[idx] = _handles_[back];
+	_handles_.pop_back();
+}
+
+
+
+unsigned int SocketPollToken::size() const {
+	return _handles_.size();
+}
+
+
+
+void SocketPollToken::reset() {
+	for (unsigned int i = 0; i < _handles_.size(); i++)
+		_handles_[i].revents = 0;
+}
+
+
+
+void SocketPollToken::clear() {
+	_handles_.clear();
+}
+
+
+
+short int& SocketPollToken::operator[] (int idx) {
+	return _handles_[idx].revents;
+}
+
+
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
 //                            SocketException Code                           //
@@ -77,8 +143,7 @@ throw() : userMessage(message) {
 
 
 
-SocketException::~SocketException() throw() {
-}
+SocketException::~SocketException() throw() {}
 
 
 
@@ -120,25 +185,22 @@ Socket::Socket(int type, int protocol) throw(SOC_EXCEPTION) {
 	}
 #endif
 	// Make a new socket
-	if ((sockDesc = socket(PF_INET, type, protocol)) < 0) {
+	if ((handle.descriptor = socket(PF_INET, type, protocol)) < 0) {
 		throw SocketException("Socket creation failed (socket())", true);
 	}
-	fds[0].fd = sockDesc;
 }
 
 
 
 Socket::Socket(int sockDesc) {
-	this->sockDesc = sockDesc;
-	fds[0].fd = sockDesc;
+	handle.descriptor = sockDesc;
 }
 
 
 
 Socket::~Socket() {
-	CLOSE_SOCKET(sockDesc);
-	sockDesc = -1;
-	fds[0].fd = -1;
+	CLOSE_SOCKET(handle.descriptor);
+	handle.descriptor = -1;
 
 #if defined(_MSC_VER)
 	WSACleanup();
@@ -147,11 +209,17 @@ Socket::~Socket() {
 
 
 
+SocketHandle& Socket::getHandle() {
+	return handle;
+}
+
+
+
 string Socket::getLocalAddress() throw(SOC_EXCEPTION) {
 	sockaddr_in addr;
 	unsigned int addr_len = sizeof(addr);
 
-	if (getsockname(sockDesc, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
+	if (getsockname(handle.descriptor, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
 		throw SocketException("Fetch of local address failed (getsockname())", true);
 	}
 	return inet_ntoa(addr.sin_addr);
@@ -163,7 +231,7 @@ unsigned short Socket::getLocalPort() throw(SOC_EXCEPTION) {
 	sockaddr_in addr;
 	unsigned int addr_len = sizeof(addr);
 
-	if (getsockname(sockDesc, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
+	if (getsockname(handle.descriptor, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
 		throw SocketException("Fetch of local port failed (getsockname())", true);
 	}
 	return ntohs(addr.sin_port);
@@ -179,7 +247,7 @@ void Socket::setLocalPort(unsigned short localPort) throw(SOC_EXCEPTION) {
 	localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	localAddr.sin_port = htons(localPort);
 
-	if (::bind(sockDesc, (sockaddr *)&localAddr, sizeof(sockaddr_in)) < 0) {
+	if (::bind(handle.descriptor, (sockaddr *)&localAddr, sizeof(sockaddr_in)) < 0) {
 		throw SocketException("Set of local port failed (bind())", true);
 	}
 }
@@ -192,7 +260,7 @@ void Socket::setLocalAddressAndPort(const string &localAddress,
 	sockaddr_in localAddr;
 	fillAddr(localAddress, localPort, localAddr);
 
-	if (::bind(sockDesc, (sockaddr *)&localAddr, sizeof(sockaddr_in)) < 0) {
+	if (::bind(handle.descriptor, (sockaddr *)&localAddr, sizeof(sockaddr_in)) < 0) {
 		throw SocketException("Set of local address and port failed (bind())", true);
 	}
 }
@@ -211,18 +279,114 @@ unsigned short Socket::resolveService(const string &service,
 
 
 
+void Socket::keepalive(SocketHandle& handle, bool enable) throw(SOC_EXCEPTION) {
+	int flag = enable?1:0;
+	if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE,
+		(const char*)&flag, sizeof(flag)) < 0) {
+		std::ostringstream ss;
+		ss << "Failed to set flag KEEPALIVE: " << errno;
+		throw SocketException(ss.str(), true);
+	}
+}
+
+
+
+void Socket::keepalive(SocketHandle& handle, KeepAliveOptions options)
+throw(SOC_EXCEPTION) {
+    // http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
+    std::ostringstream ss("[TCP] Failed to set ");
+	
+#if defined(_MSC_VER)
+	DWORD bytesReturned = 0;
+	struct tcp_keepalive config;
+	config.onoff = options.enabled;
+	config.keepalivetime = options.idle;
+	config.keepaliveinterval = options.interval;
+
+	if (WSAIoctl(handle.descriptor, SIO_KEEPALIVE_VALS, &config,
+		sizeof(config), NULL, 0, &bytesReturned, NULL, NULL) == -1) {
+		printf("WSAIotcl(SIO_KEEPALIVE_VALS) failed; %d\n",
+			WSAGetLastError());
+		ss << "[enabled, idle, interval]";
+		goto KEEPALIVE_ERROR;
+	}
+#else
+    if(setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE,
+		(const char*)&options.enabled, sizeof(int)) < 0) {
+        ss << "keepalive flag";
+        goto KEEPALIVE_ERROR;
+    }
+#ifndef __APPLE__
+    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPIDLE,
+		(const char*)&options.idle, sizeof(int)) < 0) {
+        ss << "idle value";
+        goto KEEPALIVE_ERROR;
+    }
+#endif
+    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPINTVL,
+        (const char*)&options.interval, sizeof(int)) < 0) {
+        ss << "interval value";
+        goto KEEPALIVE_ERROR;
+    }
+#endif
+    if (setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPCNT,
+		(const char*)&options.count, sizeof(int)) < 0) {
+        ss << "count value";
+        goto KEEPALIVE_ERROR;
+    }
+    return;
+    
+KEEPALIVE_ERROR:
+    ss << ": " << errno << " (";
+    ss << std::strerror(errno) << ")";
+    throw SocketException(ss.str(), true);
+}
+
+
+
+int Socket::select(SocketHandle** handles, int length, struct timeval* timeout) {
+	fd_set set;
+	unsigned int nfds = 0;
+
+	FD_ZERO(&set);
+	for (int i = 0; i < length; i++) {
+		unsigned int handle = (unsigned int)(0xFFFFFFFF&handles[i]->descriptor);
+		FD_SET(handle, &set);
+		if (handle > nfds) nfds = handle;
+	}
+
+	return ::select(nfds + 1, &set, NULL, NULL, timeout);
+}
+
+
+
+int Socket::select(SocketHandle** handles, int length, unsigned int timeout) {
+	struct timeval time_s;
+	time_s.tv_sec = timeout;
+	time_s.tv_usec = 0;
+	return Socket::select(handles, length, &time_s);
+}
+
+
+
+int Socket::poll(SocketPollToken& token, int timeout) {
+	struct pollfd* fds = token._handles_.data();
+	int size = token._handles_.size();
+	return SOC_POLL(fds, size, timeout);
+}
+
+
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
 //                        CommunicatingSocket Code                           //
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
 
 CommunicatingSocket::CommunicatingSocket(int type, int protocol)
-throw(SOC_EXCEPTION) : Socket(type, protocol) {
-}
+throw(SOC_EXCEPTION) : Socket(type, protocol) {}
 
 
 
-CommunicatingSocket::CommunicatingSocket(int newConnSD) : Socket(newConnSD) {
-}
+CommunicatingSocket::CommunicatingSocket(int newConnSD) : Socket(newConnSD) {}
 
 
 
@@ -233,7 +397,7 @@ void CommunicatingSocket::connect(const string &foreignAddress,
 	fillAddr(foreignAddress, foreignPort, destAddr);
 
 	// Try to connect to the given port
-	if (::connect(sockDesc, (sockaddr *)&destAddr, sizeof(destAddr)) < 0) {
+	if (::connect(handle.descriptor, (sockaddr *)&destAddr, sizeof(destAddr)) < 0) {
 		throw SocketException("Connect failed (connect())", true);
 	}
 }
@@ -242,48 +406,30 @@ void CommunicatingSocket::connect(const string &foreignAddress,
 
 void CommunicatingSocket::disconnect()
 throw(SOC_EXCEPTION) {
-	if (shutdown(sockDesc, SOC_SD_HOW) < 0) {
+	if (shutdown(handle.descriptor, SOC_SD_HOW) < 0) {
 		throw SocketException("Shutdown failed (disconnect())", true);
 	}
 }
 
 
 
-void CommunicatingSocket::send(const void *buffer, int bufferLen)
+void CommunicatingSocket::send(const void *buffer, int bufferLen, int flags)
 throw(SOC_EXCEPTION) {
-	if (::send(sockDesc, (CCHAR_PTR)buffer, bufferLen, 0) < 0) {
+	if (::send(handle.descriptor, (CCHAR_PTR)buffer, bufferLen, flags) < 0) {
 		throw SocketException("Send failed (send())", true);
 	}
 }
 
 
 
-int CommunicatingSocket::recv(void *buffer, int bufferLen)
+int CommunicatingSocket::recv(void *buffer, int bufferLen, int flags)
 throw(SOC_EXCEPTION) {
 	int rtn;
-	if ((rtn = ::recv(sockDesc, (CHAR_PTR)buffer, bufferLen, 0)) < 0) {
+	if ((rtn = ::recv(handle.descriptor, (CHAR_PTR)buffer,
+		bufferLen, flags)) < 0) {
 		throw SocketException("Received failed (recv())", true);
 	}
 
-	return rtn;
-}
-
-
-
-void CommunicatingSocket::setEvents(short events) {
-	fds[0].events = events;
-}
-
-
-
-int CommunicatingSocket::poll(short &revents, int timeout)
-throw(SOC_EXCEPTION) {
-	int rtn;
-	fds[0].revents= 0;
-	if((rtn = SOC_POLL(fds, 1, timeout)) < 0) {
-		throw SocketException("Poll failed (poll())", true);
-	}
-	revents = fds[0].revents;
 	return rtn;
 }
 
@@ -294,7 +440,7 @@ throw(SOC_EXCEPTION) {
 	sockaddr_in addr;
 	unsigned int addr_len = sizeof(addr);
 
-	if (getpeername(sockDesc, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
+	if (getpeername(handle.descriptor, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
 		throw SocketException("Fetch of foreign address failed (getpeername())", true);
 	}
 	return inet_ntoa(addr.sin_addr);
@@ -306,7 +452,7 @@ unsigned short CommunicatingSocket::getForeignPort() throw(SOC_EXCEPTION) {
 	sockaddr_in addr;
 	unsigned int addr_len = sizeof(addr);
 
-	if (getpeername(sockDesc, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
+	if (getpeername(handle.descriptor, (sockaddr *)&addr, (socklen_t *)&addr_len) < 0) {
 		throw SocketException("Fetch of foreign port failed (getpeername())", true);
 	}
 	return ntohs(addr.sin_port);
@@ -319,9 +465,7 @@ unsigned short CommunicatingSocket::getForeignPort() throw(SOC_EXCEPTION) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
 
 TCPSocket::TCPSocket()
-throw(SOC_EXCEPTION) : CommunicatingSocket(SOCK_STREAM,
-	IPPROTO_TCP) {
-}
+throw(SOC_EXCEPTION) : CommunicatingSocket(SOCK_STREAM, IPPROTO_TCP) {}
 
 
 
@@ -332,8 +476,7 @@ throw(SOC_EXCEPTION) : CommunicatingSocket(SOCK_STREAM, IPPROTO_TCP) {
 
 
 
-TCPSocket::TCPSocket(int newConnSD) : CommunicatingSocket(newConnSD) {
-}
+TCPSocket::TCPSocket(int newConnSD) : CommunicatingSocket(newConnSD) {}
 
 
 
@@ -360,7 +503,7 @@ TCPServerSocket::TCPServerSocket(const string &localAddress,
 
 TCPSocket *TCPServerSocket::accept() throw(SOC_EXCEPTION) {
 	int newConnSD;
-	if ((newConnSD = ::accept(sockDesc, NULL, 0)) < 0) {
+	if ((newConnSD = ::accept(handle.descriptor, NULL, 0)) < 0) {
 		throw SocketException("Accept failed (accept())", true);
 	}
 
@@ -370,7 +513,7 @@ TCPSocket *TCPServerSocket::accept() throw(SOC_EXCEPTION) {
 
 
 void TCPServerSocket::setListen(int queueLen) throw(SOC_EXCEPTION) {
-	if (listen(sockDesc, queueLen) < 0) {
+	if (listen(handle.descriptor, queueLen) < 0) {
 		throw SocketException("Set listening socket failed (listen())", true);
 	}
 }
@@ -408,7 +551,7 @@ void UDPSocket::setBroadcast() {
 	// If this fails, we'll hear about it when we try to send.  This will allow
 	// system that cannot broadcast to continue if they don't plan to broadcast
 	int broadcastPermission = 1;
-	setsockopt(sockDesc, SOL_SOCKET, SO_BROADCAST,
+	setsockopt(handle.descriptor, SOL_SOCKET, SO_BROADCAST,
 		(CCHAR_PTR)&broadcastPermission, sizeof(broadcastPermission));
 }
 
@@ -420,7 +563,7 @@ void UDPSocket::disconnect() throw(SOC_EXCEPTION) {
 	nullAddr.sin_family = AF_UNSPEC;
 
 	// Try to disconnect
-	if (::connect(sockDesc, (sockaddr *)&nullAddr, sizeof(nullAddr)) < 0) {
+	if (::connect(handle.descriptor, (sockaddr *)&nullAddr, sizeof(nullAddr)) < 0) {
 		if (errno != EAFNOSUPPORT) {
 			throw SocketException("Disconnect failed (connect())", true);
 		}
@@ -436,7 +579,7 @@ void UDPSocket::sendTo(const void *buffer, int bufferLen,
 	fillAddr(foreignAddress, foreignPort, destAddr);
 
 	// Write out the whole buffer as a single message.
-	if (sendto(sockDesc, (CCHAR_PTR)buffer, bufferLen, 0,
+	if (sendto(handle.descriptor, (CCHAR_PTR)buffer, bufferLen, 0,
 		(sockaddr *)&destAddr, sizeof(destAddr)) != bufferLen) {
 		throw SocketException("Send failed (sendto())", true);
 	}
@@ -449,7 +592,7 @@ int UDPSocket::recvFrom(void *buffer, int bufferLen, string &sourceAddress,
 	sockaddr_in clntAddr;
 	socklen_t addrLen = sizeof(clntAddr);
 	int rtn;
-	if ((rtn = recvfrom(sockDesc, (CHAR_PTR)buffer, bufferLen, 0,
+	if ((rtn = recvfrom(handle.descriptor, (CHAR_PTR)buffer, bufferLen, 0,
 		(sockaddr *)&clntAddr, (socklen_t *)&addrLen)) < 0) {
 		throw SocketException("Receive failed (recvfrom())", true);
 	}
@@ -462,7 +605,7 @@ int UDPSocket::recvFrom(void *buffer, int bufferLen, string &sourceAddress,
 
 
 void UDPSocket::setMulticastTTL(unsigned char multicastTTL) throw(SOC_EXCEPTION) {
-	if (setsockopt(sockDesc, IPPROTO_IP, IP_MULTICAST_TTL,
+	if (setsockopt(handle.descriptor, IPPROTO_IP, IP_MULTICAST_TTL,
 		(CCHAR_PTR)&multicastTTL, sizeof(multicastTTL)) < 0) {
 		throw SocketException("Multicast TTL set failed (setsockopt())", true);
 	}
@@ -475,7 +618,7 @@ void UDPSocket::joinGroup(const string &multicastGroup) throw(SOC_EXCEPTION) {
 
 	multicastRequest.imr_multiaddr.s_addr = inet_addr(multicastGroup.c_str());
 	multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
-	if (setsockopt(sockDesc, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+	if (setsockopt(handle.descriptor, IPPROTO_IP, IP_ADD_MEMBERSHIP,
 		(CCHAR_PTR)&multicastRequest,
 		sizeof(multicastRequest)) < 0) {
 		throw SocketException("Multicast group join failed (setsockopt())", true);
@@ -489,7 +632,7 @@ void UDPSocket::leaveGroup(const string &multicastGroup) throw(SOC_EXCEPTION) {
 
 	multicastRequest.imr_multiaddr.s_addr = inet_addr(multicastGroup.c_str());
 	multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
-	if (setsockopt(sockDesc, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+	if (setsockopt(handle.descriptor, IPPROTO_IP, IP_DROP_MEMBERSHIP,
 		(CCHAR_PTR)&multicastRequest,
 		sizeof(multicastRequest)) < 0) {
 		throw SocketException("Multicast group leave failed (setsockopt())", true);

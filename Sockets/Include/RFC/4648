@@ -1,0 +1,13 @@
+/**
+ * Created by TekuConcept on July 27, 2017
+ *
+ * RFC 4648: The Base16, Base32, and Base64 Data Encodings
+ */
+
+#ifndef RFC_4648_H
+#define RFC_4648_H
+
+#include "RFC/Base16.h"
+#include "RFC/Base64.h"
+
+#endif

@@ -1,0 +1,16 @@
+/**
+ * Created by TekuConcept on July 25, 2017
+ *
+ * RFC 2616: Hyper Text Transfer Protocol -- HTTP/1.1
+ */
+
+#ifndef RFC_2616_H
+#define RFC_2616_H
+
+#include "RFC/String.h"
+#include "RFC/Const2616.h"
+#include "RFC/URI.h"
+#include "RFC/RequestMessage.h"
+#include "RFC/ResponseMessage.h"
+
+#endif

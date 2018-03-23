@@ -1,0 +1,12 @@
+/**
+ * Created by TekuConcept on July 28, 2017
+ *
+ * RFC 3174: US Secure Hash Algorithm 1 (SHA1)
+ */
+
+#ifndef RFC_3174_H
+#define RFC_3174_H
+
+#include "RFC/SHA1.h"
+
+#endif

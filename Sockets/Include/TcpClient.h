@@ -16,29 +16,39 @@
 
 namespace Impact {
 	class TcpServer;
-	class TcpClient : private std::streambuf, public std::iostream
-	{
-	public:
+	class TcpClient : private std::streambuf, public std::iostream {
 		friend TcpServer;
+
+	public:
 		API_DECLSPEC TcpClient();
 		API_DECLSPEC TcpClient(int port, std::string address = "127.0.0.1");
 		virtual API_DECLSPEC ~TcpClient();
-		
+
 		int API_DECLSPEC connect(int port, std::string address);
 		void API_DECLSPEC disconnect();
+		bool API_DECLSPEC isConnected();
+
 		int API_DECLSPEC sync();
 		int API_DECLSPEC underflow();
-		bool API_DECLSPEC isConnected();
+
 		void API_DECLSPEC setTimeout(int time_ms);
 		EventHandler<EventArgs> onTimeout;
+		
+		void send(const void *buffer, int bufferLen, int flags=0) throw(SOC_EXCEPTION);
+		int recv(void *buffer, int bufferLen, int flags=0) throw(SOC_EXCEPTION);
+
+		SocketHandle& getHandle();
+		TCPSocket& getSocket();
 
 	private:
 		static const unsigned int BUF_SIZE = 256;
 		char* outputBuffer_;
 		char* inputBuffer_;
+		
 		std::shared_ptr<TCPSocket> socket;
-		bool connected, peerConnected;
-		int timeout = -1;
+		SocketPollToken pollToken;
+		bool connected;
+		int timeout;
 		Object self;
 
 		void init();

@@ -1,0 +1,10 @@
+/**
+ * Created by TekuConcept on March 8, 2018
+ */
+
+#ifndef _WSMANIP_
+#define _WSMANIP_
+
+#include <wsmanip.h>
+
+#endif
