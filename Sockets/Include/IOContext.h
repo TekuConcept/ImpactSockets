@@ -40,11 +40,11 @@ namespace Impact {
         std::atomic<int> _polltimeout_;
         
         void update(unsigned int&);
-        int updateEntity(unsigned int,unsigned int&);
-        int checkCondition(unsigned int,unsigned int&,ssize_t);
-        void dequeue(unsigned int,unsigned int&,int);
-        void dequeue(unsigned int,unsigned int&,std::exception_ptr);
-        std::promise<int> dequeue(unsigned int,unsigned int&);
+        int updateEntity(unsigned int);
+        int checkCondition(unsigned int,ssize_t);
+        void dequeue(unsigned int,int);
+        void dequeue(unsigned int,std::exception_ptr);
+        std::promise<int> dequeue(unsigned int);
         
     public:
         IOContext();
