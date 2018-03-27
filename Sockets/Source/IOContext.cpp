@@ -7,15 +7,19 @@
 
 using namespace Impact;
 
-#define IOC_ERROR -1
-#define IOC_EOF    0
-#define IOC_DONE   1
+#define IOC_ERROR   -1
+#define IOC_EOF      0
+#define IOC_DONE     1
+
+#define IOC_NEXT     1
+#define IOC_DEQUEUED 2
 
 #include <iostream>
 #define VERBOSE(x) std::cout << x << std::endl
 
 IOContext::Entity::Entity(CommunicatingSocket* s, char* b, int l,
     FunctionCallback f) : socket(s), buffer(b), length(l), callback(f) {}
+
 
 IOContext::IOContext() : _futureReady_(_promiseReady_.get_future()),
     _active_(true), _polltimeout_(1000) {
@@ -34,99 +38,127 @@ IOContext::IOContext() : _futureReady_(_promiseReady_.get_future()),
     });
 }
 
+
 IOContext::~IOContext() {
     _active_ = false;
     _cv_.notify_one();
     _service_.join();
 }
 
-void IOContext::update(unsigned int& size) {
-    std::lock_guard<std::mutex> lock(_mtxq_);
-    size = _queue_.size();
-    
-    _polltoken_.reset();
-    auto result = Socket::poll(_polltoken_, _polltimeout_);
-    if(result == 0) return;
-    // else if(result < 0) /* error handling */
-    for(unsigned int i = 0; i < size; i++) {
-        updateEntity(i, size);
-    }
-}
-
-void IOContext::updateEntity(unsigned int& i, unsigned int& s) {
-    if(_polltoken_[i] & POLLHUP) { dequeue(i,s,IOC_EOF); }
-    else if(_polltoken_[i] & POLLIN) {
-        try {
-            auto rlength = _queue_[i].socket->recv(
-                _queue_[i].buffer,
-                _queue_[i].length
-            );
-            _queue_[i].buffer += rlength;
-            _queue_[i].length -= rlength;
-            updateState(i,s,rlength);
-        } catch (...) { dequeue(i,s,0,true); }
-    }
-}
-
-bool IOContext::updateState(unsigned int& i, unsigned int& s,
-    ssize_t rlength) {
-    int value = 0;
-    if(rlength > 0) {
-        if(_queue_[i].length == 0) {
-            if(_queue_[i].callback == NULL) { value = IOC_DONE; }
-            else {
-                _queue_[i].callback(_queue_[i].buffer, _queue_[i].length);
-                if(_queue_[i].buffer == NULL || _queue_[i].length == 0)
-                    value = IOC_DONE;
-                else return false;
-            }
-        }
-        else return false;
-    }
-    else if(rlength == 0) value = IOC_EOF; 
-    else value = IOC_ERROR;
-    dequeue(i,s,value);
-    return true;
-}
 
 std::future<int> IOContext::enqueue(CommunicatingSocket& socket, char* buffer,
     int length, FunctionCallback callback) {
     if(length == 0 || buffer == NULL) {
         std::promise<int> temp;
-        temp.set_value(-1);
+        temp.set_value(IOC_DONE);
         return temp.get_future();
     }
-    std::lock_guard<std::mutex> lock(_mtxq_);
-    _queue_.push_back(Entity(&socket,buffer,length,callback));
-    _polltoken_.add(socket.getHandle(),POLLIN);
-    _cv_.notify_one();
-    return _queue_.back().promise.get_future();
+    else {
+        std::lock_guard<std::mutex> lock(_mtxq_);
+        _queue_.push_back(Entity(&socket,buffer,length,callback));
+        _polltoken_.add(socket.getHandle(),POLLIN);
+        _cv_.notify_one();
+        return _queue_.back().promise.get_future();
+    }
 }
 
-void IOContext::dequeue(unsigned int& index, unsigned int& size, int pvalue,
-    bool exception) {
-    try {
-        if(exception)
-             _queue_[index].promise.set_exception(std::current_exception());
-        else _queue_[index].promise.set_value(pvalue);
-    } catch (...) {
-        std::cout << "Error In IOContext Dequeue Process" << std::endl;
-    }
+
+std::promise<int> IOContext::dequeue(unsigned int index, unsigned int& size) {
+    std::lock_guard<std::mutex> lock(_mtxq_);
+    std::promise<int> promise = std::move(_queue_[index].promise);
     auto back = _queue_.size() - 1;
-    if(back > 0) {
-        _queue_[index] = std::move(_queue_[back]);
-        // _queue_[index].socket   = _queue_[back].socket;
-        // _queue_[index].buffer   = entity.buffer;
-        // _queue_[index].length   = entity.length;
-        // _queue_[index].promise  = std::move(entity.promise);
-        // _queue_[index].callback = std::move(entity.callback);
-    }
+    
+    if(back > 0) _queue_[index] = std::move(_queue_[back]);
     VERBOSE("> Dequeued [" << index << "]");
-    // (void)index;
-    // (void)pvalue;
-    // (void)exception;
     _queue_.pop_back();
     _polltoken_.remove(index);
+    
     size--;
-    index--;
+    
+    return std::move(promise);
+}
+
+
+void IOContext::dequeue(unsigned int index, unsigned int& size, int result) {
+    auto promise = dequeue(index, size);
+    try { promise.set_value(result); }
+    catch (...) { VERBOSE("IOContext Error: Dequeue [set promise value]"); }
+}
+
+
+void IOContext::dequeue(unsigned int index, unsigned int& size,
+    std::exception_ptr exception) {
+    auto promise = dequeue(index, size);
+    try { promise.set_exception(exception); }
+    catch (...) { VERBOSE("IOContext Error: Dequeue [set promise exception]"); }
+}
+
+
+void IOContext::update(unsigned int& size) {
+    
+    _polltoken_.reset();
+    auto result = Socket::poll(_polltoken_, _polltimeout_);
+    if(result == 0) return;
+    // else if(result < 0) /* error handling */
+    
+    unsigned int i = 0;
+    do {
+        {
+            std::lock_guard<std::mutex> lock(_mtxq_);
+            size = _queue_.size();
+        }
+        auto state = updateEntity(i, size);
+        if(state == IOC_NEXT) i++;
+    } while(i < size);
+}
+
+
+int IOContext::updateEntity(unsigned int index, unsigned int& s) {
+    if(_polltoken_[index] & POLLHUP) {
+        dequeue(index,s,IOC_EOF);
+        return IOC_DEQUEUED;
+    }
+    else if(_polltoken_[index] & POLLIN) {
+        try {
+            auto recvCount = _queue_[index].socket->recv(
+                _queue_[index].buffer,
+                _queue_[index].length
+            );
+            _queue_[index].buffer += recvCount;
+            _queue_[index].length -= recvCount;
+            return checkCondition(index,s,recvCount);
+        }
+        catch (SocketException) {
+            dequeue(index,s,std::current_exception());
+            return IOC_DEQUEUED;
+        }
+        catch (...) { std::cerr << "Unknown Exception" << std::endl; }
+    }
+    return IOC_NEXT;
+}
+
+int IOContext::checkCondition(unsigned int index, unsigned int& size,
+    ssize_t recvCount) {
+    int value = 0;
+    
+    if(recvCount > 0) {
+        if(_queue_[index].length == 0) {
+            if(_queue_[index].callback == NULL) { value = IOC_DONE; }
+            else {
+                _queue_[index].callback(
+                    _queue_[index].buffer,
+                    _queue_[index].length
+                );
+                if(!(_queue_[index].buffer && _queue_[index].length))
+                    value = IOC_DONE;
+                else return IOC_NEXT;
+            }
+        }
+        else return IOC_NEXT;
+    }
+    else if(recvCount == 0) value = IOC_EOF;
+    else value = IOC_ERROR;
+    
+    dequeue(index,size,value);
+    return IOC_DEQUEUED;
 }
