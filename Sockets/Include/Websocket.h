@@ -83,6 +83,9 @@ namespace Impact {
         void stateExtendedHeader(char*&,int&);
         void stateBodyHelper(char*&,int&);
         void stateBody(char*&,int&);
+        void stateBody_Ping();
+        void stateBody_Pong();
+        void stateBody_NextBuffer(char*&,int&);
         void processFrame();
         
     public:

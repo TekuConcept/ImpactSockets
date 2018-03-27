@@ -386,51 +386,60 @@ void Websocket::stateBodyHelper(char*& nextBuffer, int& nextLength) {
 
 
 void Websocket::stateBody(char*& nextBuffer, int& nextLength) {
-    // re-enque on underflow
-    // if context.opcode == text: decodeUTF8
-    // setg(eback(), eback(), eback() + len);
-    if(_inContext_.opcode == OP_PING) {
-        auto temp = _inKeyOffset_;
-        WebsocketUtils::xmaskData(_iswap_,_echoContext_.length,_inContext_,
-            _inKeyOffset_);
-        _inKeyOffset_ = temp;
-        
-        std::cout << "-> [" << _echoContext_.length << "] ";
-        for(int i = 0; i < static_cast<int>(_echoContext_.length); i++) {
-            std::cout << _iswap_[i];
-        }
-        std::cout << std::endl;
-        
-        WebsocketUtils::writeData(*_socket_,_echoContext_,_iswap_,
-            _echoContext_.length,_inKeyOffset_);
-    }
-    else if(_inContext_.opcode == OP_PONG) {
-        std::cout << "-> [" << _echoContext_.length << "] ";
-        for(int i = 0; i < static_cast<int>(_echoContext_.length); i++) {
-            std::cout << _iswap_[i];
-        }
-        std::cout << std::endl;
-    }
-    
-    if(_inContext_.opcode == OP_TEXT || _inContext_.opcode == OP_BINARY ||
-        _inContext_.opcode == OP_CONTINUE) {
-        nextBuffer = pbase(); // NULL
+    auto opcode = _inContext_.opcode;
+    if((opcode == OP_TEXT || opcode == OP_BINARY || opcode == OP_CONTINUE) &&
+        _inContext_.length > 0) {
+        nextBuffer = eback(); // NULL
         nextLength = min(_inContext_.length,_bufferSize_); // 0
         _inContext_.length -= nextLength;
         _echoContext_.length = nextLength;
         // decodeUTF8 if TEXT
+        // setg(eback(), eback(), eback() + len);
     }
     else {
-        nextBuffer = _iswap_;
-        if(_inContext_.length > 0) {
-            nextLength = min(128,_inContext_.length);
-            _inContext_.length -= nextLength;
-            _echoContext_.length = nextLength;
-        }
-        else {
-            nextLength = 2;
-            _readState_ = 0;
-        }
+        if(opcode == OP_PING) stateBody_Ping();
+        else if(opcode == OP_PONG) stateBody_Pong();
+        stateBody_NextBuffer(nextBuffer, nextLength);
+    }
+}
+
+
+void Websocket::stateBody_Ping() {
+    auto temp = _inKeyOffset_;
+    WebsocketUtils::xmaskData(_iswap_,_echoContext_.length,_inContext_,
+        _inKeyOffset_);
+    _inKeyOffset_ = temp;
+    
+    std::cout << "-> [" << _echoContext_.length << "] ";
+    for(int i = 0; i < static_cast<int>(_echoContext_.length); i++) {
+        std::cout << _iswap_[i];
+    }
+    std::cout << std::endl;
+    
+    WebsocketUtils::writeData(*_socket_,_echoContext_,_iswap_,
+        _echoContext_.length,_inKeyOffset_);
+}
+
+
+void Websocket::stateBody_Pong() {
+    std::cout << "-> [" << _echoContext_.length << "] ";
+    for(int i = 0; i < static_cast<int>(_echoContext_.length); i++) {
+        std::cout << _iswap_[i];
+    }
+    std::cout << std::endl;
+}
+
+
+void Websocket::stateBody_NextBuffer(char*& nextBuffer, int& nextLength) {
+    nextBuffer = _iswap_;
+    if(_inContext_.length > 0) {
+        nextLength = min(128,_inContext_.length);
+        _inContext_.length -= nextLength;
+        _echoContext_.length = nextLength;
+    }
+    else {
+        nextLength = 2;
+        _readState_ = 0;
     }
 }
 
