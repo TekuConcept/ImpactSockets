@@ -63,7 +63,7 @@ short TcpClient::checkFlags(short events) {
 int TcpClient::connect(int port, std::string address) {
 	if (connected) return -2;
 	try {
-		socket = std::make_shared<TCPSocket>(address, port);
+		socket = std::make_shared<TCPSocket>(address, (unsigned short)port);
 		connected = true;
 		pollToken.add(socket->getHandle(), POLLIN);
 	}
