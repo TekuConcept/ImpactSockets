@@ -23,10 +23,10 @@ typedef std::pair<bool, unsigned short> MetaValue;
 
 std::map<std::string, std::pair<bool,unsigned short>> URI::_schemeMetaData_
 = {
-    MetaToken("http",  MetaValue(false, 80)),
-    MetaToken("https", MetaValue(true, 443)),
-    MetaToken("ws",    MetaValue(false, 80)),
-    MetaToken("wss",   MetaValue(true, 443))
+    MetaToken("http",  MetaValue(false, (unsigned short)80)),
+    MetaToken("https", MetaValue(true,  (unsigned short)443)),
+    MetaToken("ws",    MetaValue(false, (unsigned short)80)),
+    MetaToken("wss",   MetaValue(true,  (unsigned short)443))
 };
 
 URI::URI() {}
@@ -262,6 +262,6 @@ bool URI::parsePort(std::string uri, unsigned int &offset) {
 
 void URI::registerScheme(std::string name, unsigned short port, bool secure) {
     if(name.length() == 0) return;
-    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+	std::transform(name.begin(), name.end(), name.begin(), [](char c) {return (char)::tolower(c);});
     _schemeMetaData_[name] = MetaValue(secure, port);
 }
