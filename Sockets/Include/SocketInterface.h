@@ -23,12 +23,12 @@ namespace Impact {
 	class SocketInterface {
 		SocketInterface(); // static-only class
 
-		static std::string getErrorMessage();
 		static std::string getHostErrorMessage();
 		static void fillAddress(const std::string&, unsigned short port,
 			sockaddr_in&);
 
 	public:
+		static std::string getErrorMessage();
 		static std::string getLocalAddress(SocketHandle handle)
 			/* throw(std::runtime_error) */;
 		static unsigned short getLocalPort(SocketHandle handle)

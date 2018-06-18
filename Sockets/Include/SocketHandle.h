@@ -7,6 +7,12 @@
 
 namespace Impact {
 	class SocketHandle {
+	public:
+		SocketHandle(int handle);
+		SocketHandle(int socketType, int protocol)
+			/* throw(std::runtime_error) */;
+		~SocketHandle();
+
 	protected:
 		int descriptor;
 
