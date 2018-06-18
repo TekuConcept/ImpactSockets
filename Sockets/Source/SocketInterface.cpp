@@ -70,6 +70,22 @@ std::string SocketInterface::getErrorMessage() {
 }
 
 
+std::string SocketInterface::getHostErrorMessage() {
+#if defined(_MSC_VER)
+	return getErrorMessage();
+#else
+	std::ostringstream os;
+	switch(h_errno) {
+	case HOST_NOT_FOUND: os << "[Host Error] Host Not Found"; break;
+	case NO_DATA:        os << "[Host Error] No Data"; break;
+	case NO_RECOVERY:    os << "[Host Error] No Recovery"; break;
+	case TRY_AGAIN:      os << "[Host Error] Try Again"; break;
+	}
+	return os.str();
+#endif
+}
+
+
 std::string SocketInterface::getLocalAddress(SocketHandle handle) {
 	sockaddr_in address;
 	auto addressLength = sizeof(address);
