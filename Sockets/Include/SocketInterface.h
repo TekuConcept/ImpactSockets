@@ -51,12 +51,20 @@ namespace Impact {
 		/*                    *\
 		| COMMUNICATION        |
 		\*                    */
-		// connect
-		// shutdown
-		// send
-		// recv
+		void connect(const SocketHandle& handle,
+			const std::string& foreignAddress, unsigned short foreignPort)
+			/* throw(std::runtime_error) */;
+		void shutdown(const SocketHandle& handle)
+			/* throw(std::runtime_error) */;
+		void send(const SocketHandle& handle, const void* buffer, int bufferLen,
+			MessageFlags flags = MessageFlags::NONE)
+			/* throw(std::runtime_error) */;
+		int recv(const SocketHandle& handle, void* buffer, int bufferLen,
+			MessageFlags flags = MessageFlags::NONE)
+			/* throw(std::runtime_error) */;
 		// poll
 		// select
+		// keepalive
 	};
 }
 

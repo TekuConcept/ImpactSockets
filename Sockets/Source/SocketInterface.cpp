@@ -219,3 +219,31 @@ unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 
 	return ntohs(address.sin_port);
 }
+
+
+void SocketInterface::send(const SocketHandle& handle, const void* buffer,
+	int bufferLen, MessageFlags flags) {
+	auto status = ::send(handle.descriptor, (CCHAR_PTR)buffer, bufferLen,
+		(int)flags);
+
+	if (status == SOCKET_ERROR) {
+		std::string message("SocketInterface::send() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+}
+
+
+int SocketInterface::recv(const SocketHandle& handle, void* buffer,
+	int bufferLen, MessageFlags flags) {
+	int status = ::recv(handle.descriptor, (CHAR_PTR)buffer, bufferLen,
+		(int)flags);
+
+	if (status == SOCKET_ERROR) {
+		std::string message("SocketInterface::recv() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+
+	return status; /* number of bytes received or EOF */
+}

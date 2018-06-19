@@ -6,11 +6,21 @@
 #define _SOCKET_TYPES_H_
 
 #if defined(_MSC_VER)
+ 	#include <WinSock2.h>
  	#include <ws2def.h>
 #else
 	// #include <sys/socket.h>
  	#include <arpa/inet.h>
 #endif
+
+#if defined(__linux__)
+ 	#include <linux/version.h>
+#endif
+
+#define ENUM_OPERATOR(T,U,O) \
+inline T operator O (T lhs, T rhs) {\
+	return static_cast<T>(static_cast<U>(lhs) O static_cast<U>(rhs));\
+}
 
 namespace Impact {
 	typedef enum class SocketDomain {
@@ -196,6 +206,98 @@ namespace Impact {
 		// IPV6_MH       = IPPROT_MH,        /* IPv6 Mobility Header */
 	#endif
 	} SocketProtocol;
+
+
+	typedef enum class MessageFlags {
+		// !- CROSS-PLATFORM FLAGS    -!
+		NONE = 0,
+
+		DONTROUTE = MSG_DONTROUTE, /* Don't use a gateway to send out the
+		packet, send to hosts only on directly connected networks.  This is
+		usually used only by diagnostic or routing programs.  This is
+		defined only for protocol families that route; packet sockets don't.*/
+
+		OOB = MSG_OOB, /* Sends out-of-band data on sockets that support
+		this notion (e.g., of type SOCK_STREAM); the underlying protocol
+		must also support out-of-band data.*/
+
+		PEEK    = MSG_PEEK,    /* Peek at incoming message. */
+		WAITALL = MSG_WAITALL, /* Wait for full request or error. */
+
+		// !- PLATFORM-SPECIFIC FLAGS -!
+	#if defined(_MSC_VER)
+		PUSH_IMMEDIATE = MSG_PUSH_IMMEDIATE, /* Do not delay receive request completion if data is available. */
+		PARTIAL        = MSG_PARTIAL,        /* Partial send or recv for message xport. */
+		INTERRUPT      = MSG_INTERRUPT,      /* send/recv in the interrupt context. */
+	#elif defined(__APPLE__)
+		EOR            = MSG_EOR,            /* Data completes record. */
+		TRUNC          = MSG_TRUNC,          /* Data discarded before delivery. */
+		CTRUNC         = MSG_CTRUNC,         /* Control data lost before delivery. */
+		DONTWAIT       = MSG_DONTWAIT,       /* This message should be nonblocking. */
+		EOF            = MSG_EOF,            /* Data completes connection. */
+		FLUSH          = MSG_FLUSH,          /* Start of 'hold' sequence; dump so_temp. */
+		HOLD           = MSG_HOLD,           /* Hold fragment in so_temp. */
+		SEND           = MSG_SEND,           /* Send the packet in so_temp. */
+		HAVEMORE       = MSG_HAVEMORE,       /* Data ready to be read. */
+		RCVMORE        = MSG_RCVMORE,        /* Data remains in current packet. */
+		NEEDSA         = MSG_NEEDSA,         /* Fail receive if socket address cannot be allocated. */
+	#else /* linux */
+		CTRUNC         = MSG_CTRUNC,         /* Control data lost before delivery. */
+		PROXY          = MSG_PROXY,          /* Supply or ask second address. */
+		TRUNC          = MSG_TRUNC,          /* Data discarded before delivery. */
+		FIN            = MSG_FIN,
+		SYN            = MSG_SYN,
+		RST            = MSG_RST,
+		ERRQUEUE       = MSG_ERRQUEUE,       /* Fetch message from error queue. */
+		WAITFORONE     = MSG_WAITFORONE,     /* Wait for at least one packet to return. */
+		FASTOPEN       = MSG_FASTOPEN,       /* Send data in TCP SYN. */
+
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,4)
+		MORE = MSG_MORE, /* (since Linux 2.4.4) The caller has more data
+		to send.  This flag is used with TCP sockets to obtain the same
+		effect as the TCP_CORK socket option (see tcp(7)), with the
+		difference that this flag can be set on a per-call basis.
+
+		Since Linux 2.6, this flag is also supported for UDP sockets, and
+		informs the kernel to package all of the data sent in calls with
+		this flag set into a single datagram which is transmitted only
+		when a call is performed that does not specify this flag.  (See
+		also the UDP_CORK socket option described in udp(7).) */
+		#endif
+
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,15)
+		CONFIRM = MSG_CONFIRM, /* (since Linux 2.3.15) Tell the link layer
+		that forward progress happened: you got a successful reply from the
+		other side.  If the link layer doesn't get this it will regularly
+		reprobe the neighbor (e.g., via a unicast ARP).  Valid only on
+		SOCK_DGRAM and SOCK_RAW sockets and currently implemented only for
+		IPv4 and IPv6.  See arp(7) for details. */
+		#endif
+
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,2,0)
+		DONTWAIT = MSG_DONTWAIT, /* (since Linux 2.2) Enables nonblocking
+		operation; if the operation would block, EAGAIN or EWOULDBLOCK is
+		returned.  This provides similar behavior to setting the O_NONBLOCK
+		flag (via the fcntl(2) F_SETFL operation), but differs in that
+		MSG_DONTWAIT is a per-call option, whereas O_NONBLOCK is a setting
+		on the open file description (see open(2)), which will affect all
+		threads in the calling process and as well as other processes that
+		hold file descriptors referring to the same open file description.*/
+
+		EOR = MSG_EOR, /* (since Linux 2.2) Terminates a record (when this
+		notion is supported, as for sockets of type SOCK_SEQPACKET). */
+
+		NOSIGNAL = MSG_NOSIGNAL, /* (since Linux 2.2) Don't generate a
+		SIGPIPE signal if the peer on a stream-oriented socket has closed
+		the connection.  The EPIPE error is still returned.  This provides
+		similar behavior to using sigaction(2) to ignore SIGPIPE, but,
+		whereas MSG_NOSIGNAL is a per-call feature, ignoring SIGPIPE sets
+		a process attribute that affects all threads in the process. */
+		#endif
+	#endif
+	} MessageFlags;
+	ENUM_OPERATOR(MessageFlags, int, |)
 }
 
+#undef ENUM_OPERATOR
 #endif
