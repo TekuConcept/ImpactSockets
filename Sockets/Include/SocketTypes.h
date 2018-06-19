@@ -23,6 +23,18 @@ inline T operator O (T lhs, T rhs) {\
 }
 
 namespace Impact {
+	typedef enum class SocketChannel {
+	#if defined(_MSC_VER)
+		BOTH  = SD_BOTH,
+		READ  = SD_RECEIVE,
+		WRITE = SD_SEND,
+	#else
+		BOTH  = SHUT_RDWR,
+		READ  = SHUT_RD,
+		WRITE = SHUT_WR,
+	#endif
+	} SocketChannel;
+
 	typedef enum class SocketDomain {
 		// !- CROSS-PLATFORM DOMAINS    -!
 		UNSPECIFIED = AF_UNSPEC,   // Address is unspecified

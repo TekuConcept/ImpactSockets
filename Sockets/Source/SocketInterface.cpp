@@ -25,7 +25,6 @@
 #if defined(_MSC_VER)
 	#define SOC_POLL WSAPoll
 	#define CLOSE_SOCKET(x) closesocket(x)
-	#define SOC_SD_HOW SD_BOTH
 	#define CCHAR_PTR const char *
 	#define CHAR_PTR char *
 
@@ -36,14 +35,11 @@
 #else
 	#define SOC_POLL ::poll
 	#define CLOSE_SOCKET(x) ::close(x)
-	#define SOC_SD_HOW SHUT_RDWR
-	#define CCHAR_PTR raw_type *
-	#define CHAR_PTR raw_type *
+	#define CCHAR_PTR void*
+	#define CHAR_PTR void*
 
  	#define SOCKET_ERROR -1
 #endif
-
-typedef void raw_type;       // Type used for raw data on this platform
 
 using namespace Impact;
 
@@ -227,6 +223,33 @@ unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 	}
 
 	return ntohs(address.sin_port);
+}
+
+
+void SocketInterface::connect(const SocketHandle& handle,
+	const std::string& foreignAddress, unsigned short foreignPort) {
+	sockaddr_in destinationAddress;
+	fillAddress(foreignAddress, foreignPort, destinationAddress);
+	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
+		sizeof(destinationAddress));
+
+	if (status == SOCKET_ERROR) {
+		std::string message("SocketInterface::connect() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+}
+
+
+void SocketInterface::shutdown(const SocketHandle& handle,
+	SocketChannel channel) {
+	auto status = ::shutdown(handle.descriptor, (int)channel);
+	
+	if (status == SOCKET_ERROR) {
+		std::string message("SocketInterface::shutdown() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
 }
 
 
