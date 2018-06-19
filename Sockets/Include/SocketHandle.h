@@ -9,6 +9,9 @@
 
 namespace Impact {
 	class SocketHandle {
+		SocketHandle(SocketHandle const&) = delete;
+		void operator=(SocketHandle const&) = delete;
+
 	public:
 		SocketHandle(int handle);
 		SocketHandle(
