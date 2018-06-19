@@ -187,3 +187,35 @@ void SocketInterface::fillAddress(const std::string& address,
 	socketAddress.sin_addr.s_addr = *((unsigned long *)host->h_addr_list[0]);
 	socketAddress.sin_port = htons(port); // Assign port in network byte order
 }
+
+
+std::string SocketInterface::getForeignAddress(SocketHandle handle) {
+	sockaddr_in address;
+	unsigned int addressLength = sizeof(address);
+	auto status = ::getpeername(handle.descriptor, (sockaddr*)&address,
+		(socklen_t*)&addressLength);
+
+	if (status == SOCKET_ERROR) {
+		std::string message("SocketInterface::getForeignAddress() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+
+	return inet_ntoa(address.sin_addr);
+}
+
+
+unsigned short SocketInterface::getForeignPort(SocketHandle handle) {
+	sockaddr_in address;
+	unsigned int addressLength = sizeof(address);
+	auto status = getpeername(handle.descriptor, (sockaddr*)&address,
+		(socklen_t*)&addressLength);
+
+	if (status == SOCKET_ERROR) {
+		std::string message("SocketInterface::getForeignPort() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+
+	return ntohs(address.sin_port);
+}

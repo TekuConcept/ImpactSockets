@@ -28,6 +28,9 @@ namespace Impact {
 			sockaddr_in&);
 
 	public:
+		/*                    *\
+		| GENERIC SOCKET INFO  |
+		\*                    */
 		static std::string getErrorMessage();
 		static std::string getLocalAddress(SocketHandle handle)
 			/* throw(std::runtime_error) */;
@@ -40,6 +43,20 @@ namespace Impact {
 			/* throw(std::runtime_error) */;
 		static unsigned short resolveService(const std::string& service,
 			const std::string& protocol = "tcp");
+		std::string getForeignAddress(SocketHandle handle)
+			/* throw(std::runtime_error) */;
+		unsigned short getForeignPort(SocketHandle handle)
+			/* throw(std::runtime_error) */;
+
+		/*                    *\
+		| COMMUNICATION        |
+		\*                    */
+		// connect
+		// shutdown
+		// send
+		// recv
+		// poll
+		// select
 	};
 }
 
