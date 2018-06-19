@@ -338,3 +338,49 @@ void SocketInterface::keepalive(const SocketHandle& handle,
     if(errors) throw std::runtime_error(os.str());
 }
 
+
+int SocketInterface::select(
+	std::vector<SocketHandle*> readHandles,
+	std::vector<SocketHandle*> writeHandles,
+	int timeout, unsigned int microTimeout) {
+	struct timeval time_s;
+	time_s.tv_sec = (unsigned int)(0xFFFFFFFF&timeout);
+	time_s.tv_usec = microTimeout;
+	
+	fd_set readSet, writeSet;
+	unsigned int nfds = 0;
+
+	FD_ZERO(&readSet);
+	FD_ZERO(&writeSet);
+
+	for(const auto& handle : readHandles) {
+		unsigned int descriptor = handle->descriptor;
+		FD_SET(descriptor, &readSet);
+		if (descriptor > nfds) nfds = descriptor;
+	}
+
+	for(const auto& handle : writeHandles) {
+		unsigned int descriptor = handle->descriptor;
+		FD_SET(descriptor, &writeSet);
+		if (descriptor > nfds) nfds = descriptor;
+	}
+
+	auto status = ::select(nfds + 1, &readSet, &writeSet, NULL,
+		((timeout<0)?NULL:&time_s));
+	
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::select() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+
+	return status;
+}
+
+
+
+// int Socket::poll(SocketPollToken& token, int timeout) {
+// 	struct pollfd* fds = token._handles_.data();
+// 	int size = token._handles_.size();
+// 	return SOC_POLL(fds, size, timeout);
+// }

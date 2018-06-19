@@ -9,6 +9,7 @@
 #include <string>            // For string
 #include <cstring>           // For strerror, atoi, and memset
 #include <exception>         // For exception class
+#include <vector>
 
 #include "SocketHandle.h"
 
@@ -75,8 +76,12 @@ namespace Impact {
 		static void keepalive(const SocketHandle& handle,
 			KeepAliveOptions options)
 			/* throw(std::runtime_error) */;
+		static int select(
+			std::vector<SocketHandle*> readHandles,
+			std::vector<SocketHandle*> writeHandles,
+			int timeout=-1, unsigned int microTimeout=0)
+			/* throw(std::runtime_error) */;
 		// poll
-		// select
 	};
 }
 
