@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "SocketHandle.h"
+#include "SocketPollTable.h"
 
 #if defined(_MSC_VER)
 	#include <winsock2.h>
@@ -30,6 +31,7 @@ namespace Impact {
 			KeepAliveOptions();
 	} KeepAliveOptions;
 
+	
 	class SocketInterface {
 		SocketInterface(); // static-only class
 

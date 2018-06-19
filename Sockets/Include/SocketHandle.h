@@ -26,6 +26,7 @@ namespace Impact {
 
 		/* LIST ALL FRIEND CLASSES WHO NEED ACCESS HERE */
 		friend class SocketInterface;
+		friend class SocketPollTable;
 	};
 }
 
