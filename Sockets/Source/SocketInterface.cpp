@@ -12,11 +12,14 @@
 
 #if defined(_MSC_VER)
 	#include <ws2tcpip.h>
+ 	#include <mstcpip.h>     // struct tcp_keepalive
 #else
 	#include <sys/socket.h>  // For socket(), connect(), send(), and recv()
 	#include <netdb.h>       // For gethostbyname()
 	#include <arpa/inet.h>   // For inet_addr(), ntohs()
 	#include <unistd.h>      // For close()
+ 	#include <netinet/tcp.h> // For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
+ 							 // TCP_KEEPIDLE
 #endif
 
 #if defined(_MSC_VER)
@@ -43,6 +46,12 @@
 typedef void raw_type;       // Type used for raw data on this platform
 
 using namespace Impact;
+
+
+KeepAliveOptions::KeepAliveOptions() :
+	enabled(false), idleTime(7200000),
+	interval(1000), retries(5) {}
+
 
 SocketInterface::SocketInterface() {}
 
@@ -247,3 +256,62 @@ int SocketInterface::recv(const SocketHandle& handle, void* buffer,
 
 	return status; /* number of bytes received or EOF */
 }
+
+
+void SocketInterface::keepalive(const SocketHandle& handle,
+	KeepAliveOptions options) {
+    // http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
+    std::ostringstream os("SocketInterface::keepalive() ");
+    auto errors = 0;
+    auto status = 0;
+#if defined(_MSC_VER)
+	DWORD bytesReturned = 0;
+	struct tcp_keepalive config;
+	config.onoff = options.enabled;
+	config.keepalivetime = options.idleTime;
+	config.keepaliveinterval = options.interval;
+	status = WSAIoctl(handle.descriptor, SIO_KEEPALIVE_VALS, &config,
+		sizeof(config), NULL, 0, &bytesReturned, NULL, NULL);
+	if (status == SOCKET_ERROR) {
+		os << getErrorMessage();
+		throw std::runtime_error(os.str());
+	}
+#else /* UNIX|LINUX */
+	status = setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE,
+		(const char*)&options.enabled, sizeof(int));
+    if(status == SOCKET_ERROR) {
+        os << "[keepalive] ";
+        os << getErrorMessage();
+        os << std::endl;
+        errors |= 1;
+    }
+#ifndef __APPLE__
+    status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPIDLE,
+		(const char*)&options.idleTime, sizeof(int));
+    if(status == SOCKET_ERROR) {
+        os << "[idle] ";
+        os << getErrorMessage();
+        os << std::endl;
+        errors |= 8;
+    }
+#endif /* __APPLE__ */
+    status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPINTVL,
+        (const char*)&options.interval, sizeof(int));
+    if(status == SOCKET_ERROR) {
+        os << "[interval] ";
+        os << getErrorMessage();
+        os << std::endl;
+        errors |= 2;
+    }
+#endif /* UNIX|LINUX */
+    status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPCNT,
+		(const char*)&options.retries, sizeof(int));
+    if(status == SOCKET_ERROR) {
+        os << "[count] ";
+        os << getErrorMessage();
+        os << std::endl;
+        errors |= 4;
+    }
+    if(errors) throw std::runtime_error(os.str());
+}
+

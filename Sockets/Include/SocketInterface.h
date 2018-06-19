@@ -20,6 +20,15 @@
 #endif
 
 namespace Impact {
+	typedef struct KeepAliveOptions {
+			int enabled;  /* Enables KEEPALIVE on the target socket connection.  */
+			int idleTime; /* Number of idle seconds before sending a KA probe.   */
+			int interval; /* How often in seconds to resend an unacked KA probe. */
+			int retries;  /* How many times to resend a KA probe if previous
+			                 probe was unacked.                                  */
+			KeepAliveOptions();
+	} KeepAliveOptions;
+
 	class SocketInterface {
 		SocketInterface(); // static-only class
 
@@ -43,28 +52,30 @@ namespace Impact {
 			/* throw(std::runtime_error) */;
 		static unsigned short resolveService(const std::string& service,
 			const std::string& protocol = "tcp");
-		std::string getForeignAddress(const SocketHandle& handle)
+		static std::string getForeignAddress(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
-		unsigned short getForeignPort(const SocketHandle& handle)
+		static unsigned short getForeignPort(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
 
 		/*                    *\
 		| COMMUNICATION        |
 		\*                    */
-		void connect(const SocketHandle& handle,
+		static void connect(const SocketHandle& handle,
 			const std::string& foreignAddress, unsigned short foreignPort)
 			/* throw(std::runtime_error) */;
-		void shutdown(const SocketHandle& handle)
+		static void shutdown(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
-		void send(const SocketHandle& handle, const void* buffer, int bufferLen,
+		static void send(const SocketHandle& handle, const void* buffer, int bufferLen,
 			MessageFlags flags = MessageFlags::NONE)
 			/* throw(std::runtime_error) */;
-		int recv(const SocketHandle& handle, void* buffer, int bufferLen,
+		static int recv(const SocketHandle& handle, void* buffer, int bufferLen,
 			MessageFlags flags = MessageFlags::NONE)
+			/* throw(std::runtime_error) */;
+		static void keepalive(const SocketHandle& handle,
+			KeepAliveOptions options)
 			/* throw(std::runtime_error) */;
 		// poll
 		// select
-		// keepalive
 	};
 }
 
