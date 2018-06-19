@@ -5,11 +5,16 @@
 #ifndef _SOCKET_HANDLE_H_
 #define _SOCKET_HANDLE_H_
 
+#include "SocketTypes.h"
+
 namespace Impact {
 	class SocketHandle {
 	public:
 		SocketHandle(int handle);
-		SocketHandle(int socketType, int protocol)
+		SocketHandle(
+			SocketType socketType,
+			SocketProtocol protocol,
+			SocketDomain domain=SocketDomain::INET)
 			/* throw(std::runtime_error) */;
 		~SocketHandle();
 

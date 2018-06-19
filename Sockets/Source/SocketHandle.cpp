@@ -25,7 +25,8 @@ using namespace Impact;
 SocketHandle::SocketHandle(int handle) : descriptor(handle) {}
 
 
-SocketHandle::SocketHandle(int socketType, int protocol) :
+SocketHandle::SocketHandle(SocketType socketType, SocketProtocol protocol,
+	SocketDomain domain) :
 	descriptor(INVALID_SOCKET) {
 #if defined(_MSC_VER)
 	static WSADATA wsaData;
@@ -38,7 +39,7 @@ SocketHandle::SocketHandle(int socketType, int protocol) :
 	case WSAEFAULT:          throw std::runtime_error("The lpWSAData parameter is not a valid pointer."); /* unlikely to ever be thrown */
 	}
 #endif
-	descriptor = ::socket(PF_INET, socketType, protocol);
+	descriptor = ::socket((int)domain, (int)socketType, (int)protocol);
 	if (descriptor == INVALID_SOCKET) {
 		std::string message("SocketHandle::SocketHandle() ");
 		message.append(SocketInterface::getErrorMessage());
