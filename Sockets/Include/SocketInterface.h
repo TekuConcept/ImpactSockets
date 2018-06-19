@@ -32,20 +32,20 @@ namespace Impact {
 		| GENERIC SOCKET INFO  |
 		\*                    */
 		static std::string getErrorMessage();
-		static std::string getLocalAddress(SocketHandle handle)
+		static std::string getLocalAddress(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
-		static unsigned short getLocalPort(SocketHandle handle)
+		static unsigned short getLocalPort(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
-		static void setLocalPort(SocketHandle handle, unsigned short localPort)
+		static void setLocalPort(const SocketHandle& handle, unsigned short localPort)
 			/* throw(std::runtime_error) */;
-		static void setLocalAddressAndPort(SocketHandle handle,
+		static void setLocalAddressAndPort(const SocketHandle& handle,
 			const std::string& localAddress, unsigned short localPort = 0)
 			/* throw(std::runtime_error) */;
 		static unsigned short resolveService(const std::string& service,
 			const std::string& protocol = "tcp");
-		std::string getForeignAddress(SocketHandle handle)
+		std::string getForeignAddress(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
-		unsigned short getForeignPort(SocketHandle handle)
+		unsigned short getForeignPort(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
 
 		/*                    *\

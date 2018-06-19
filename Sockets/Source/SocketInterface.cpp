@@ -86,7 +86,7 @@ std::string SocketInterface::getHostErrorMessage() {
 }
 
 
-std::string SocketInterface::getLocalAddress(SocketHandle handle) {
+std::string SocketInterface::getLocalAddress(const SocketHandle& handle) {
 	sockaddr_in address;
 	auto addressLength = sizeof(address);
 	auto status = ::getsockname(handle.descriptor,
@@ -101,7 +101,7 @@ std::string SocketInterface::getLocalAddress(SocketHandle handle) {
 }
 
 
-unsigned short SocketInterface::getLocalPort(SocketHandle handle) {
+unsigned short SocketInterface::getLocalPort(const SocketHandle& handle) {
 	sockaddr_in address;
 	auto addressLength = sizeof(address);
 	auto status = ::getsockname(handle.descriptor,
@@ -116,7 +116,7 @@ unsigned short SocketInterface::getLocalPort(SocketHandle handle) {
 }
 
 
-void SocketInterface::setLocalPort(SocketHandle handle,
+void SocketInterface::setLocalPort(const SocketHandle& handle,
 	unsigned short localPort) {
 	// Bind the socket to its port
 	sockaddr_in socketAddress;
@@ -135,7 +135,7 @@ void SocketInterface::setLocalPort(SocketHandle handle,
 }
 
 
-void SocketInterface::setLocalAddressAndPort(SocketHandle handle,
+void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 	const std::string& localAddress,
 	unsigned short localPort) {
 	// Get the address of the requested host
@@ -189,7 +189,7 @@ void SocketInterface::fillAddress(const std::string& address,
 }
 
 
-std::string SocketInterface::getForeignAddress(SocketHandle handle) {
+std::string SocketInterface::getForeignAddress(const SocketHandle& handle) {
 	sockaddr_in address;
 	unsigned int addressLength = sizeof(address);
 	auto status = ::getpeername(handle.descriptor, (sockaddr*)&address,
@@ -205,7 +205,7 @@ std::string SocketInterface::getForeignAddress(SocketHandle handle) {
 }
 
 
-unsigned short SocketInterface::getForeignPort(SocketHandle handle) {
+unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 	sockaddr_in address;
 	unsigned int addressLength = sizeof(address);
 	auto status = getpeername(handle.descriptor, (sockaddr*)&address,
