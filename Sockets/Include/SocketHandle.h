@@ -9,17 +9,19 @@
 
 namespace Impact {
 	class SocketHandle {
-		SocketHandle(SocketHandle const&) = delete;
-		void operator=(SocketHandle const&) = delete;
-
 	public:
+		SocketHandle(SocketHandle const&) = delete;
 		SocketHandle(int handle);
+		SocketHandle(SocketHandle&& handle);
 		SocketHandle(
 			SocketType socketType,
 			SocketProtocol protocol,
 			SocketDomain domain=SocketDomain::INET)
 			/* throw(std::runtime_error) */;
-		~SocketHandle();
+		virtual ~SocketHandle();
+
+		SocketHandle& operator=(SocketHandle&& handle);
+		SocketHandle& operator=(SocketHandle const&) = delete;
 
 	protected:
 		int descriptor;
@@ -27,6 +29,9 @@ namespace Impact {
 		/* LIST ALL FRIEND CLASSES WHO NEED ACCESS HERE */
 		friend class SocketInterface;
 		friend class SocketPollTable;
+
+	private:
+		void move(SocketHandle& rhs);
 	};
 }
 

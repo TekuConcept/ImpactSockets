@@ -25,6 +25,11 @@ using namespace Impact;
 SocketHandle::SocketHandle(int handle) : descriptor(handle) {}
 
 
+SocketHandle::SocketHandle(SocketHandle&& handle) {
+	move(handle);
+}
+
+
 SocketHandle::SocketHandle(SocketType socketType, SocketProtocol protocol,
 	SocketDomain domain) :
 	descriptor(INVALID_SOCKET) {
@@ -56,4 +61,16 @@ SocketHandle::~SocketHandle() {
 #if defined(_MSC_VER)
 	WSACleanup();
 #endif
+}
+
+
+SocketHandle& SocketHandle::operator=(SocketHandle&& handle) {
+	move(handle);
+	return *this;
+}
+
+
+void SocketHandle::move(SocketHandle& handle) {
+	descriptor = handle.descriptor;
+	handle.descriptor = INVALID_SOCKET;
 }
