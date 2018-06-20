@@ -8,6 +8,7 @@
 #include "SocketHandle.h"
 #include "SocketTypes.h"
 #include <vector>
+#include <mutex>
 #include <initializer_list>
 
 #if !defined(_MSC_VER)
@@ -21,6 +22,7 @@ namespace Impact {
 	class SocketPollTable {
 		protected:
 			std::vector<struct pollfd> _descriptors_;
+			std::mutex _mtx_;
 
 		public:
 			SocketPollTable();
@@ -44,8 +46,8 @@ namespace Impact {
 
 			// -- accessors --
 			// access return events at index
-			short& at(unsigned int idx);
-			short& operator[] (unsigned int idx);
+			const short& at(unsigned int idx);
+			const short& operator[] (unsigned int idx);
 			unsigned int find(const SocketHandle& target);
 
 			friend class SocketInterface;
