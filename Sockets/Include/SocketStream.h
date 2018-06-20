@@ -2,16 +2,17 @@
  * Created by TekuConcept on June 19, 2018
  */
 
-#ifndef _TCP_SOCKET_H_
-#define _TCP_SOCKET_H_
+#ifndef _SOCKET_STREAM_H_
+#define _SOCKET_STREAM_H_
 
 #include "SocketHandle.h"
 #include <string>
 #include <streambuf>
 #include <iostream>
+#include <memory>
 
 namespace Impact {
-	class TcpSocket :
+	class SocketStream :
 	private std::streambuf, public std::iostream {
 		SocketHandle _handle_;
 		unsigned int _streamBufferSize_;
@@ -21,9 +22,11 @@ namespace Impact {
 		void initialize();
 
 	public:
-		TcpSocket(unsigned int streamBufferSize=256);
-		TcpSocket(SocketHandle&& handle, unsigned int streamBufferSize=256);
-		virtual ~TcpSocket();
+		SocketStream(SocketProtocol protocol,
+			unsigned int streamBufferSize=256);
+		SocketStream(SocketHandle&& handle,
+			unsigned int streamBufferSize=256);
+		virtual ~SocketStream();
 
 		// int connect(int port, std::string address="12.0.0.1");
 		// void disconnect();
@@ -32,6 +35,9 @@ namespace Impact {
 		// int sync();
 		// int underflow();
 		// int overflow(int c = EOF);
+
+		static std::shared_ptr<SocketStream> createTcpSocket(
+			unsigned int streamBufferSize);
 	};
 }
 
