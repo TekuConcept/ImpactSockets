@@ -379,8 +379,16 @@ int SocketInterface::select(
 
 
 
-// int Socket::poll(SocketPollToken& token, int timeout) {
-// 	struct pollfd* fds = token._handles_.data();
-// 	int size = token._handles_.size();
-// 	return SOC_POLL(fds, size, timeout);
-// }
+int SocketInterface::poll(SocketPollTable& token, int timeout) {
+	struct pollfd* fds = token._descriptors_.data();
+	auto size = token.size();
+	auto status = SOC_POLL(fds, size, timeout);
+
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::poll() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+
+	return status;
+}

@@ -46,6 +46,8 @@ namespace Impact {
 			// access return events at index
 			short& at(int idx);
 			short& operator[] (int idx);
+
+			friend class SocketInterface;
 	};
 }
 

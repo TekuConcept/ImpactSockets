@@ -83,7 +83,7 @@ namespace Impact {
 			std::vector<SocketHandle*> writeHandles,
 			int timeout=-1, unsigned int microTimeout=0)
 			/* throw(std::runtime_error) */;
-		// poll
+		static int poll(SocketPollTable& token, int timeout);
 	};
 }
 
