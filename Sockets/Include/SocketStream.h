@@ -24,6 +24,14 @@ namespace Impact {
 		TcpSocket(unsigned int streamBufferSize=256);
 		TcpSocket(SocketHandle&& handle, unsigned int streamBufferSize=256);
 		virtual ~TcpSocket();
+
+		// int connect(int port, std::string address="12.0.0.1");
+		// void disconnect();
+		// bool isConnected();
+
+		// int sync();
+		// int underflow();
+		// int overflow(int c = EOF);
 	};
 }
 
