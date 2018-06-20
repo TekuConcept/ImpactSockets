@@ -23,6 +23,7 @@
 #endif
 
 #if defined(_MSC_VER)
+	#define CLOSE_SOCKET(x) closesocket(x)
 	#define SOC_POLL WSAPoll
 	#define CCHAR_PTR const char *
 	#define CHAR_PTR char *
@@ -32,11 +33,13 @@
 	#pragma comment (lib, "Mswsock.lib")
 	#pragma comment (lib, "AdvApi32.lib")
 #else
+	#define CLOSE_SOCKET(x) ::close(x)
 	#define SOC_POLL ::poll
 	#define CCHAR_PTR void*
 	#define CHAR_PTR void*
 
  	#define SOCKET_ERROR -1
+ 	#define INVALID_SOCKET -1
 #endif
 
 using namespace Impact;
@@ -86,6 +89,50 @@ std::string SocketInterface::getHostErrorMessage() {
 	}
 	return os.str();
 #endif
+}
+
+
+SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
+	SocketProtocol protocol) {
+#if defined(_MSC_VER)
+	static WSADATA wsaData;
+	auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	switch(status) {
+	case WSASYSNOTREADY:     throw std::runtime_error("The underlying network subsystem is not ready for network communication.");
+	case WSAVERNOTSUPPORTED: throw std::runtime_error("The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation.");
+	case WSAEINPROGRESS:     throw std::runtime_error("A blocking Windows Sockets 1.1 operation is in progress.");
+	case WSAEPROCLIM:        throw std::runtime_error("A limit on the number of tasks supported by the Windows Sockets implementation has been reached.");
+	case WSAEFAULT:          throw std::runtime_error("The lpWSAData parameter is not a valid pointer."); /* unlikely to ever be thrown */
+	}
+#endif
+	SocketHandle handle;
+	handle.descriptor = ::socket((int)domain, (int)socketType, (int)protocol);
+	if (handle.descriptor == INVALID_SOCKET) {
+		std::string message("SocketInterface::create() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+	return handle;
+}
+
+
+// !!-- EXCEPTION CHECKING NEEDED --!!
+
+void SocketInterface::close(SocketHandle& handle) {
+	if(handle.descriptor != INVALID_SOCKET) {
+		auto status = CLOSE_SOCKET(handle.descriptor);
+		if(status == SOCKET_ERROR) {
+			std::string message("SocketInterface::close() ");
+			message.append(getErrorMessage());
+			throw std::runtime_error(message);
+		}
+		else {
+			handle.descriptor = INVALID_SOCKET;
+#if defined(_MSC_VER)
+	WSACleanup();
+#endif
+		}
+	}
 }
 
 

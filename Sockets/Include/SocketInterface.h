@@ -35,15 +35,24 @@ namespace Impact {
 	class SocketInterface {
 		SocketInterface(); // static-only class
 
+		static std::string getErrorMessage();
 		static std::string getHostErrorMessage();
 		static void fillAddress(const std::string&, unsigned short port,
 			sockaddr_in&);
 
 	public:
 		/*                    *\
+		| SOCKET OBJECT        |
+		\*                    */
+		static SocketHandle create(SocketDomain domain,
+			SocketType socketType, SocketProtocol protocol)
+			/* throw(std::runtime_error) */;
+		static void close(SocketHandle& handle)
+			/* throw(std::runtime_error) */;
+
+		/*                    *\
 		| GENERIC SOCKET INFO  |
 		\*                    */
-		static std::string getErrorMessage();
 		static std::string getLocalAddress(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
 		static unsigned short getLocalPort(const SocketHandle& handle)
