@@ -61,7 +61,7 @@ void SocketPollTable::push_back(HandleEventPair pair) {
 }
 
 
-void SocketPollTable::erase(int position) {
+void SocketPollTable::erase(unsigned int position) {
 	_descriptors_.erase(_descriptors_.begin() + position);
 }
 
@@ -71,12 +71,23 @@ void SocketPollTable::pop_back() {
 }
 
 
-short& SocketPollTable::at(int idx) {
+short& SocketPollTable::at(unsigned int idx) {
 	return _descriptors_[idx].revents;
 }
 
 
-short& SocketPollTable::operator[] (int idx) {
+short& SocketPollTable::operator[] (unsigned int idx) {
 	return _descriptors_[idx].revents;
 }
 
+
+unsigned int SocketPollTable::find(const SocketHandle& target) {
+	if(_descriptors_.size() == 0) return static_cast<unsigned int>(-1);
+	unsigned int index = 0;
+	for(const auto& descriptor : _descriptors_) {
+		if(descriptor.fd == target.descriptor)
+			return index;
+		index++;
+	}
+	return static_cast<unsigned int>(-1); // EOF
+}

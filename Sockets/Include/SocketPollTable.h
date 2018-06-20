@@ -38,14 +38,15 @@ namespace Impact {
 
 			// -- modifiers --
 			void clear();
-			void erase(int position);
+			void erase(unsigned int position);
 			void push_back(HandleEventPair pair);
 			void pop_back();
 
 			// -- accessors --
 			// access return events at index
-			short& at(int idx);
-			short& operator[] (int idx);
+			short& at(unsigned int idx);
+			short& operator[] (unsigned int idx);
+			unsigned int find(const SocketHandle& target);
 
 			friend class SocketInterface;
 	};
