@@ -6,6 +6,8 @@
 #include "SocketInterface.h"
 
 using namespace Impact;
+#define SUCCESS  0
+#define FAIL    -1
 
 
 TcpSocket::TcpSocket(unsigned int streamBufferSize) :
@@ -75,4 +77,54 @@ void TcpSocket::close() {
 		}
 		catch (...) { setstate(std::ios_base::failbit); }
 	}
+}
+
+
+int TcpSocket::sync() {
+	if(!_isOpen_) { return FAIL; }
+
+	try {
+		auto length = int(pptr() - pbase());
+		SocketInterface::send(_handle_, pbase(), length);
+		setp(pbase(), epptr());
+	}
+	catch (...) { return FAIL; }
+
+	return SUCCESS;
+}
+
+
+int TcpSocket::underflow() {
+	if(!_isOpen_) { return EOF; }
+
+ // short isr;
+ // if(socket->poll(isr, timeout) == 0) {
+ //     EventArgs e;
+ //     onTimeout.invoke(self, e);
+ // }
+ // else if(isr & POLLIN) > 0) {
+ 	try {
+ 		int bytesReceived = SocketInterface::recv(
+ 			_handle_, eback(), _streamBufferSize_);
+ 		if(bytesReceived == 0) return EOF;
+
+		setg(eback(), eback(), eback() + bytesReceived);
+    	return *eback();
+    }
+    catch (...) { return EOF; }
+ // }
+}
+
+
+int TcpSocket::overflow(int c) {
+	if(!_isOpen_) { return EOF; }
+
+	try {
+		auto length = int(pptr() - pbase());
+		SocketInterface::send(_handle_, pbase(), length);
+		setp(pbase(), epptr());
+	}
+	catch (...) { return EOF; }
+
+	return c;
 }

@@ -6,6 +6,7 @@
 #define _TCP_SOCKET_H_
 
 #include "SocketHandle.h"
+// #include "EventHandler.h"
 #include <string>
 #include <streambuf>
 #include <iostream>
@@ -14,6 +15,7 @@
 namespace Impact {
 	class TcpSocket :
 	private std::streambuf, public std::iostream {
+		// Object self;
 		SocketHandle _handle_;
 
 		unsigned int _streamBufferSize_;
@@ -34,9 +36,11 @@ namespace Impact {
 		bool is_open() const;
 		void close();
 
-		// int sync();
-		// int underflow();
-		// int overflow(int c = EOF);
+		int sync();
+		int underflow();
+		int overflow(int c = EOF);
+
+		// EventHandler<EventArgs> onTimeout;
 	};
 }
 
