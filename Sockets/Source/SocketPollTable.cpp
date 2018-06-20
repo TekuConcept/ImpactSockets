@@ -10,6 +10,13 @@ using namespace Impact;
 SocketPollTable::SocketPollTable() {}
 
 
+SocketPollTable::SocketPollTable(PollInitializer handles) {
+	for(auto& handle : handles) {
+		push_back(handle);
+	}
+}
+
+
 SocketPollTable::~SocketPollTable() {}
 
 
@@ -45,10 +52,10 @@ void SocketPollTable::clear() {
 }
 
 
-void SocketPollTable::push_back(const SocketHandle& handle, int events) {
+void SocketPollTable::push_back(HandleEventPair pair) {
 	struct pollfd sfd;
-	sfd.fd = handle.descriptor;
-	sfd.events = (short)events;
+	sfd.fd = pair.first.descriptor;
+	sfd.events = (short)pair.second;
 	sfd.revents = 0;
 	_descriptors_.push_back(sfd);
 }

@@ -9,7 +9,7 @@
  	#include <WinSock2.h>
  	#include <ws2def.h>
 #else
-	// #include <sys/socket.h>
+ 	#include <sys/poll.h>
  	#include <arpa/inet.h>
 #endif
 
@@ -309,6 +309,35 @@ namespace Impact {
 	#endif
 	} MessageFlags;
 	ENUM_OPERATOR(MessageFlags, int, |)
+
+	typedef enum class PollFlags {
+		// !- CROSS-PLATFORM FLAGS    -!
+		IN          = POLLIN,    /* There is data to read. */
+		OUT         = POLLOUT,   /* Writing now will not block. */
+		PRIORITY_IN = POLLPRI,   /* There is urgent data to read. */
+		ERROR       = POLLERR,   /* Error condition. */
+		HANGUP      = POLLHUP,   /* Peer hung up. */
+		INVALID     = POLLNVAL,  /* Invalid polling request. */
+
+		// !- PLATFORM-SPECIFIC FLAGS -!
+	#if defined(_MSC_VER)
+		// nothing to do here
+	#elif defined(__APPLE__)
+		// FreeBSD
+		EXTEND      = POLLEXTEND, /* File may have been extended. */
+		ATTRIBUTE   = POLLATTRIB, /* File attributes may have changed. */
+		NEW_LINK    = POLLNLINK,  /* (Un)link/rename may have happened. */
+		WRITE       = POLLWRITE,  /* File's contents may have changed. */
+	#else
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
+		RDHUP       = POLLRDHUP, /* Peer closed connection, or shut down writing half of connection. */
+		#endif
+		MESSAGE     = POLLMSG,
+		REMOVE      = POLLREMOVE,
+		READ_HANGUP = POLLRDHUP,
+	#endif
+	} PollFlags;
+	ENUM_OPERATOR(PollFlags, int, |)
 }
 
 #undef ENUM_OPERATOR
