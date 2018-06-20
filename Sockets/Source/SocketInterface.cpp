@@ -24,7 +24,6 @@
 
 #if defined(_MSC_VER)
 	#define SOC_POLL WSAPoll
-	#define CLOSE_SOCKET(x) closesocket(x)
 	#define CCHAR_PTR const char *
 	#define CHAR_PTR char *
 
@@ -34,7 +33,6 @@
 	#pragma comment (lib, "AdvApi32.lib")
 #else
 	#define SOC_POLL ::poll
-	#define CLOSE_SOCKET(x) ::close(x)
 	#define CCHAR_PTR void*
 	#define CHAR_PTR void*
 
