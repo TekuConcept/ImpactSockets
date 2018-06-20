@@ -22,7 +22,6 @@ namespace Impact {
 
 		bool _isOpen_;
 
-		TcpSocket(); /* server access */
 		void initialize(unsigned int);
 
 	public:

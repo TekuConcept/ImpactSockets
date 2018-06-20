@@ -7,11 +7,6 @@
 
 using namespace Impact;
 
-TcpSocket::TcpSocket() :
-	std::iostream(this) {
-	initialize(_streamBufferSize_);
-}
-
 
 TcpSocket::TcpSocket(unsigned int streamBufferSize) :
     std::iostream(this) {
