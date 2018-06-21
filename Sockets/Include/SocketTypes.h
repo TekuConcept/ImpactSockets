@@ -340,6 +340,7 @@ namespace Impact {
 	#endif
 	} PollFlags;
 	ENUM_OPERATOR(PollFlags, int, |)
+	ENUM_OPERATOR(PollFlags, int, &)
 
 
 #if defined(_MSC_VER)

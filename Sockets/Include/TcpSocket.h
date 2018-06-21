@@ -6,7 +6,7 @@
 #define _TCP_SOCKET_H_
 
 #include "SocketHandle.h"
-// #include "EventHandler.h"
+#include "SocketPollTable.h"
 #include <string>
 #include <streambuf>
 #include <iostream>
@@ -15,16 +15,20 @@
 namespace Impact {
 	class TcpSocket :
 	private std::streambuf, public std::iostream {
-		// Object self;
 		SocketHandle _handle_;
+		SocketPollTable _pollTable_;
 
 		unsigned int _streamBufferSize_;
 		char* _outputBuffer_;
 		char* _inputBuffer_;
 
 		bool _isOpen_;
+		bool _hangup_;
+		int  _timeout_;
 
 		void initialize(unsigned int);
+		void checkHangup();
+		int writeBase(int c);
 
 	public:
 		TcpSocket(unsigned int streamBufferSize=256);
@@ -39,8 +43,9 @@ namespace Impact {
 		int sync();
 		int underflow();
 		int overflow(int c = EOF);
+		bool hup() const;
 
-		// EventHandler<EventArgs> onTimeout;
+		void setTimeout(int milliseconds);
 	};
 }
 

@@ -78,15 +78,15 @@ void SocketPollTable::pop_back() {
 }
 
 
-const short& SocketPollTable::at(unsigned int idx) {
+PollFlags SocketPollTable::at(unsigned int idx) {
 	std::lock_guard<std::mutex> lock(_mtx_);
-	return _descriptors_[idx].revents;
+	return static_cast<PollFlags>(_descriptors_[idx].revents);
 }
 
 
-const short& SocketPollTable::operator[] (unsigned int idx) {
+PollFlags SocketPollTable::operator[] (unsigned int idx) {
 	std::lock_guard<std::mutex> lock(_mtx_);
-	return _descriptors_[idx].revents;
+	return static_cast<PollFlags>(_descriptors_[idx].revents);
 }
 
 

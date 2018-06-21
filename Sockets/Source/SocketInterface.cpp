@@ -163,7 +163,7 @@ unsigned short SocketInterface::getLocalPort(const SocketHandle& handle) {
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
-	
+
 	return ntohs(address.sin_port);
 }
 
@@ -427,6 +427,7 @@ int SocketInterface::select(
 
 
 int SocketInterface::poll(SocketPollTable& token, int timeout) {
+	/* timeout: -1 blocking, 0 nonblocking, 0> timeout */
 	struct pollfd* fds = token._descriptors_.data();
 	auto size = token.size();
 	auto status = SOC_POLL(fds, size, timeout);
@@ -437,5 +438,6 @@ int SocketInterface::poll(SocketPollTable& token, int timeout) {
 		throw std::runtime_error(message);
 	}
 
+	/* status: -1 error, 0 timeout, 0> success */
 	return status;
 }

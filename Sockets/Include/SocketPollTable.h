@@ -46,8 +46,8 @@ namespace Impact {
 
 			// -- accessors --
 			// access return events at index
-			const short& at(unsigned int idx);
-			const short& operator[] (unsigned int idx);
+			PollFlags at(unsigned int idx);
+			PollFlags operator[] (unsigned int idx);
 			unsigned int find(const SocketHandle& target);
 
 			friend class SocketInterface;

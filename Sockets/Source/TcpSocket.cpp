@@ -41,7 +41,9 @@ void TcpSocket::initialize(unsigned int bufferSize) {
 	_outputBuffer_     = new char[_streamBufferSize_ + 1];
     _inputBuffer_      = new char[_streamBufferSize_ + 1];
 
-    _isOpen_ = false;
+    _isOpen_  = false;
+    _hangup_  = false;
+    _timeout_ = -1;
 
 	setp(_outputBuffer_, _outputBuffer_ + _streamBufferSize_ - 1);
     setg(_inputBuffer_, _inputBuffer_ + _streamBufferSize_ - 1,
@@ -56,11 +58,13 @@ void TcpSocket::open(int port, std::string address) {
 			_handle_ = SocketInterface::create(SocketDomain::INET,
 				SocketType::STREAM, SocketProtocol::TCP);
 			SocketInterface::connect(_handle_, address, port);
+			_pollTable_.push_back({_handle_,PollFlags::IN});
 			clear();
 		}
 	    catch (...) { setstate(std::ios_base::failbit); }
 
 		_isOpen_ = true;
+		_hangup_ = false;
 	}
 }
 
@@ -73,6 +77,7 @@ void TcpSocket::close() {
 	else {
 		try {
 			SocketInterface::close(_handle_);
+			_pollTable_.pop_back();
 			_isOpen_ = false;
 		}
 		catch (...) { setstate(std::ios_base::failbit); }
@@ -81,43 +86,55 @@ void TcpSocket::close() {
 
 
 int TcpSocket::sync() {
-	if(!_isOpen_) { return FAIL; }
-
-	try {
-		auto length = int(pptr() - pbase());
-		SocketInterface::send(_handle_, pbase(), length);
-		setp(pbase(), epptr());
-	}
-	catch (...) { return FAIL; }
-
-	return SUCCESS;
+	return writeBase(SUCCESS);
 }
 
 
 int TcpSocket::underflow() {
 	if(!_isOpen_) { return EOF; }
+	if(_hangup_) {
+		setstate(std::ios_base::badbit);
+		return EOF;
+	}
 
- // short isr;
- // if(socket->poll(isr, timeout) == 0) {
- //     EventArgs e;
- //     onTimeout.invoke(self, e);
- // }
- // else if(isr & POLLIN) > 0) {
- 	try {
- 		int bytesReceived = SocketInterface::recv(
- 			_handle_, eback(), _streamBufferSize_);
- 		if(bytesReceived == 0) return EOF;
+	try {
+		auto status = SocketInterface::poll(_pollTable_, _timeout_);
+		if(status <= 0) return EOF; // timeout or error
+		auto flags = _pollTable_[0];
+		_pollTable_.resetEvents();
 
-		setg(eback(), eback(), eback() + bytesReceived);
-    	return *eback();
-    }
-    catch (...) { return EOF; }
- // }
+		if((int)(flags & PollFlags::HANGUP)) {
+			_hangup_ = true;
+			setstate(std::ios_base::badbit);
+			return EOF;
+		}
+
+		if((int)(flags & PollFlags::IN)) {
+			int bytesReceived = SocketInterface::recv(
+				_handle_, eback(), _streamBufferSize_);
+			if(bytesReceived == 0) return EOF;
+
+			setg(eback(), eback(), eback() + bytesReceived);
+			return *eback();
+		}
+	}
+	catch (...) { return EOF; }
+
+	return EOF;
 }
 
 
 int TcpSocket::overflow(int c) {
+	return writeBase(c);
+}
+
+
+int TcpSocket::writeBase(int c) {
 	if(!_isOpen_) { return EOF; }
+	if(_hangup_) {
+		setstate(std::ios_base::badbit);
+		return EOF;
+	}
 
 	try {
 		auto length = int(pptr() - pbase());
@@ -127,4 +144,14 @@ int TcpSocket::overflow(int c) {
 	catch (...) { return EOF; }
 
 	return c;
+}
+
+
+bool TcpSocket::hup() const {
+	return _hangup_;
+}
+
+
+void TcpSocket::setTimeout(int milliseconds) {
+	_timeout_ = milliseconds<-1?-1:milliseconds;
 }
