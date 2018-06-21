@@ -26,8 +26,8 @@
 #if defined(_MSC_VER)
 	#define CLOSE_SOCKET(x) closesocket(x)
 	#define SOC_POLL WSAPoll
-	#define CCHAR_PTR const char *
-	#define CHAR_PTR char *
+	#define CCHAR_PTR const char*
+	#define CHAR_PTR char*
 
 	#pragma warning(disable:4996)
 	#pragma comment (lib, "Ws2_32.lib")
@@ -111,26 +111,21 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 	}
 #endif
 	SocketHandle handle;
-	VERBOSE((int)SocketDomain::INET  << ":" << (int)domain);
-	VERBOSE((int)SocketType::STREAM  << ":" << (int)socketType);
-	VERBOSE((int)SocketProtocol::TCP << ":" << (int)protocol);
 	handle.descriptor = ::socket((int)domain, (int)socketType, (int)protocol);
 	if (handle.descriptor == INVALID_SOCKET) {
-		std::string message("SocketInterface::create() ");
+		std::string message("SocketInterface::create()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
-	VERBOSE("> create() done: " << handle.descriptor);
 	return handle;
 }
 
 
 void SocketInterface::close(SocketHandle& handle) {
-	// also throw on invalid handle
 	auto status = CLOSE_SOCKET(handle.descriptor);
 	
 	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::close() ");
+		std::string message("SocketInterface::close()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -149,7 +144,7 @@ std::string SocketInterface::getLocalAddress(const SocketHandle& handle) {
 		(sockaddr*)&address, (socklen_t*)&addressLength);
 
 	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::getLocalAddress() ");
+		std::string message("SocketInterface::getLocalAddress()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -165,7 +160,7 @@ unsigned short SocketInterface::getLocalPort(const SocketHandle& handle) {
 		(sockaddr*)&address, (socklen_t*)&addressLength);
 
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::getLocalPort() ");
+		std::string message("SocketInterface::getLocalPort()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -185,7 +180,7 @@ void SocketInterface::setLocalPort(const SocketHandle& handle,
 		sizeof(sockaddr_in));
 
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::setLocalPort() ");
+		std::string message("SocketInterface::setLocalPort()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -199,7 +194,7 @@ void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 	
 	try { fillAddress(localAddress, localPort, socketAddress); }
 	catch(std::runtime_error e) {
-		std::string message("SocketInterface::setLocalAddressAndPort()");
+		std::string message("SocketInterface::setLocalAddressAndPort()\n");
 		message.append(e.what());
 		throw std::runtime_error(message);
 	}
@@ -208,7 +203,20 @@ void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 		sizeof(sockaddr_in));
 
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::setLocalAddressAndPort() ");
+		std::string message("SocketInterface::setLocalAddressAndPort()\n");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+}
+
+
+void SocketInterface::setBroadcast(const SocketHandle& handle, bool enabled) {
+	auto permission = enabled?1:0;
+	auto status = setsockopt(handle.descriptor, SOL_SOCKET, SO_BROADCAST,
+		(CCHAR_PTR)&permission, sizeof(permission));
+
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::setBroadcast()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -236,7 +244,7 @@ void SocketInterface::fillAddress(const std::string& address,
 	hostent* host = ::gethostbyname(address.c_str());
 
 	if (host == NULL) {
-		std::string message("SocketInterface::fillAddress() ");
+		std::string message("SocketInterface::fillAddress()\n");
 		message.append(getHostErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -253,7 +261,7 @@ std::string SocketInterface::getForeignAddress(const SocketHandle& handle) {
 		(socklen_t*)&addressLength);
 
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::getForeignAddress() ");
+		std::string message("SocketInterface::getForeignAddress()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -269,7 +277,7 @@ unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 		(socklen_t*)&addressLength);
 
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::getForeignPort() ");
+		std::string message("SocketInterface::getForeignPort()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -280,10 +288,8 @@ unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 
 void SocketInterface::connect(const SocketHandle& handle,
 	const std::string& foreignAddress, unsigned short foreignPort) {
-	VERBOSE("> connect() " << handle.descriptor);
 	sockaddr_in destinationAddress;
 
-	VERBOSE(">> [a]");
 	try { fillAddress(foreignAddress, foreignPort, destinationAddress); }
 	catch(std::runtime_error e) {
 		std::string message("SocketInterface::connect()\n");
@@ -291,29 +297,25 @@ void SocketInterface::connect(const SocketHandle& handle,
 		throw std::runtime_error(message);
 	}
 	
-	VERBOSE(">> [b]");
 	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
 		sizeof(destinationAddress));
 
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::connect() ");
+		std::string message("SocketInterface::connect()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
-	VERBOSE("> connect() done");
 }
 
 
 void SocketInterface::listen(const SocketHandle& handle, int backlog) {
-	VERBOSE("> listen() " << handle.descriptor);
 	auto status = ::listen(handle.descriptor, backlog);
 
 	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::listen() ");
+		std::string message("SocketInterface::listen()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
-	VERBOSE("> listen() done");
 }
 
 
@@ -322,7 +324,7 @@ void SocketInterface::shutdown(const SocketHandle& handle,
 	auto status = ::shutdown(handle.descriptor, (int)channel);
 	
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::shutdown() ");
+		std::string message("SocketInterface::shutdown()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -330,15 +332,13 @@ void SocketInterface::shutdown(const SocketHandle& handle,
 
 
 void SocketInterface::accept(const SocketHandle& handle, SocketHandle& peer) {
-	VERBOSE("> accept() " << handle.descriptor);
 	peer.descriptor = ::accept(handle.descriptor, NULL, NULL);
 
 	if(peer.descriptor == INVALID_SOCKET) {
-		std::string message("\n");
+		std::string message("SocketInterface::accept()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
-	VERBOSE("> accept() done");
 }
 
 
@@ -348,7 +348,7 @@ void SocketInterface::send(const SocketHandle& handle, const void* buffer,
 		(int)flags);
 
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::send() ");
+		std::string message("SocketInterface::send()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -361,7 +361,7 @@ int SocketInterface::recv(const SocketHandle& handle, void* buffer,
 		(int)flags);
 
 	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::recv() ");
+		std::string message("SocketInterface::recv()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -373,7 +373,7 @@ int SocketInterface::recv(const SocketHandle& handle, void* buffer,
 void SocketInterface::keepalive(const SocketHandle& handle,
 	KeepAliveOptions options) {
 	// http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
-	std::ostringstream os("SocketInterface::keepalive() ");
+	std::ostringstream os("SocketInterface::keepalive()\n");
 	auto errors = 0;
 	auto status = 0;
 #if defined(_MSC_VER)
@@ -458,14 +458,13 @@ int SocketInterface::select(
 		((timeout<0)?NULL:&time_s));
 	
 	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::select() ");
+		std::string message("SocketInterface::select()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
 
 	return status;
 }
-
 
 
 int SocketInterface::poll(SocketPollTable& token, int timeout) {
@@ -475,7 +474,7 @@ int SocketInterface::poll(SocketPollTable& token, int timeout) {
 	auto status = SOC_POLL(fds, size, timeout);
 
 	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::poll() ");
+		std::string message("SocketInterface::poll()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}

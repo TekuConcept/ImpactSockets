@@ -62,6 +62,8 @@ namespace Impact {
 		static void setLocalAddressAndPort(const SocketHandle& handle,
 			const std::string& localAddress, unsigned short localPort = 0)
 			/* throw(std::runtime_error) */;
+		static void setBroadcast(const SocketHandle& handle, bool enabled)
+			/* throw(std::runtime_error) */;
 		static unsigned short resolveService(const std::string& service,
 			const std::string& protocol = "tcp");
 		static std::string getForeignAddress(const SocketHandle& handle)

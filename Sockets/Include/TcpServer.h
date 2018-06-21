@@ -11,6 +11,7 @@
 #include "SocketHandle.h"
 #include "TcpSocket.h"
 #include <string>
+#include <functional>
 
 #define DEFAULT_LENGTH 5
 
@@ -21,6 +22,7 @@ namespace Impact {
 		bool _isOpen_;
 
 		void initialize();
+		void open(std::function<void ()>, int backlog);
 
 	public:
 		TcpServer();
@@ -40,7 +42,7 @@ namespace Impact {
 		virtual void close()
 			/* throw(std::runtime_error) */;
 
-		void accept(TcpSocket& socket)
+		virtual void accept(TcpSocket& socket)
 			/* throw(std::runtime_error) */;
 		int port()
 			/* throw(std::runtime_error) */;

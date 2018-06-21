@@ -16,14 +16,24 @@ TcpServer::TcpServer() {
 
 TcpServer::TcpServer(unsigned short port, int backlog) {
 	initialize();
-	open(port, backlog);
+	try { open(port, backlog); }
+	catch (std::runtime_error e) {
+		std::string message("TcpServer::TcpServer(2)\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
+	}
 }
 
 
 TcpServer::TcpServer(unsigned short port, const std::string& address,
 	int backlog) {
 	initialize();
-	open(port, address, backlog);
+	try { open(port, address, backlog); }
+	catch (std::runtime_error e) {
+		std::string message("TcpServer::TcpServer(3)\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
+	}
 }
 
 
@@ -40,7 +50,7 @@ void TcpServer::initialize() {
 }
 
 
-void TcpServer::open(unsigned short port, int backlog) {
+void TcpServer::open(std::function<void()> configure, int backlog) {
 	if(_isOpen_) {
 		throw std::runtime_error("TcpServer::open(1)\nServer already open.");
 	}
@@ -48,7 +58,7 @@ void TcpServer::open(unsigned short port, int backlog) {
 		try {
 			_handle_ = SocketInterface::create(SocketDomain::INET,
 				SocketType::STREAM, SocketProtocol::TCP);
-			SocketInterface::setLocalPort(_handle_, port);
+			configure();
 			SocketInterface::listen(_handle_, backlog);
 		}
 		catch (std::runtime_error e) {
@@ -62,26 +72,25 @@ void TcpServer::open(unsigned short port, int backlog) {
 }
 
 
+void TcpServer::open(unsigned short port, int backlog) {
+	try {
+		open([&](){
+			SocketInterface::setLocalPort(_handle_, port);
+		}, backlog);
+	}
+	catch (...) { throw; }
+}
+
+
 void TcpServer::open(unsigned short port, const std::string& address,
 	int backlog) {
-	if(_isOpen_) {
-		throw std::runtime_error("TcpServer::open(2)\nServer already open.");
+	try {
+		open([&](){
+			SocketInterface::setLocalAddressAndPort(
+				_handle_, address, port);
+		}, backlog);
 	}
-	else {
-		try {
-			_handle_ = SocketInterface::create(SocketDomain::INET,
-				SocketType::STREAM, SocketProtocol::TCP);
-			SocketInterface::setLocalAddressAndPort(_handle_, address, port);
-			SocketInterface::listen(_handle_, backlog);
-		}
-		catch (std::runtime_error e) {
-			std::string message("TcpServer::open(2)\n");
-			message.append(e.what());
-			throw std::runtime_error(message);
-		}
-
-		_isOpen_ = true;
-	}
+	catch (...) { throw; }
 }
 
 
