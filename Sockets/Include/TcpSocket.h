@@ -11,6 +11,8 @@
 #include <streambuf>
 #include <iostream>
 
+#define LOCAL "12.0.0.1"
+
 namespace Impact {
 	class TcpSocket :
 	private std::streambuf, public std::iostream {
@@ -31,11 +33,11 @@ namespace Impact {
 
 	public:
 		TcpSocket(unsigned int streamBufferSize=256);
-		TcpSocket(int port, std::string address="12.0.0.1",
+		TcpSocket(int port, std::string address=LOCAL,
 			unsigned int streamBufferSize=256);
 		virtual ~TcpSocket();
 
-		virtual void open(int port, std::string address="12.0.0.1");
+		virtual void open(int port, std::string address=LOCAL);
 		bool is_open() const;
 		virtual void close();
 
@@ -50,4 +52,5 @@ namespace Impact {
 	};
 }
 
+#undef LOCAL
 #endif

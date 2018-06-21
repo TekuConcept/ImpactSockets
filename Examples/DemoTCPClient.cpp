@@ -1,30 +1,40 @@
-#include "TcpClient.h"
+#include <TcpSocket.h>
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <string>
+#include <stdexcept>
+
+#define VERBOSE(x) std::cout << x << std::endl
 
 int main() {
-    Impact::TcpClient client(25565);
+    Impact::TcpSocket client;
+
+    try { client.open(25565); }
+    catch (std::runtime_error e) { VERBOSE(e.what()); return 1; }
     
-    std::cout << "- CLIENT CONNECTING -" << std::endl;
+    VERBOSE("- CLIENT CONNECTING -");
     
     client << "Hello From Client" << std::endl;
     
     std::string msg;
     if (!std::getline(client, msg)) {
-        std::cout << "Couldn't connect to local server..." << std::endl;
-        std::cout << "- END OF LINE -" << std::endl;
+        VERBOSE("Could not get server message.");
+        VERBOSE("- END OF LINE -");
         return 1;
     }
-    std::cout << "msg: " << msg << std::endl;
+    VERBOSE("msg: " << msg);
     
     client << "I got your message!" << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(3));
     client << "...sorry I was late" << std::endl;
     
-    client.disconnect();
+    // shouldn't throw except for a system io error
+    // or if close was called before open, nevertheless
+    // try-catch for demo purposes
+    try { client.close(); } catch (...) {}
     
-    std::cout << "- END OF LINE -" << std::endl;
+    VERBOSE("- END OF LINE -");
     
     return 0;
 }
