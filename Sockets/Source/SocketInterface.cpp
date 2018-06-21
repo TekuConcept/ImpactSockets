@@ -45,6 +45,9 @@
 
 using namespace Impact;
 
+#include <iostream>
+#define VERBOSE(x) std::cout << x << std::endl
+
 
 KeepAliveOptions::KeepAliveOptions() :
 	enabled(false), idleTime(7200000),
@@ -95,6 +98,7 @@ std::string SocketInterface::getHostErrorMessage() {
 
 SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 	SocketProtocol protocol) {
+	VERBOSE("> create()");
 #if defined(_MSC_VER)
 	static WSADATA wsaData;
 	auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -107,12 +111,16 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 	}
 #endif
 	SocketHandle handle;
+	VERBOSE((int)SocketDomain::INET  << ":" << (int)domain);
+	VERBOSE((int)SocketType::STREAM  << ":" << (int)socketType);
+	VERBOSE((int)SocketProtocol::TCP << ":" << (int)protocol);
 	handle.descriptor = ::socket((int)domain, (int)socketType, (int)protocol);
 	if (handle.descriptor == INVALID_SOCKET) {
 		std::string message("SocketInterface::create() ");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
+	VERBOSE("> create() done: " << handle.descriptor);
 	return handle;
 }
 
@@ -222,6 +230,7 @@ unsigned short SocketInterface::resolveService(const std::string& service,
 
 void SocketInterface::fillAddress(const std::string& address,
 	unsigned short port, sockaddr_in& socketAddress) {
+	VERBOSE(address << ":" << port);
 	memset(&socketAddress, 0, sizeof(socketAddress));
 	socketAddress.sin_family = AF_INET; // Internet address
 	hostent* host = ::gethostbyname(address.c_str());
@@ -271,8 +280,10 @@ unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 
 void SocketInterface::connect(const SocketHandle& handle,
 	const std::string& foreignAddress, unsigned short foreignPort) {
+	VERBOSE("> connect() " << handle.descriptor);
 	sockaddr_in destinationAddress;
 
+	VERBOSE(">> [a]");
 	try { fillAddress(foreignAddress, foreignPort, destinationAddress); }
 	catch(std::runtime_error e) {
 		std::string message("SocketInterface::connect()\n");
@@ -280,6 +291,7 @@ void SocketInterface::connect(const SocketHandle& handle,
 		throw std::runtime_error(message);
 	}
 	
+	VERBOSE(">> [b]");
 	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
 		sizeof(destinationAddress));
 
@@ -288,10 +300,12 @@ void SocketInterface::connect(const SocketHandle& handle,
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
+	VERBOSE("> connect() done");
 }
 
 
 void SocketInterface::listen(const SocketHandle& handle, int backlog) {
+	VERBOSE("> listen() " << handle.descriptor);
 	auto status = ::listen(handle.descriptor, backlog);
 
 	if(status == SOCKET_ERROR) {
@@ -299,6 +313,7 @@ void SocketInterface::listen(const SocketHandle& handle, int backlog) {
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
+	VERBOSE("> listen() done");
 }
 
 
@@ -315,6 +330,7 @@ void SocketInterface::shutdown(const SocketHandle& handle,
 
 
 void SocketInterface::accept(const SocketHandle& handle, SocketHandle& peer) {
+	VERBOSE("> accept() " << handle.descriptor);
 	peer.descriptor = ::accept(handle.descriptor, NULL, NULL);
 
 	if(peer.descriptor == INVALID_SOCKET) {
@@ -322,6 +338,7 @@ void SocketInterface::accept(const SocketHandle& handle, SocketHandle& peer) {
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
+	VERBOSE("> accept() done");
 }
 
 

@@ -19,7 +19,6 @@ int main() {
     VERBOSE("- SERVER STARTED -");
     
     Impact::TcpSocket connection;
-
     try {
         server.accept(connection);
         connection.setTimeout(2500); // 2.5 seconds

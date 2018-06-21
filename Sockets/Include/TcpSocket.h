@@ -11,7 +11,7 @@
 #include <streambuf>
 #include <iostream>
 
-#define LOCAL "12.0.0.1"
+#define LOCAL "localhost"
 
 namespace Impact {
 	class TcpSocket :

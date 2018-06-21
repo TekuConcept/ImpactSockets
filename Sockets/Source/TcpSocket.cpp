@@ -4,11 +4,12 @@
 
 #include "TcpSocket.h"
 #include "SocketInterface.h"
+#include <stdexcept>
 
 using namespace Impact;
 #define SUCCESS	0
 #define FAIL	-1
-
+#define VERBOSE(x) std::cout << x << std::endl
 
 TcpSocket::TcpSocket(unsigned int streamBufferSize) :
     std::iostream(this) {
@@ -66,7 +67,10 @@ void TcpSocket::open(int port, std::string address) {
 			_pollTable_.push_back({_handle_,PollFlags::IN});
 			clear();
 		}
-		catch (...) { setstate(std::ios_base::badbit); }
+		catch (std::runtime_error e) {
+			VERBOSE(e.what());
+			setstate(std::ios_base::badbit);
+		}
 
 		_isOpen_ = true;
 		_hangup_ = false;

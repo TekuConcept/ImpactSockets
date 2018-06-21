@@ -10,8 +10,11 @@
 int main() {
     Impact::TcpSocket client;
 
-    try { client.open(25565); }
-    catch (std::runtime_error e) { VERBOSE(e.what()); return 1; }
+    client.open(25565);
+    if(client.fail()) {
+        VERBOSE("Could not open socket connection.");
+        return 1;
+    }
     
     VERBOSE("- CLIENT CONNECTING -");
     
