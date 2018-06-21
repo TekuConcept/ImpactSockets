@@ -359,9 +359,11 @@ namespace Impact {
 		ALREADY_IN_PROGRESS          = ERROR(EALREADY),
 		BAD_DESCRIPTOR               = ERROR(EBADF),
 		BAD_PROTOCOL_OPTION          = ERROR(ENOPROTOOPT),
+		CONNECTION_ABORTED           = ERROR(ECONNABORTED),
 		CONNECTION_REFUSED           = ERROR(ECONNREFUSED),
 		CONNECTION_RESET             = ERROR(ECONNRESET),
 		DESTINATION_ADDRESS_REQUIRED = ERROR(EDESTADDRREQ),
+		DISC_QUOTA_EXCEEDED          = ERROR(EDQUOT),
 		HOST_UNREACHABLE             = ERROR(EHOSTUNREACH),
 		IN_PROGRESS                  = ERROR(EINPROGRESS),
 		INTERRUPTED                  = ERROR(EINTR),
@@ -384,7 +386,6 @@ namespace Impact {
 
 		// !- PLATFORM-SPECIFIC FLAGS -!
 	#if defined(_MSC_VER)
-		CONNECTION_ABORTED           = ERROR(ECONNABORTED),
 		FAULT                        = ERROR(EFAULT),
 		INVALID_PROVIDER             = ERROR(EINVALIDPROVIDER),
 		INVALID_PROCEDURE_TABLE      = ERROR(EINVALIDPROCTABLE),
@@ -399,8 +400,11 @@ namespace Impact {
 		IS_DIRECTORY                 = ERROR(EISDIR), /* Recommended: DESTINATION_ADDRESS_REQUIRED */
 		NO_ENTRY                     = ERROR(ENOENT),
 		NO_MEMORY                    = ERROR(ENOMEM),
+		NO_SPACE                     = ERROR(ENOSPC), /* Recommended: DISC_QUOTA_EXCEEDED */
 		NOT_DIRECTORY                = ERROR(ENOTDIR),
+		PERMISSION                   = ERROR(EPERM),
 		PIPE_ERROR                   = ERROR(EPIPE),
+		PROTOCOL                     = ERROR(EPROTO),
 		READ_ONLY_FILESYSTEM         = ERROR(EROFS),
 		SYSTEM_DLIMIT_REACHED        = ERROR(ENFILE),
 	#endif

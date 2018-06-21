@@ -4,22 +4,23 @@
 
 #include "SocketInterface.h"
 
-#include <sys/types.h>       // For data types#include <cstring>           // For strerror and memset
-#include <stdlib.h>          // For atoi
-#include <errno.h>           // For errno
-#include <stdexcept>         // For std::runtime_error
+#include <sys/types.h>			// For data types
+#include <cstring>				// For strerror and memset
+#include <stdlib.h>				// For atoi
+#include <errno.h>				// For errno
+#include <stdexcept>			// For std::runtime_error
 #include <sstream>
 
 #if defined(_MSC_VER)
 	#include <ws2tcpip.h>
- 	#include <mstcpip.h>     // struct tcp_keepalive
+ 	#include <mstcpip.h>		// struct tcp_keepalive
 #else
-	#include <sys/socket.h>  // For socket(), connect(), send(), and recv()
-	#include <netdb.h>       // For gethostbyname()
-	#include <arpa/inet.h>   // For inet_addr(), ntohs()
-	#include <unistd.h>      // For close()
- 	#include <netinet/tcp.h> // For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
- 							 // TCP_KEEPIDLE
+	#include <sys/socket.h>		// For socket(), connect(), send(), and recv()
+	#include <netdb.h>			// For gethostbyname()
+	#include <arpa/inet.h>		// For inet_addr(), ntohs()
+	#include <unistd.h>			// For close()
+ 	#include <netinet/tcp.h>	// For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
+ 								// TCP_KEEPIDLE
 #endif
 
 #if defined(_MSC_VER)
@@ -82,10 +83,10 @@ std::string SocketInterface::getHostErrorMessage() {
 #else
 	std::ostringstream os;
 	switch(h_errno) {
-	case HOST_NOT_FOUND: os << "[Host Error] Host Not Found"; break;
-	case NO_DATA:        os << "[Host Error] No Data"; break;
-	case NO_RECOVERY:    os << "[Host Error] No Recovery"; break;
-	case TRY_AGAIN:      os << "[Host Error] Try Again"; break;
+	case HOST_NOT_FOUND:	os << "[Host Error] Host Not Found"; break;
+	case NO_DATA:			os << "[Host Error] No Data"; break;
+	case NO_RECOVERY:		os << "[Host Error] No Recovery"; break;
+	case TRY_AGAIN:			os << "[Host Error] Try Again"; break;
 	}
 	return os.str();
 #endif
@@ -98,11 +99,11 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 	static WSADATA wsaData;
 	auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	switch(status) {
-	case WSASYSNOTREADY:     throw std::runtime_error("The underlying network subsystem is not ready for network communication.");
-	case WSAVERNOTSUPPORTED: throw std::runtime_error("The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation.");
-	case WSAEINPROGRESS:     throw std::runtime_error("A blocking Windows Sockets 1.1 operation is in progress.");
-	case WSAEPROCLIM:        throw std::runtime_error("A limit on the number of tasks supported by the Windows Sockets implementation has been reached.");
-	case WSAEFAULT:          throw std::runtime_error("The lpWSAData parameter is not a valid pointer."); /* unlikely to ever be thrown */
+	case WSASYSNOTREADY:		throw std::runtime_error("The underlying network subsystem is not ready for network communication.");
+	case WSAVERNOTSUPPORTED:	throw std::runtime_error("The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation.");
+	case WSAEINPROGRESS:		throw std::runtime_error("A blocking Windows Sockets 1.1 operation is in progress.");
+	case WSAEPROCLIM:			throw std::runtime_error("A limit on the number of tasks supported by the Windows Sockets implementation has been reached.");
+	case WSAEFAULT:				throw std::runtime_error("The lpWSAData parameter is not a valid pointer."); /* unlikely to ever be thrown */
 	}
 #endif
 	SocketHandle handle;
@@ -116,23 +117,20 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 }
 
 
-// !!-- EXCEPTION CHECKING NEEDED --!!
-
 void SocketInterface::close(SocketHandle& handle) {
-	if(handle.descriptor != INVALID_SOCKET) {
-		auto status = CLOSE_SOCKET(handle.descriptor);
-		if(status == SOCKET_ERROR) {
-			std::string message("SocketInterface::close() ");
-			message.append(getErrorMessage());
-			throw std::runtime_error(message);
-		}
-		else {
-			handle.descriptor = INVALID_SOCKET;
+	// also throw on invalid handle
+	auto status = CLOSE_SOCKET(handle.descriptor);
+	
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::close() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+	
+	handle.descriptor = INVALID_SOCKET;
 #if defined(_MSC_VER)
 	WSACleanup();
 #endif
-		}
-	}
 }
 
 
@@ -170,7 +168,6 @@ unsigned short SocketInterface::getLocalPort(const SocketHandle& handle) {
 
 void SocketInterface::setLocalPort(const SocketHandle& handle,
 	unsigned short localPort) {
-	// Bind the socket to its port
 	sockaddr_in socketAddress;
 	::memset(&socketAddress, 0, sizeof(socketAddress));
 	socketAddress.sin_family = AF_INET;
@@ -190,13 +187,12 @@ void SocketInterface::setLocalPort(const SocketHandle& handle,
 void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 	const std::string& localAddress,
 	unsigned short localPort) {
-	// Get the address of the requested host
 	sockaddr_in socketAddress;
 	
 	try { fillAddress(localAddress, localPort, socketAddress); }
 	catch(std::runtime_error e) {
-		std::string message(e.what());
-		message.append("\nSocketInterface::setLocalAddressAndPort()");
+		std::string message("SocketInterface::setLocalAddressAndPort()");
+		message.append(e.what());
 		throw std::runtime_error(message);
 	}
 
@@ -276,12 +272,30 @@ unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 void SocketInterface::connect(const SocketHandle& handle,
 	const std::string& foreignAddress, unsigned short foreignPort) {
 	sockaddr_in destinationAddress;
-	fillAddress(foreignAddress, foreignPort, destinationAddress);
+
+	try { fillAddress(foreignAddress, foreignPort, destinationAddress); }
+	catch(std::runtime_error e) {
+		std::string message("SocketInterface::connect()\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
+	}
+	
 	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
 		sizeof(destinationAddress));
 
 	if (status == SOCKET_ERROR) {
 		std::string message("SocketInterface::connect() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+}
+
+
+void SocketInterface::listen(const SocketHandle& handle, int backlog) {
+	auto status = ::listen(handle.descriptor, backlog);
+
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::listen() ");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -294,6 +308,17 @@ void SocketInterface::shutdown(const SocketHandle& handle,
 	
 	if (status == SOCKET_ERROR) {
 		std::string message("SocketInterface::shutdown() ");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+}
+
+
+void SocketInterface::accept(const SocketHandle& handle, SocketHandle& peer) {
+	peer.descriptor = ::accept(handle.descriptor, NULL, NULL);
+
+	if(peer.descriptor == INVALID_SOCKET) {
+		std::string message("\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
@@ -330,10 +355,10 @@ int SocketInterface::recv(const SocketHandle& handle, void* buffer,
 
 void SocketInterface::keepalive(const SocketHandle& handle,
 	KeepAliveOptions options) {
-    // http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
-    std::ostringstream os("SocketInterface::keepalive() ");
-    auto errors = 0;
-    auto status = 0;
+	// http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
+	std::ostringstream os("SocketInterface::keepalive() ");
+	auto errors = 0;
+	auto status = 0;
 #if defined(_MSC_VER)
 	DWORD bytesReturned = 0;
 	struct tcp_keepalive config;
@@ -349,40 +374,40 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 #else /* UNIX|LINUX */
 	status = setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE,
 		(const char*)&options.enabled, sizeof(int));
-    if(status == SOCKET_ERROR) {
-        os << "[keepalive] ";
-        os << getErrorMessage();
-        os << std::endl;
-        errors |= 1;
-    }
+	if(status == SOCKET_ERROR) {
+		os << "[keepalive] ";
+		os << getErrorMessage();
+		os << std::endl;
+		errors |= 1;
+	}
 #ifndef __APPLE__
-    status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPIDLE,
+	status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPIDLE,
 		(const char*)&options.idleTime, sizeof(int));
-    if(status == SOCKET_ERROR) {
-        os << "[idle] ";
-        os << getErrorMessage();
-        os << std::endl;
-        errors |= 8;
-    }
+	if(status == SOCKET_ERROR) {
+		os << "[idle] ";
+		os << getErrorMessage();
+		os << std::endl;
+		errors |= 8;
+	}
 #endif /* __APPLE__ */
-    status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPINTVL,
-        (const char*)&options.interval, sizeof(int));
-    if(status == SOCKET_ERROR) {
-        os << "[interval] ";
-        os << getErrorMessage();
-        os << std::endl;
-        errors |= 2;
-    }
+	status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPINTVL,
+		(const char*)&options.interval, sizeof(int));
+	if(status == SOCKET_ERROR) {
+		os << "[interval] ";
+		os << getErrorMessage();
+		os << std::endl;
+		errors |= 2;
+	}
 #endif /* UNIX|LINUX */
-    status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPCNT,
+	status = setsockopt(handle.descriptor, IPPROTO_TCP, TCP_KEEPCNT,
 		(const char*)&options.retries, sizeof(int));
-    if(status == SOCKET_ERROR) {
-        os << "[count] ";
-        os << getErrorMessage();
-        os << std::endl;
-        errors |= 4;
-    }
-    if(errors) throw std::runtime_error(os.str());
+	if(status == SOCKET_ERROR) {
+		os << "[count] ";
+		os << getErrorMessage();
+		os << std::endl;
+		errors |= 4;
+	}
+	if(errors) throw std::runtime_error(os.str());
 }
 
 

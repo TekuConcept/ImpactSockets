@@ -6,8 +6,8 @@
 #include "SocketInterface.h"
 
 using namespace Impact;
-#define SUCCESS  0
-#define FAIL    -1
+#define SUCCESS	0
+#define FAIL	-1
 
 
 TcpSocket::TcpSocket(unsigned int streamBufferSize) :
@@ -25,6 +25,11 @@ TcpSocket::TcpSocket(int port, std::string address,
 
 
 TcpSocket::~TcpSocket() {
+	if (_isOpen_) {
+		try { close(); } catch (...) {}
+		_isOpen_ = false;
+	}
+
 	if(_outputBuffer_ != NULL) {
 		delete[] _outputBuffer_;
 		_outputBuffer_ = NULL;
@@ -61,7 +66,7 @@ void TcpSocket::open(int port, std::string address) {
 			_pollTable_.push_back({_handle_,PollFlags::IN});
 			clear();
 		}
-	    catch (...) { setstate(std::ios_base::failbit); }
+		catch (...) { setstate(std::ios_base::badbit); }
 
 		_isOpen_ = true;
 		_hangup_ = false;

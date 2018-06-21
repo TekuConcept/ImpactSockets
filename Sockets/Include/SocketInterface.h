@@ -75,8 +75,12 @@ namespace Impact {
 		static void connect(const SocketHandle& handle,
 			const std::string& foreignAddress, unsigned short foreignPort)
 			/* throw(std::runtime_error) */;
+		static void listen(const SocketHandle& handle, int backlog = 5)
+			/* throw(std::runtime_error) */;
 		static void shutdown(const SocketHandle& handle,
 			SocketChannel channel = SocketChannel::BOTH)
+			/* throw(std::runtime_error) */;
+		static void accept(const SocketHandle& handle, SocketHandle& peer)
 			/* throw(std::runtime_error) */;
 		static void send(const SocketHandle& handle, const void* buffer, int bufferLen,
 			MessageFlags flags = MessageFlags::NONE)

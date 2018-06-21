@@ -10,7 +10,6 @@
 #include <string>
 #include <streambuf>
 #include <iostream>
-#include <memory>
 
 namespace Impact {
 	class TcpSocket :
@@ -36,16 +35,18 @@ namespace Impact {
 			unsigned int streamBufferSize=256);
 		virtual ~TcpSocket();
 
-		void open(int port, std::string address="12.0.0.1");
+		virtual void open(int port, std::string address="12.0.0.1");
 		bool is_open() const;
-		void close();
+		virtual void close();
 
-		int sync();
-		int underflow();
-		int overflow(int c = EOF);
+		virtual int sync();
+		virtual int underflow();
+		virtual int overflow(int c = EOF);
 		bool hup() const;
 
 		void setTimeout(int milliseconds);
+
+		friend class TcpServer;
 	};
 }
 
