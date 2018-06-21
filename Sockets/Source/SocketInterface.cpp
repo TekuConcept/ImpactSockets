@@ -147,6 +147,7 @@ std::string SocketInterface::getLocalAddress(const SocketHandle& handle) {
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
+
 	return inet_ntoa(address.sin_addr);
 }
 
@@ -162,6 +163,7 @@ unsigned short SocketInterface::getLocalPort(const SocketHandle& handle) {
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}
+	
 	return ntohs(address.sin_port);
 }
 

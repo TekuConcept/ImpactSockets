@@ -11,6 +11,8 @@
 #else
  	#include <sys/poll.h>
  	#include <arpa/inet.h>
+ 	#include <netdb.h>
+ 	#include <errno.h>
 #endif
 
 #if defined(__linux__)
@@ -338,6 +340,79 @@ namespace Impact {
 	#endif
 	} PollFlags;
 	ENUM_OPERATOR(PollFlags, int, |)
+
+
+#if defined(_MSC_VER)
+	#define ERROR(x) WSA##x
+#else
+	#define ERROR(x) x
+#endif
+	typedef enum class SocketError { /* errno | WSAGetLastError */
+		// !- CROSS-PLATFORM FLAGS    -!
+		OTHER                        = -1,
+
+		ACCESS                       = ERROR(EACCES),
+		ADDRESS_FAMILY_NOT_SUPPORTED = ERROR(EAFNOSUPPORT),
+		ADDRESS_IN_USE               = ERROR(EADDRINUSE),
+		ADDRESS_NOT_AVAILABLE        = ERROR(EADDRNOTAVAIL),
+		ALREADY_IN_PROGRESS          = ERROR(EALREADY),
+		BAD_DESCRIPTOR               = ERROR(EBADF),
+		BAD_PROTOCOL_OPTION          = ERROR(ENOPROTOOPT),
+		CONNECTION_REFUSED           = ERROR(ECONNREFUSED),
+		CONNECTION_RESET             = ERROR(ECONNRESET),
+		DESTINATION_ADDRESS_REQUIRED = ERROR(EDESTADDRREQ),
+		HOST_UNREACHABLE             = ERROR(EHOSTUNREACH),
+		IN_PROGRESS                  = ERROR(EINPROGRESS),
+		INTERRUPTED                  = ERROR(EINTR),
+		INVALID                      = ERROR(EINVAL),
+		IS_CONNECTED                 = ERROR(EISCONN),
+		LOOP                         = ERROR(ELOOP),
+		MESSAGE_SIZE                 = ERROR(EMSGSIZE),
+		NAME_TOO_LONG                = ERROR(ENAMETOOLONG),
+		NETWORK_DOWN                 = ERROR(ENETDOWN),
+		NETWORK_UNREACHABLE          = ERROR(ENETUNREACH),
+		NO_BUFFER_SPACE              = ERROR(ENOBUFS),
+		NO_MORE_DESCRIPTORS          = ERROR(EMFILE),
+		NOT_CONNECTED                = ERROR(ENOTCONN),
+		NOT_SOCKET                   = ERROR(ENOTSOCK),
+		OPERATION_NOT_SUPPORTED      = ERROR(EOPNOTSUPP),
+		PROTOCOL_NOT_SUPPORTED       = ERROR(EPROTONOSUPPORT),
+		TIMED_OUT                    = ERROR(ETIMEDOUT),
+		WOULD_BLOCK                  = ERROR(EWOULDBLOCK),
+		WRONG_PROTOTYPE              = ERROR(EPROTOTYPE),
+
+		// !- PLATFORM-SPECIFIC FLAGS -!
+	#if defined(_MSC_VER)
+		CONNECTION_ABORTED           = ERROR(ECONNABORTED),
+		FAULT                        = ERROR(EFAULT),
+		INVALID_PROVIDER             = ERROR(EINVALIDPROVIDER),
+		INVALID_PROCEDURE_TABLE      = ERROR(EINVALIDPROCTABLE),
+		NOT_INITIALIZED              = ERROR(NOTINITIALIZED),
+		PROVIDER_INIT_FAILED         = ERROR(EPROVIDERFAILEDINIT),
+		SHUTDOWN                     = ERROR(ESHUTDOWN),
+		TYPE_NOT_SUPPORTED           = ERROR(ESOCKTNOSUPPORT),
+	#else /* Linux | OSX */
+		AGAIN                        = ERROR(EAGAIN), /* Recommended: WOULD_BLOCK */
+		DOMAIN_ERROR                 = ERROR(EDOM),
+		IO_ERROR                     = ERROR(EIO),
+		IS_DIRECTORY                 = ERROR(EISDIR), /* Recommended: DESTINATION_ADDRESS_REQUIRED */
+		NO_ENTRY                     = ERROR(ENOENT),
+		NO_MEMORY                    = ERROR(ENOMEM),
+		NOT_DIRECTORY                = ERROR(ENOTDIR),
+		PIPE_ERROR                   = ERROR(EPIPE),
+		READ_ONLY_FILESYSTEM         = ERROR(EROFS),
+		SYSTEM_DLIMIT_REACHED        = ERROR(ENFILE),
+	#endif
+	} SocketError;
+
+	typedef enum class HostSocketError { /* h_errno | WSAGetLastError */
+		// !- CROSS-PLATFORM FLAGS    -!
+		NOTFOUND   = ERROR(HOST_NOT_FOUND),
+		NODATA     = ERROR(NO_DATA),
+		NORECOVERY = ERROR(NO_RECOVERY),
+		TRYAGAIN   = ERROR(TRY_AGAIN),
+	} HostSocketError;
+#undef ERROR
 }
 
 #undef ENUM_OPERATOR
