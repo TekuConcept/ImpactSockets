@@ -25,6 +25,12 @@ inline T operator O (T lhs, T rhs) {\
 }
 
 namespace Impact {
+	typedef enum class GroupApplication {
+		JOIN  = IP_ADD_MEMBERSHIP,
+		LEAVE = IP_DROP_MEMBERSHIP
+	} GroupApplication;
+
+
 	typedef enum class SocketChannel {
 	#if defined(_MSC_VER)
 		BOTH  = SD_BOTH,
@@ -36,6 +42,7 @@ namespace Impact {
 		WRITE = SHUT_WR,
 	#endif
 	} SocketChannel;
+
 
 	typedef enum class SocketDomain {
 		// !- CROSS-PLATFORM DOMAINS    -!
@@ -312,6 +319,7 @@ namespace Impact {
 	} MessageFlags;
 	ENUM_OPERATOR(MessageFlags, int, |)
 
+
 	typedef enum class PollFlags {
 		// !- CROSS-PLATFORM FLAGS    -!
 		IN          = POLLIN,    /* There is data to read. */
@@ -409,6 +417,7 @@ namespace Impact {
 		SYSTEM_DLIMIT_REACHED        = ERROR(ENFILE),
 	#endif
 	} SocketError;
+
 
 	typedef enum class HostSocketError { /* h_errno | WSAGetLastError */
 		// !- CROSS-PLATFORM FLAGS    -!

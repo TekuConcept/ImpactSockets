@@ -223,6 +223,19 @@ void SocketInterface::setBroadcast(const SocketHandle& handle, bool enabled) {
 }
 
 
+void SocketInterface::setMulticastTTL(const SocketHandle& handle,
+	unsigned char ttl) {
+	auto status = setsockopt(handle.descriptor, IPPROTO_IP, IP_MULTICAST_TTL,
+		(CCHAR_PTR)&ttl, sizeof(ttl));
+
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::setMulticastTTL()\n");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+}
+
+
 unsigned short SocketInterface::resolveService(const std::string& service,
 	const std::string& protocol) {
 	struct servent* serviceInfo = ::getservbyname(service.c_str(),
@@ -287,10 +300,10 @@ unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 
 
 void SocketInterface::connect(const SocketHandle& handle,
-	const std::string& foreignAddress, unsigned short foreignPort) {
+	unsigned short port, const std::string& address) {
 	sockaddr_in destinationAddress;
 
-	try { fillAddress(foreignAddress, foreignPort, destinationAddress); }
+	try { fillAddress(address, port, destinationAddress); }
 	catch(std::runtime_error e) {
 		std::string message("SocketInterface::connect()\n");
 		message.append(e.what());
@@ -336,6 +349,22 @@ void SocketInterface::accept(const SocketHandle& handle, SocketHandle& peer) {
 
 	if(peer.descriptor == INVALID_SOCKET) {
 		std::string message("SocketInterface::accept()\n");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+}
+
+
+void SocketInterface::group(const SocketHandle& handle,
+	std::string multicastName, GroupApplication method) {
+	struct ip_mreq multicastRequest;
+	multicastRequest.imr_multiaddr.s_addr = inet_addr(multicastName.c_str());
+	multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
+	auto status = setsockopt(handle.descriptor, IPPROTO_IP, (int)method,
+		(CCHAR_PTR)&multicastRequest, sizeof(multicastRequest));
+
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::group()\n");
 		message.append(getErrorMessage());
 		throw std::runtime_error(message);
 	}

@@ -144,3 +144,23 @@ int UdpSocket::recvFrom(void* buffer, int length,
 		throw std::runtime_error(message);
 	}
 }
+
+
+void UdpSocket::setMulticastTTL(unsigned char ttl) {
+	try { SocketInterface::setMulticastTTL(_handle_, ttl); }
+	catch (std::runtime_error e) {
+		std::string message("UdpSocket::setMulticastTTL()\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
+	}
+}
+
+
+void UdpSocket::group(const std::string& group, GroupApplication method) {
+	try { SocketInterface::group(_handle_, group, method); }
+	catch (std::runtime_error e) {
+		std::string message("UdpSocket::group()\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
+	}
+}

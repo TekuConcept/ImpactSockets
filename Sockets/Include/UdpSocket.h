@@ -6,6 +6,7 @@
 #define _UDP_SOCKET_H_
 
 #include "SocketHandle.h"
+#include "SocketTypes.h"
 #include <string>
 #include <functional>
 
@@ -38,13 +39,18 @@ namespace Impact {
 			/* throw(std::runtime_error) */;
 
 		int sendTo(const void* buffer, int length,
-			unsigned short targetPort, const std::string& targetAddress);
+			unsigned short targetPort, const std::string& targetAddress)
+			/* throw(std::runtime_error) */;
 		int recvFrom(void* buffer, int length,
-			unsigned short& sourcePort, std::string& sourceAddress);
+			unsigned short& sourcePort, std::string& sourceAddress)
+			/* throw(std::runtime_error) */;
 
-		// void setMulticastTTL(unsigned char multicastTTL);
-		// void joinGroup(const std::string& multicastGroup);
-		// void leaveGroup(const std::string& multicastGroup);
+		void setMulticastTTL(unsigned char ttl = 1)
+			/* throw(std::runtime_error) */;
+		void group(const std::string& group, GroupApplication method)
+			/* throw(std::runtime_error) */;
+
+		/* connect(), send(), recv() not implemented her yet */
 	};
 }
 

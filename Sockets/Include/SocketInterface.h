@@ -23,12 +23,12 @@
 
 namespace Impact {
 	typedef struct KeepAliveOptions {
-			int enabled;  /* Enables KEEPALIVE on the target socket connection.  */
-			int idleTime; /* Number of idle seconds before sending a KA probe.   */
-			int interval; /* How often in seconds to resend an unacked KA probe. */
-			int retries;  /* How many times to resend a KA probe if previous
-			                 probe was unacked.                                  */
-			KeepAliveOptions();
+		int enabled;  /* Enables KEEPALIVE on the target socket connection.  */
+		int idleTime; /* Number of idle seconds before sending a KA probe.   */
+		int interval; /* How often in seconds to resend an unacked KA probe. */
+		int retries;  /* How many times to resend a KA probe if previous
+		                 probe was unacked.                                  */
+		KeepAliveOptions();
 	} KeepAliveOptions;
 
 	
@@ -57,12 +57,16 @@ namespace Impact {
 			/* throw(std::runtime_error) */;
 		static unsigned short getLocalPort(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
-		static void setLocalPort(const SocketHandle& handle, unsigned short localPort)
+		static void setLocalPort(const SocketHandle& handle,
+			unsigned short localPort)
 			/* throw(std::runtime_error) */;
 		static void setLocalAddressAndPort(const SocketHandle& handle,
 			const std::string& localAddress, unsigned short localPort = 0)
 			/* throw(std::runtime_error) */;
 		static void setBroadcast(const SocketHandle& handle, bool enabled)
+			/* throw(std::runtime_error) */;
+		static void setMulticastTTL(const SocketHandle& handle,
+			unsigned char ttl = 1)
 			/* throw(std::runtime_error) */;
 		static unsigned short resolveService(const std::string& service,
 			const std::string& protocol = "tcp");
@@ -75,7 +79,7 @@ namespace Impact {
 		| COMMUNICATION        |
 		\*                    */
 		static void connect(const SocketHandle& handle,
-			const std::string& foreignAddress, unsigned short foreignPort)
+			unsigned short port, const std::string& address)
 			/* throw(std::runtime_error) */;
 		static void listen(const SocketHandle& handle, int backlog = 5)
 			/* throw(std::runtime_error) */;
@@ -83,6 +87,9 @@ namespace Impact {
 			SocketChannel channel = SocketChannel::BOTH)
 			/* throw(std::runtime_error) */;
 		static void accept(const SocketHandle& handle, SocketHandle& peer)
+			/* throw(std::runtime_error) */;
+		static void group(const SocketHandle& handle, std::string multicastName,
+			GroupApplication method)
 			/* throw(std::runtime_error) */;
 		static void send(const SocketHandle& handle, const void* buffer,
 			int length, MessageFlags flags = MessageFlags::NONE)

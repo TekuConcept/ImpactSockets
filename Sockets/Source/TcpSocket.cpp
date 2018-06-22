@@ -63,7 +63,7 @@ void TcpSocket::open(int port, std::string address) {
 		try {
 			_handle_ = SocketInterface::create(SocketDomain::INET,
 				SocketType::STREAM, SocketProtocol::TCP);
-			SocketInterface::connect(_handle_, address, port);
+			SocketInterface::connect(_handle_, port, address);
 			_pollTable_.push_back({_handle_,PollFlags::IN});
 			clear();
 		}
