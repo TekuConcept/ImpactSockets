@@ -8,6 +8,7 @@
 
 using namespace Impact;
 
+
 UdpSocket::UdpSocket() {
 	initialize();
 }
@@ -73,11 +74,7 @@ void UdpSocket::open() {
 
 
 void UdpSocket::open(unsigned short port) {
-	try {
-		open([&](){
-			SocketInterface::setLocalPort(_handle_, port);
-		});
-	}
+	try { open([&](){ SocketInterface::setLocalPort(_handle_, port); }); }
 	catch (...) { throw; }
 }
 
@@ -113,5 +110,37 @@ void UdpSocket::close() {
 			message.append(e.what());
 			throw std::runtime_error(message);
 		}
+	}
+}
+
+
+int UdpSocket::sendTo(const void* buffer, int length,
+	unsigned short targetPort, const std::string& targetAddress) {
+	try {
+		return SocketInterface::sendto(
+			_handle_, buffer, length,
+			targetPort, targetAddress
+		);
+	}
+	catch (std::runtime_error e) {
+		std::string message("UdpSocket::sendTo()\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
+	}
+}
+
+
+int UdpSocket::recvFrom(void* buffer, int length,
+	unsigned short& sourcePort, std::string& sourceAddress) {
+	try {
+		return SocketInterface::sendto(
+			_handle_, buffer, length,
+			sourcePort, sourceAddress
+		);
+	}
+	catch (std::runtime_error e) {
+		std::string message("UdpSocket::recvFrom()\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
 	}
 }

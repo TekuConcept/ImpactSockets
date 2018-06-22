@@ -355,6 +355,31 @@ void SocketInterface::send(const SocketHandle& handle, const void* buffer,
 }
 
 
+int SocketInterface::sendto(const SocketHandle& handle, const void* buffer,
+	int length, unsigned short port, const std::string& address,
+	MessageFlags flags) {
+	sockaddr_in destinationAddress;
+
+	try { fillAddress(address, port, destinationAddress); }
+	catch (std::runtime_error e) {
+		std::string message("SocketInterface::sendto()\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
+	}
+
+	auto status = ::sendto(handle.descriptor, (CCHAR_PTR)buffer, length,
+		(int)flags, (sockaddr*)&destinationAddress, sizeof(destinationAddress));
+
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::sendto()\n");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+
+	return status;
+}
+
+
 int SocketInterface::recv(const SocketHandle& handle, void* buffer,
 	int bufferLen, MessageFlags flags) {
 	int status = ::recv(handle.descriptor, (CHAR_PTR)buffer, bufferLen,
@@ -367,6 +392,26 @@ int SocketInterface::recv(const SocketHandle& handle, void* buffer,
 	}
 
 	return status; /* number of bytes received or EOF */
+}
+
+
+int SocketInterface::recvfrom(const SocketHandle& handle, void* buffer,
+	int length, unsigned short& port, std::string& address, MessageFlags flags){
+	sockaddr_in clientAddress;
+	socklen_t addressLength = sizeof(clientAddress);
+	auto status = ::recvfrom(handle.descriptor, (CHAR_PTR)buffer, length,
+		(int)flags, (sockaddr*)&clientAddress, (socklen_t*)&addressLength);
+	
+	if(status == SOCKET_ERROR) {
+		std::string message("SocketInterface::recvfrom()\n");
+		message.append(getErrorMessage());
+		throw std::runtime_error(message);
+	}
+
+	address = inet_ntoa(clientAddress.sin_addr);
+	port = ntohs(clientAddress.sin_port);
+
+	return status;
 }
 
 

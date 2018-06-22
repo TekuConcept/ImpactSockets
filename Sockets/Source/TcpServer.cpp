@@ -52,7 +52,7 @@ void TcpServer::initialize() {
 
 void TcpServer::open(std::function<void()> configure, int backlog) {
 	if(_isOpen_) {
-		throw std::runtime_error("TcpServer::open(1)\nServer already open.");
+		throw std::runtime_error("TcpServer::open({})\nServer already open.");
 	}
 	else {
 		try {
@@ -62,7 +62,7 @@ void TcpServer::open(std::function<void()> configure, int backlog) {
 			SocketInterface::listen(_handle_, backlog);
 		}
 		catch (std::runtime_error e) {
-			std::string message("TcpServer::open(1)\n");
+			std::string message("TcpServer::open({})\n");
 			message.append(e.what());
 			throw std::runtime_error(message);
 		}

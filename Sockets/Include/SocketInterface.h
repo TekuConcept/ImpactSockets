@@ -84,10 +84,18 @@ namespace Impact {
 			/* throw(std::runtime_error) */;
 		static void accept(const SocketHandle& handle, SocketHandle& peer)
 			/* throw(std::runtime_error) */;
-		static void send(const SocketHandle& handle, const void* buffer, int bufferLen,
+		static void send(const SocketHandle& handle, const void* buffer,
+			int length, MessageFlags flags = MessageFlags::NONE)
+			/* throw(std::runtime_error) */;
+		static int sendto(const SocketHandle& handle, const void* buffer,
+			int length, unsigned short port, const std::string& address,
+			MessageFlags flags = MessageFlags::NONE);
+			/* throw(std::runtime_error) */;
+		static int recv(const SocketHandle& handle, void* buffer, int length,
 			MessageFlags flags = MessageFlags::NONE)
 			/* throw(std::runtime_error) */;
-		static int recv(const SocketHandle& handle, void* buffer, int bufferLen,
+		static int recvfrom(const SocketHandle& handle, void* buffer,
+			int length, unsigned short& port, std::string& address,
 			MessageFlags flags = MessageFlags::NONE)
 			/* throw(std::runtime_error) */;
 		static void keepalive(const SocketHandle& handle,

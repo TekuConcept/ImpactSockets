@@ -37,10 +37,10 @@ namespace Impact {
 		virtual void close()
 			/* throw(std::runtime_error) */;
 
-		// void sendTo(const void* buffer, int bufferLen,
-		// 	unsigned short foreignPort, const std::string& foreignAddress);
-		// int recvFrom(void *buffer, int bufferLen,
-		// 	unsigned short& sourcePort, std::string& sourceAddress);
+		int sendTo(const void* buffer, int length,
+			unsigned short targetPort, const std::string& targetAddress);
+		int recvFrom(void* buffer, int length,
+			unsigned short& sourcePort, std::string& sourceAddress);
 
 		// void setMulticastTTL(unsigned char multicastTTL);
 		// void joinGroup(const std::string& multicastGroup);
