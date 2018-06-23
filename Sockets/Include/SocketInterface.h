@@ -58,7 +58,7 @@ namespace Impact {
 		static void gniWinNetProbe(void*, int, int&);
 		static std::vector<NetInterface> getNetworkInterfaces_Nix();
 		static void gniNixLinkTraverse(std::vector<NetInterface>&,
-			struct ::ifaddrs*);
+			struct ifaddrs*);
 
 	public:
 		/*                    *\

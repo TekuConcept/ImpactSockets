@@ -12,6 +12,9 @@
 #include <sstream>
 
 #if defined(_MSC_VER)
+	#pragma pop_macro("IN")     // pushed in SocketTypes.h
+	#pragma pop_macro("OUT")    // pushed in SocketTypes.h
+	#pragma pop_macro("ERROR")  // pushed in SocketTypes.h
 	#include <ws2tcpip.h>
  	#include <mstcpip.h>		// struct tcp_keepalive
 #else
@@ -31,9 +34,7 @@
 	#define CCHAR_PTR const char*
 	#define CHAR_PTR char*
 
- 	#define INET_ADDRSTRLEN  16
- 	#define INET6_ADDRSTRLEN 46
-
+	#undef ASSERT
 	#pragma warning(disable:4996)
 	#pragma comment (lib, "Ws2_32.lib")
 	#pragma comment (lib, "Mswsock.lib")
@@ -83,7 +84,7 @@ std::string SocketInterface::getErrorMessage() {
 #if defined(_MSC_VER)
 	char data[128];
 	auto errorCode = WSAGetLastError();
-	auto status = FromatMessage(
+	auto status = FormatMessage(
 		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 		NULL,
 		errorCode,
@@ -512,14 +513,17 @@ int SocketInterface::poll(SocketPollTable& token, int timeout) {
 
 
 std::vector<NetInterface> SocketInterface::getNetworkInterfaces() {
+#if defined(_MSC_VER)
 	CATCH_ASSERT(
 		"SocketInterface::getNetworkInterfaces()\n",
-	#if defined(_MSC_VER)
 		return getNetworkInterfaces_Win();
-	#else /* OSX|LINUX */
-		return getNetworkInterfaces_Nix();	
-	#endif
 	);
+#else /* OSX|LINUX */
+	CATCH_ASSERT(
+		"SocketInterface::getNetworkInterfaces()\n",
+		return getNetworkInterfaces_Nix();
+	);
+#endif
 }
 
 
@@ -537,10 +541,10 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 	for(int i = 0; i < length; i++) {
 		char buffer[INET_ADDRSTRLEN];
 		NetInterface token;
-		sockaddr_in address   = info.iiAddress.AddressIn;
-		sockaddr_in netmask   = info.iiNetmask.AddressIn;
-		sockaddr_in broadcast = info.iiBroadcastAddress.AddressIn;
-		token.flags     = (unsigned int)info.iiFlags;
+		struct sockaddr_in address   = info[i].iiAddress.AddressIn;
+		struct sockaddr_in netmask   = info[i].iiNetmask.AddressIn;
+		struct sockaddr_in broadcast = info[i].iiBroadcastAddress.AddressIn;
+		token.flags                  = (unsigned int)info[i].iiFlags;
 
 		auto result = inet_ntop(address.sin_family, &address.sin_addr.s_addr,
 			buffer, INET_ADDRSTRLEN);
@@ -589,12 +593,12 @@ void SocketInterface::gniWinNetProbe(void* info, int infoLength, int& length) {
 
 	std::ostringstream os;
 	if(status == SOCKET_ERROR) {
-		os << "SocketInterface::gniWinNetProbe()\n");
+		os << "SocketInterface::gniWinNetProbe()\n";
 		os << getErrorMessage() << std::endl;
 		// don't throw yet until socket is closed
 	}
 
-	try { close(); }
+	try { close(handle); }
 	catch(std::runtime_error e) {
 		os << e.what() << std::endl;
 		throw std::runtime_error(os.str());
@@ -624,7 +628,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Nix() {
 
 
 void SocketInterface::gniNixLinkTraverse(
-	std::vector<NetInterface>& list, struct ::ifaddrs* addresses) {
+	std::vector<NetInterface>& list, struct ifaddrs* addresses) {
 #ifndef _MSC_VER
 	UNUSED(list);
 	auto target = addresses;

@@ -7,7 +7,9 @@
 
 #if defined(_MSC_VER)
  	#include <WinSock2.h>
- 	#include <ws2def.h>
+ 	#include <Ws2def.h>
+	#include <Ws2ipdef.h>
+	#include <Winerror.h>
 #else
  	#include <sys/poll.h>
  	#include <arpa/inet.h>
@@ -17,6 +19,15 @@
 
 #if defined(__linux__)
  	#include <linux/version.h>
+#endif
+
+#if defined(_MSC_VER)
+	#pragma push_macro("IN")
+	#undef IN
+	#pragma push_macro("OUT")
+	#undef OUT
+	#pragma push_macro("ERROR")
+	#undef ERROR
 #endif
 
 #define ENUM_OPERATOR(T,U,O) \
@@ -330,15 +341,13 @@ namespace Impact {
 		INVALID     = POLLNVAL,  /* Invalid polling request. */
 
 		// !- PLATFORM-SPECIFIC FLAGS -!
-	#if defined(_MSC_VER)
-		// nothing to do here
-	#elif defined(__APPLE__)
+	#if defined(__APPLE__)
 		// FreeBSD
 		EXTEND      = POLLEXTEND, /* File may have been extended. */
 		ATTRIBUTE   = POLLATTRIB, /* File attributes may have changed. */
 		NEW_LINK    = POLLNLINK,  /* (Un)link/rename may have happened. */
 		WRITE       = POLLWRITE,  /* File's contents may have changed. */
-	#else
+	#elif defined (_linux_)
 		#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 		RDHUP       = POLLRDHUP, /* Peer closed connection, or shut down writing half of connection. */
 		#endif
@@ -352,79 +361,79 @@ namespace Impact {
 
 
 #if defined(_MSC_VER)
-	#define ERROR(x) WSA##x
+	#define SERROR(x) WSA##x
 #else
-	#define ERROR(x) x
+	#define SERROR(x) x
 #endif
 	typedef enum class SocketError { /* errno | WSAGetLastError */
 		// !- CROSS-PLATFORM FLAGS    -!
 		OTHER                        = -1,
 
-		ACCESS                       = ERROR(EACCES),
-		ADDRESS_FAMILY_NOT_SUPPORTED = ERROR(EAFNOSUPPORT),
-		ADDRESS_IN_USE               = ERROR(EADDRINUSE),
-		ADDRESS_NOT_AVAILABLE        = ERROR(EADDRNOTAVAIL),
-		ALREADY_IN_PROGRESS          = ERROR(EALREADY),
-		BAD_DESCRIPTOR               = ERROR(EBADF),
-		BAD_PROTOCOL_OPTION          = ERROR(ENOPROTOOPT),
-		CONNECTION_ABORTED           = ERROR(ECONNABORTED),
-		CONNECTION_REFUSED           = ERROR(ECONNREFUSED),
-		CONNECTION_RESET             = ERROR(ECONNRESET),
-		DESTINATION_ADDRESS_REQUIRED = ERROR(EDESTADDRREQ),
-		DISC_QUOTA_EXCEEDED          = ERROR(EDQUOT),
-		FAULT                        = ERROR(EFAULT),
-		HOST_UNREACHABLE             = ERROR(EHOSTUNREACH),
-		IN_PROGRESS                  = ERROR(EINPROGRESS),
-		INTERRUPTED                  = ERROR(EINTR),
-		INVALID                      = ERROR(EINVAL),
-		IS_CONNECTED                 = ERROR(EISCONN),
-		LOOP                         = ERROR(ELOOP),
-		MESSAGE_SIZE                 = ERROR(EMSGSIZE),
-		NAME_TOO_LONG                = ERROR(ENAMETOOLONG),
-		NETWORK_DOWN                 = ERROR(ENETDOWN),
-		NETWORK_UNREACHABLE          = ERROR(ENETUNREACH),
-		NO_BUFFER_SPACE              = ERROR(ENOBUFS),
-		NO_MORE_DESCRIPTORS          = ERROR(EMFILE),
-		NOT_CONNECTED                = ERROR(ENOTCONN),
-		NOT_SOCKET                   = ERROR(ENOTSOCK),
-		OPERATION_NOT_SUPPORTED      = ERROR(EOPNOTSUPP),
-		PROTOCOL_NOT_SUPPORTED       = ERROR(EPROTONOSUPPORT),
-		TIMED_OUT                    = ERROR(ETIMEDOUT),
-		WOULD_BLOCK                  = ERROR(EWOULDBLOCK),
-		WRONG_PROTOTYPE              = ERROR(EPROTOTYPE),
+		ACCESS                       = SERROR(EACCES),
+		ADDRESS_FAMILY_NOT_SUPPORTED = SERROR(EAFNOSUPPORT),
+		ADDRESS_IN_USE               = SERROR(EADDRINUSE),
+		ADDRESS_NOT_AVAILABLE        = SERROR(EADDRNOTAVAIL),
+		ALREADY_IN_PROGRESS          = SERROR(EALREADY),
+		BAD_DESCRIPTOR               = SERROR(EBADF),
+		BAD_PROTOCOL_OPTION          = SERROR(ENOPROTOOPT),
+		CONNECTION_ABORTED           = SERROR(ECONNABORTED),
+		CONNECTION_REFUSED           = SERROR(ECONNREFUSED),
+		CONNECTION_RESET             = SERROR(ECONNRESET),
+		DESTINATION_ADDRESS_REQUIRED = SERROR(EDESTADDRREQ),
+		DISC_QUOTA_EXCEEDED          = SERROR(EDQUOT),
+		FAULT                        = SERROR(EFAULT),
+		HOST_UNREACHABLE             = SERROR(EHOSTUNREACH),
+		IN_PROGRESS                  = SERROR(EINPROGRESS),
+		INTERRUPTED                  = SERROR(EINTR),
+		INVALID                      = SERROR(EINVAL),
+		IS_CONNECTED                 = SERROR(EISCONN),
+		LOOP                         = SERROR(ELOOP),
+		MESSAGE_SIZE                 = SERROR(EMSGSIZE),
+		NAME_TOO_LONG                = SERROR(ENAMETOOLONG),
+		NETWORK_DOWN                 = SERROR(ENETDOWN),
+		NETWORK_UNREACHABLE          = SERROR(ENETUNREACH),
+		NO_BUFFER_SPACE              = SERROR(ENOBUFS),
+		NO_MORE_DESCRIPTORS          = SERROR(EMFILE),
+		NOT_CONNECTED                = SERROR(ENOTCONN),
+		NOT_SOCKET                   = SERROR(ENOTSOCK),
+		OPERATION_NOT_SUPPORTED      = SERROR(EOPNOTSUPP),
+		PROTOCOL_NOT_SUPPORTED       = SERROR(EPROTONOSUPPORT),
+		TIMED_OUT                    = SERROR(ETIMEDOUT),
+		WOULD_BLOCK                  = SERROR(EWOULDBLOCK),
+		WRONG_PROTOTYPE              = SERROR(EPROTOTYPE),
 
 		// !- PLATFORM-SPECIFIC FLAGS -!
 	#if defined(_MSC_VER)
-		INVALID_PROVIDER             = ERROR(EINVALIDPROVIDER),
-		INVALID_PROCEDURE_TABLE      = ERROR(EINVALIDPROCTABLE),
-		NOT_INITIALIZED              = ERROR(NOTINITIALIZED),
-		PROVIDER_INIT_FAILED         = ERROR(EPROVIDERFAILEDINIT),
-		SHUTDOWN                     = ERROR(ESHUTDOWN),
-		TYPE_NOT_SUPPORTED           = ERROR(ESOCKTNOSUPPORT),
+		INVALID_PROVIDER             = SERROR(EINVALIDPROVIDER),
+		INVALID_PROCEDURE_TABLE      = SERROR(EINVALIDPROCTABLE),
+		NOT_INITIALIZED              = SERROR(NOTINITIALISED),
+		PROVIDER_INIT_FAILED         = SERROR(EPROVIDERFAILEDINIT),
+		SHUTDOWN                     = SERROR(ESHUTDOWN),
+		TYPE_NOT_SUPPORTED           = SERROR(ESOCKTNOSUPPORT),
 	#else /* Linux | OSX */
-		AGAIN                        = ERROR(EAGAIN), /* Recommended: WOULD_BLOCK */
-		DOMAIN_ERROR                 = ERROR(EDOM),
-		IO_ERROR                     = ERROR(EIO),
-		IS_DIRECTORY                 = ERROR(EISDIR), /* Recommended: DESTINATION_ADDRESS_REQUIRED */
-		NO_ENTRY                     = ERROR(ENOENT),
-		NO_MEMORY                    = ERROR(ENOMEM),
-		NO_SPACE                     = ERROR(ENOSPC), /* Recommended: DISC_QUOTA_EXCEEDED */
-		NOT_DIRECTORY                = ERROR(ENOTDIR),
-		PERMISSION                   = ERROR(EPERM),
-		PIPE_ERROR                   = ERROR(EPIPE),
-		PROTOCOL                     = ERROR(EPROTO),
-		READ_ONLY_FILESYSTEM         = ERROR(EROFS),
-		SYSTEM_DLIMIT_REACHED        = ERROR(ENFILE),
+		AGAIN                        = SERROR(EAGAIN), /* Recommended: WOULD_BLOCK */
+		DOMAIN_ERROR                 = SERROR(EDOM),
+		IO_ERROR                     = SERROR(EIO),
+		IS_DIRECTORY                 = SERROR(EISDIR), /* Recommended: DESTINATION_ADDRESS_REQUIRED */
+		NO_ENTRY                     = SERROR(ENOENT),
+		NO_MEMORY                    = SERROR(ENOMEM),
+		NO_SPACE                     = SERROR(ENOSPC), /* Recommended: DISC_QUOTA_EXCEEDED */
+		NOT_DIRECTORY                = SERROR(ENOTDIR),
+		PERMISSION                   = SERROR(EPERM),
+		PIPE_ERROR                   = SERROR(EPIPE),
+		PROTOCOL                     = SERROR(EPROTO),
+		READ_ONLY_FILESYSTEM         = SERROR(EROFS),
+		SYSTEM_DLIMIT_REACHED        = SERROR(ENFILE),
 	#endif
 	} SocketError;
 
 
 	typedef enum class HostSocketError { /* h_errno | WSAGetLastError */
 		// !- CROSS-PLATFORM FLAGS    -!
-		NOTFOUND   = ERROR(HOST_NOT_FOUND),
-		NODATA     = ERROR(NO_DATA),
-		NORECOVERY = ERROR(NO_RECOVERY),
-		TRYAGAIN   = ERROR(TRY_AGAIN),
+		NOTFOUND   = SERROR(HOST_NOT_FOUND),
+		NODATA     = SERROR(NO_DATA),
+		NORECOVERY = SERROR(NO_RECOVERY),
+		TRYAGAIN   = SERROR(TRY_AGAIN),
 	} HostSocketError;
 #undef ERROR
 }
