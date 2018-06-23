@@ -8,10 +8,12 @@ int main() {
 
 	auto list = Impact::SocketInterface::getNetworkInterfaces();
 	for(const auto& iface : list) {
+		VERBOSE("Name:      " << iface.name);
 		VERBOSE("Address:   " << iface.address);
 		VERBOSE("Netmask:   " << iface.netmask);
 		VERBOSE("Broadcast: " << iface.broadcast);
 		VERBOSE("Flags:     " << iface.flags);
+		std::cout << std::endl;
 	}
 
 	VERBOSE("- END OF LINE -");

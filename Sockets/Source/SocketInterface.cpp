@@ -129,12 +129,13 @@ std::string SocketInterface::sockAddr2String(const struct sockaddr* address) {
 			else return std::string(result);
 		}
 		case AF_INET6: {
-			char buffer[INET_ADDRSTRLEN];
+			char buffer[INET6_ADDRSTRLEN];
 			struct sockaddr_in6* socketAddress = (struct sockaddr_in6*)address;
 			auto result = inet_ntop(AF_INET6, &socketAddress->sin6_addr,
 				buffer, INET6_ADDRSTRLEN);
 			if(result == NULL) return "";
 			else return std::string(result);
+			return std::string(buffer);
 		}
 		default: return "";
 	};
@@ -625,6 +626,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Nix() {
 void SocketInterface::gniNixLinkTraverse(
 	std::vector<NetInterface>& list, struct ::ifaddrs* addresses) {
 #ifndef _MSC_VER
+	UNUSED(list);
 	auto target = addresses;
 
 	while(target) {

@@ -36,10 +36,11 @@ namespace Impact {
 
 	typedef struct NetInterface {
 		unsigned int flags;
+		std::string name;
 		std::string address;
 		std::string netmask;
 		std::string broadcast;
-		// name
+		// type
 		// hardware address
 		bool ipv4;
 	} NetInterface;
