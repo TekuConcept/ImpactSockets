@@ -31,6 +31,15 @@ namespace Impact {
 		KeepAliveOptions();
 	} KeepAliveOptions;
 
+
+	typedef struct NetInterface {
+		unsigned int flags;
+		std::string address;
+		std::string netmask;
+		std::string broadcast;
+		bool ipv4;
+	} NetInterface;
+
 	
 	class SocketInterface {
 		SocketInterface(); // static-only class
@@ -39,6 +48,9 @@ namespace Impact {
 		static std::string getHostErrorMessage();
 		static void fillAddress(const std::string&, unsigned short port,
 			sockaddr_in&);
+		static std::vector<NetInterface> getNetworkInterfaces_Win();
+		static void gniWinNetProbe(void*, int, int&);
+		static std::vector<NetInterface> getNetworkInterfaces_Nix();
 
 	public:
 		/*                    *\
@@ -49,6 +61,7 @@ namespace Impact {
 			/* throw(std::runtime_error) */;
 		static void close(SocketHandle& handle)
 			/* throw(std::runtime_error) */;
+
 
 		/*                    *\
 		| GENERIC SOCKET INFO  |
@@ -74,6 +87,7 @@ namespace Impact {
 			/* throw(std::runtime_error) */;
 		static unsigned short getForeignPort(const SocketHandle& handle)
 			/* throw(std::runtime_error) */;
+
 
 		/*                    *\
 		| COMMUNICATION        |
@@ -114,6 +128,13 @@ namespace Impact {
 			int timeout=-1, unsigned int microTimeout=0)
 			/* throw(std::runtime_error) */;
 		static int poll(SocketPollTable& token, int timeout)
+			/* throw(std::runtime_error) */;
+
+
+		/*                    *\
+		| MISCELLANEOUS        |
+		\*                    */
+		static std::vector<NetInterface> getNetworkInterfaces()
 			/* throw(std::runtime_error) */;
 	};
 }

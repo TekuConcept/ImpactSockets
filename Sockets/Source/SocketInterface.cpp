@@ -43,10 +43,26 @@
  	#define INVALID_SOCKET -1
 #endif
 
+#define UNUSED(x) (void)x
+
+#define CATCH_ASSERT(title,code)\
+ 	try { code }\
+ 	catch (std::runtime_error e) {\
+ 		std::string message( title );\
+ 		message.append(e.what());\
+ 		throw std::runtime_error(message);\
+ 	}
+
+#define ASSERT(title,cond)\
+ 	if (cond) {\
+ 		std::string message( title );\
+ 		message.append(getErrorMessage());\
+ 		throw std::runtime_error(message);\
+ 	}
+
+
 using namespace Impact;
 
-#include <iostream>
-#define VERBOSE(x) std::cout << x << std::endl
 
 
 KeepAliveOptions::KeepAliveOptions() :
@@ -98,7 +114,6 @@ std::string SocketInterface::getHostErrorMessage() {
 
 SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 	SocketProtocol protocol) {
-	VERBOSE("> create()");
 #if defined(_MSC_VER)
 	static WSADATA wsaData;
 	auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -112,11 +127,10 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 #endif
 	SocketHandle handle;
 	handle.descriptor = ::socket((int)domain, (int)socketType, (int)protocol);
-	if (handle.descriptor == INVALID_SOCKET) {
-		std::string message("SocketInterface::create()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT(
+		"SocketInterface::create()\n",
+		handle.descriptor == INVALID_SOCKET
+	);
 	return handle;
 }
 
@@ -124,11 +138,7 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 void SocketInterface::close(SocketHandle& handle) {
 	auto status = CLOSE_SOCKET(handle.descriptor);
 	
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::close()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::close()\n", status == SOCKET_ERROR);
 	
 	handle.descriptor = INVALID_SOCKET;
 #if defined(_MSC_VER)
@@ -143,11 +153,7 @@ std::string SocketInterface::getLocalAddress(const SocketHandle& handle) {
 	auto status = ::getsockname(handle.descriptor,
 		(sockaddr*)&address, (socklen_t*)&addressLength);
 
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::getLocalAddress()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::getLocalAddress()\n", status == SOCKET_ERROR);
 
 	return inet_ntoa(address.sin_addr);
 }
@@ -159,11 +165,7 @@ unsigned short SocketInterface::getLocalPort(const SocketHandle& handle) {
 	auto status = ::getsockname(handle.descriptor,
 		(sockaddr*)&address, (socklen_t*)&addressLength);
 
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::getLocalPort()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::getLocalPort()\n", status == SOCKET_ERROR);
 
 	return ntohs(address.sin_port);
 }
@@ -179,11 +181,7 @@ void SocketInterface::setLocalPort(const SocketHandle& handle,
 	auto status = ::bind(handle.descriptor, (sockaddr*)&socketAddress,
 		sizeof(sockaddr_in));
 
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::setLocalPort()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::setLocalPort()\n", status == SOCKET_ERROR);
 }
 
 
@@ -192,21 +190,15 @@ void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 	unsigned short localPort) {
 	sockaddr_in socketAddress;
 	
-	try { fillAddress(localAddress, localPort, socketAddress); }
-	catch(std::runtime_error e) {
-		std::string message("SocketInterface::setLocalAddressAndPort()\n");
-		message.append(e.what());
-		throw std::runtime_error(message);
-	}
+	CATCH_ASSERT(
+		"SocketInterface::setLocalAddressAndPort()\n",
+		fillAddress(localAddress, localPort, socketAddress);
+	);
 
 	auto status = ::bind(handle.descriptor, (sockaddr*)&socketAddress,
 		sizeof(sockaddr_in));
 
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::setLocalAddressAndPort()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::setLocalAddressAndPort()\n", status == SOCKET_ERROR);
 }
 
 
@@ -215,11 +207,7 @@ void SocketInterface::setBroadcast(const SocketHandle& handle, bool enabled) {
 	auto status = setsockopt(handle.descriptor, SOL_SOCKET, SO_BROADCAST,
 		(CCHAR_PTR)&permission, sizeof(permission));
 
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::setBroadcast()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::setBroadcast()\n", status == SOCKET_ERROR);
 }
 
 
@@ -228,11 +216,7 @@ void SocketInterface::setMulticastTTL(const SocketHandle& handle,
 	auto status = setsockopt(handle.descriptor, IPPROTO_IP, IP_MULTICAST_TTL,
 		(CCHAR_PTR)&ttl, sizeof(ttl));
 
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::setMulticastTTL()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::setMulticastTTL()\n", status == SOCKET_ERROR);
 }
 
 
@@ -251,16 +235,11 @@ unsigned short SocketInterface::resolveService(const std::string& service,
 
 void SocketInterface::fillAddress(const std::string& address,
 	unsigned short port, sockaddr_in& socketAddress) {
-	VERBOSE(address << ":" << port);
 	memset(&socketAddress, 0, sizeof(socketAddress));
 	socketAddress.sin_family = AF_INET; // Internet address
 	hostent* host = ::gethostbyname(address.c_str());
 
-	if (host == NULL) {
-		std::string message("SocketInterface::fillAddress()\n");
-		message.append(getHostErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::fillAddress()\n", host == NULL);
 
 	socketAddress.sin_addr.s_addr = *((unsigned long *)host->h_addr_list[0]);
 	socketAddress.sin_port = htons(port); // Assign port in network byte order
@@ -273,11 +252,7 @@ std::string SocketInterface::getForeignAddress(const SocketHandle& handle) {
 	auto status = ::getpeername(handle.descriptor, (sockaddr*)&address,
 		(socklen_t*)&addressLength);
 
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::getForeignAddress()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::getForeignAddress()\n", status == SOCKET_ERROR);
 
 	return inet_ntoa(address.sin_addr);
 }
@@ -289,11 +264,7 @@ unsigned short SocketInterface::getForeignPort(const SocketHandle& handle) {
 	auto status = getpeername(handle.descriptor, (sockaddr*)&address,
 		(socklen_t*)&addressLength);
 
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::getForeignPort()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::getForeignPort()\n", status == SOCKET_ERROR);
 
 	return ntohs(address.sin_port);
 }
@@ -303,32 +274,22 @@ void SocketInterface::connect(const SocketHandle& handle,
 	unsigned short port, const std::string& address) {
 	sockaddr_in destinationAddress;
 
-	try { fillAddress(address, port, destinationAddress); }
-	catch(std::runtime_error e) {
-		std::string message("SocketInterface::connect()\n");
-		message.append(e.what());
-		throw std::runtime_error(message);
-	}
+	CATCH_ASSERT(
+		"SocketInterface::connect()\n",
+		fillAddress(address, port, destinationAddress);
+	);
 	
 	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
 		sizeof(destinationAddress));
 
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::connect()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::connect()\n", status == SOCKET_ERROR);
 }
 
 
 void SocketInterface::listen(const SocketHandle& handle, int backlog) {
 	auto status = ::listen(handle.descriptor, backlog);
 
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::listen()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::listen()\n", status == SOCKET_ERROR);
 }
 
 
@@ -336,22 +297,14 @@ void SocketInterface::shutdown(const SocketHandle& handle,
 	SocketChannel channel) {
 	auto status = ::shutdown(handle.descriptor, (int)channel);
 	
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::shutdown()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::shutdown()\n", status == SOCKET_ERROR);
 }
 
 
 void SocketInterface::accept(const SocketHandle& handle, SocketHandle& peer) {
 	peer.descriptor = ::accept(handle.descriptor, NULL, NULL);
 
-	if(peer.descriptor == INVALID_SOCKET) {
-		std::string message("SocketInterface::accept()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::accept()\n", peer.descriptor == INVALID_SOCKET);
 }
 
 
@@ -363,11 +316,7 @@ void SocketInterface::group(const SocketHandle& handle,
 	auto status = setsockopt(handle.descriptor, IPPROTO_IP, (int)method,
 		(CCHAR_PTR)&multicastRequest, sizeof(multicastRequest));
 
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::group()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::group()\n", status == SOCKET_ERROR);
 }
 
 
@@ -376,11 +325,7 @@ void SocketInterface::send(const SocketHandle& handle, const void* buffer,
 	auto status = ::send(handle.descriptor, (CCHAR_PTR)buffer, bufferLen,
 		(int)flags);
 
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::send()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::send()\n", status == SOCKET_ERROR);
 }
 
 
@@ -389,21 +334,15 @@ int SocketInterface::sendto(const SocketHandle& handle, const void* buffer,
 	MessageFlags flags) {
 	sockaddr_in destinationAddress;
 
-	try { fillAddress(address, port, destinationAddress); }
-	catch (std::runtime_error e) {
-		std::string message("SocketInterface::sendto()\n");
-		message.append(e.what());
-		throw std::runtime_error(message);
-	}
+	CATCH_ASSERT(
+		"SocketInterface::sendto()\n",
+		fillAddress(address, port, destinationAddress);
+	);
 
 	auto status = ::sendto(handle.descriptor, (CCHAR_PTR)buffer, length,
 		(int)flags, (sockaddr*)&destinationAddress, sizeof(destinationAddress));
 
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::sendto()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::sendto()\n", status == SOCKET_ERROR);
 
 	return status;
 }
@@ -414,11 +353,7 @@ int SocketInterface::recv(const SocketHandle& handle, void* buffer,
 	int status = ::recv(handle.descriptor, (CHAR_PTR)buffer, bufferLen,
 		(int)flags);
 
-	if (status == SOCKET_ERROR) {
-		std::string message("SocketInterface::recv()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::recv()\n", status == SOCKET_ERROR);
 
 	return status; /* number of bytes received or EOF */
 }
@@ -431,11 +366,7 @@ int SocketInterface::recvfrom(const SocketHandle& handle, void* buffer,
 	auto status = ::recvfrom(handle.descriptor, (CHAR_PTR)buffer, length,
 		(int)flags, (sockaddr*)&clientAddress, (socklen_t*)&addressLength);
 	
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::recvfrom()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::recvfrom()\n", status == SOCKET_ERROR);
 
 	address = inet_ntoa(clientAddress.sin_addr);
 	port = ntohs(clientAddress.sin_port);
@@ -462,7 +393,7 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 		os << getErrorMessage();
 		throw std::runtime_error(os.str());
 	}
-#else /* UNIX|LINUX */
+#else /* OSX|LINUX */
 	status = setsockopt(handle.descriptor, SOL_SOCKET, SO_KEEPALIVE,
 		(const char*)&options.enabled, sizeof(int));
 	if(status == SOCKET_ERROR) {
@@ -531,11 +462,7 @@ int SocketInterface::select(
 	auto status = ::select(nfds + 1, &readSet, &writeSet, NULL,
 		((timeout<0)?NULL:&time_s));
 	
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::select()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::select()\n", status == SOCKET_ERROR);
 
 	return status;
 }
@@ -547,12 +474,114 @@ int SocketInterface::poll(SocketPollTable& token, int timeout) {
 	auto size = token.size();
 	auto status = SOC_POLL(fds, size, timeout);
 
-	if(status == SOCKET_ERROR) {
-		std::string message("SocketInterface::poll()\n");
-		message.append(getErrorMessage());
-		throw std::runtime_error(message);
-	}
+	ASSERT("SocketInterface::poll()\n", status == SOCKET_ERROR);
 
 	/* status: -1 error, 0 timeout, 0> success */
 	return status;
+}
+
+
+std::vector<NetInterface> SocketInterface::getNetworkInterfaces() {
+#if defined(_MSC_VER)
+	return getNetworkInterfaces_Win();
+#else /* OSX|LINUX */
+	return getNetworkInterfaces_Nix();
+#endif
+}
+
+
+std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
+	std::vector<NetInterface> list;
+
+#if defined(_MSC_VER)
+	INTERFACE_INFO info[64];
+	int length = 0;
+
+	CATCH_ASSERT(
+		"SocketInterface::getNetworkInterfaces()\n",
+		gniWinNetProbe((void*)&info, sizeof(info), length);
+	);
+
+	for(int i = 0; i < length; i++) {
+		char buffer[INET_ADDRSTRLEN];
+		NetInterface token;
+		sockaddr_in address   = info.iiAddress.AddressIn;
+		sockaddr_in netmask   = info.iiNetmask.AddressIn;
+		sockaddr_in broadcast = info.iiBroadcastAddress.AddressIn;
+		token.flags     = (unsigned int)info.iiFlags;
+
+		auto result = inet_ntop(address.sin_family, &address.sin_addr.s_addr,
+			buffer, INET_ADDRSTRLEN);
+		if(result == NULL) { token.address = ""; }
+		else { token.address = std::string(result); }
+
+		result = inet_ntop(netmask.sin_family, &netmask.sin_addr.s_addr,
+			buffer, INET_ADDRSTRLEN);
+		if(result == NULL) { token.netmask = ""; }
+		else { token.netmask = std::string(result); }
+		
+		result = inet_ntop(broadcast.sin_family, &broadcast.sin_addr.s_addr,
+			buffer, INET_ADDRSTRLEN);
+		if(result == NULL) { token.broadcast = ""; }
+		else { token.broadcast = std::string(result); }
+
+		token.ipv4      = address.sin_family == AF_INET;
+		list.push_back(token);
+	}
+#endif
+
+	return list;
+}
+
+
+void SocketInterface::gniWinNetProbe(void* info, int infoLength, int& length) {
+#if defined(_MSC_VER)
+	DWORD bytesReturned;
+	SocketHandle handle;
+
+	CATCH_ASSERT(
+		"SocketInterface::gniWinProbe()\n",
+		handle = create(SocketDomain::INET, SocketType::DATAGRAM,
+			SocketProtocol::DEFAULT);
+	);
+
+	auto status = WSAIoctl(
+		handle.descriptor,
+		SIO_GET_INTERFACE_LIST,
+		NULL, NULL,
+		info, infoLength,
+		&bytesReturned,
+		NULL, NULL
+	);
+	length = bytesReturned / sizeof(INTERFACE_INFO);
+
+	std::ostringstream os;
+	if(status == SOCKET_ERROR) {
+		os << "SocketInterface::gniWinProbe()\n");
+		os << getErrorMessage() << std::endl;
+		// don't throw yet until socket is closed
+	}
+
+	try { close(); }
+	catch(std::runtime_error e) {
+		os << e.what() << std::endl;
+		throw std::runtime_error(os.str());
+	}
+	if(status == SOCKET_ERROR) throw std::runtime_error(os.str());
+#else
+	UNUSED(info);
+	UNUSED(infoLength);
+	UNUSED(length);
+#endif
+}
+
+
+std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Nix() {
+	std::vector<NetInterface> list;
+
+#ifndef _MSC_VER
+
+#endif
+
+	return list;
 }
