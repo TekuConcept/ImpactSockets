@@ -482,23 +482,25 @@ int SocketInterface::poll(SocketPollTable& token, int timeout) {
 
 
 std::vector<NetInterface> SocketInterface::getNetworkInterfaces() {
-#if defined(_MSC_VER)
-	return getNetworkInterfaces_Win();
-#else /* OSX|LINUX */
-	return getNetworkInterfaces_Nix();
-#endif
+	CATCH_ASSERT(
+		"SocketInterface::getNetworkInterfaces()\n",
+	#if defined(_MSC_VER)
+		return getNetworkInterfaces_Win();
+	#else /* OSX|LINUX */
+		return getNetworkInterfaces_Nix();	
+	#endif
+	);
 }
 
 
 std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 	std::vector<NetInterface> list;
-
 #if defined(_MSC_VER)
 	INTERFACE_INFO info[64];
 	int length = 0;
 
 	CATCH_ASSERT(
-		"SocketInterface::getNetworkInterfaces()\n",
+		"SocketInterface::getNetworkInterfaces_Win()\n",
 		gniWinNetProbe((void*)&info, sizeof(info), length);
 	);
 
