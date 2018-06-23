@@ -11,6 +11,7 @@
 #include <exception>         // For exception class
 #include <vector>
 #include <map>
+#include <locale>
 
 #include "SocketHandle.h"
 #include "SocketPollTable.h"
@@ -43,18 +44,25 @@ namespace Impact {
 		// type
 		// hardware address
 		bool ipv4;
+		NetInterface();
 	} NetInterface;
 
 	
 	class SocketInterface {
 		SocketInterface(); // static-only class
 
+		static std::string toNarrowString(
+			const wchar_t* original, char unknown = '?',
+			const std::locale& env = std::locale());
 		static std::string getErrorMessage();
 		static std::string getHostErrorMessage();
+		static std::string getWinErrorMessage(unsigned long);
 		static std::string sockAddr2String(const struct sockaddr*);
 		static void fillAddress(const std::string&, unsigned short port,
 			sockaddr_in&);
 		static std::vector<NetInterface> getNetworkInterfaces_Win();
+		static void gniWinLinkTraverse(std::vector<NetInterface>&,
+			void*);
 		static void gniWinNetProbe(void*, int, int&);
 		static std::vector<NetInterface> getNetworkInterfaces_Nix();
 		static void gniNixLinkTraverse(std::vector<NetInterface>&,

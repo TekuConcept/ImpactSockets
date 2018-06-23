@@ -17,6 +17,7 @@
 	#pragma pop_macro("ERROR")  // pushed in SocketTypes.h
 	#include <ws2tcpip.h>
  	#include <mstcpip.h>		// struct tcp_keepalive
+	#include <iphlpapi.h>
 #else
 	#include <sys/socket.h>		// For socket(), connect(), send(), and recv()
 	#include <netdb.h>			// For gethostbyname()
@@ -39,6 +40,7 @@
 	#pragma comment (lib, "Ws2_32.lib")
 	#pragma comment (lib, "Mswsock.lib")
 	#pragma comment (lib, "AdvApi32.lib")
+	#pragma comment(lib, "IPHLPAPI.lib")
 #else
 	#define CLOSE_SOCKET(x) ::close(x)
 	#define SOC_POLL ::poll
@@ -66,6 +68,14 @@
  		throw std::runtime_error(message);\
  	}
 
+#define WIN_ASSERT(title,cond,error,fin)\
+	if(cond) {\
+		fin\
+		std::string message( title );\
+		message.append(getWinErrorMessage( error ));\
+		throw std::runtime_error(message);\
+	}
+
 
 using namespace Impact;
 
@@ -76,7 +86,21 @@ KeepAliveOptions::KeepAliveOptions() :
 	interval(1000), retries(5) {}
 
 
+NetInterface::NetInterface() :
+	flags(0), name(""), address(""),
+	netmask(""), broadcast(""), ipv4(false) {}
+
+
 SocketInterface::SocketInterface() {}
+
+
+std::string SocketInterface::toNarrowString(
+	const wchar_t* original, char unknown, const std::locale& env) {
+	std::ostringstream os;
+	while (*original != L'\0')
+		os << std::use_facet< std::ctype<wchar_t> >(env).narrow(*original++, unknown);
+	return os.str();
+}
 
 
 std::string SocketInterface::getErrorMessage() {
@@ -118,6 +142,36 @@ std::string SocketInterface::getHostErrorMessage() {
 }
 
 
+std::string SocketInterface::getWinErrorMessage(unsigned long code) {
+	switch (code) {
+	case WSASYSNOTREADY:				return "The underlying network subsystem is not ready for network communication.";
+	case WSAVERNOTSUPPORTED:			return "The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation.";
+	case WSAEINPROGRESS:				return "A blocking Windows Sockets 1.1 operation is in progress.";
+	case WSAEPROCLIM:					return "A limit on the number of tasks supported by the Windows Sockets implementation has been reached.";
+	case WSAEFAULT:						return "The lpWSAData parameter is not a valid pointer.";
+	case ERROR_ADDRESS_NOT_ASSOCIATED:	return "An address has not yet been associated with the network endpoint.DHCP lease information was available.";
+	case ERROR_BUFFER_OVERFLOW:			return "The buffer size indicated by the SizePointer parameter is too small to hold the adapter information or the AdapterAddresses parameter is NULL.The SizePointer parameter returned points to the required size of the buffer to hold the adapter information.";
+	case ERROR_INVALID_PARAMETER:		return "One of the parameters is invalid.This error is returned for any of the following conditions : the SizePointer parameter is NULL, the Address parameter is not AF_INET, AF_INET6, or AF_UNSPEC, or the address information for the parameters requested is greater than ULONG_MAX.";
+	case ERROR_NOT_ENOUGH_MEMORY:		return "Insufficient memory resources are available to complete the operation.";
+	case ERROR_NO_DATA:					return "No addresses were found for the requested parameters.";
+	default:
+#if defined(_MSC_VER)
+		std::string data(128, '\0');
+		auto status = FormatMessage(
+			FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, code,
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			&data[0], 128, NULL
+		);
+		if (status == 0) return "[No Error Message Available]";
+		else return data;
+#else
+		return "";
+#endif
+	}
+}
+
+
 std::string SocketInterface::sockAddr2String(const struct sockaddr* address) {
 	if(!address) return "";
 	switch(address->sa_family) {
@@ -148,13 +202,7 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 #if defined(_MSC_VER)
 	static WSADATA wsaData;
 	auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	switch(status) {
-	case WSASYSNOTREADY:		throw std::runtime_error("The underlying network subsystem is not ready for network communication.");
-	case WSAVERNOTSUPPORTED:	throw std::runtime_error("The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation.");
-	case WSAEINPROGRESS:		throw std::runtime_error("A blocking Windows Sockets 1.1 operation is in progress.");
-	case WSAEPROCLIM:			throw std::runtime_error("A limit on the number of tasks supported by the Windows Sockets implementation has been reached.");
-	case WSAEFAULT:				throw std::runtime_error("The lpWSAData parameter is not a valid pointer."); /* unlikely to ever be thrown */
-	}
+	WIN_ASSERT("SocketInterface::create()\n", status != 0, status, (void)0;);
 #endif
 	SocketHandle handle;
 	handle.descriptor = ::socket((int)domain, (int)socketType, (int)protocol);
@@ -530,7 +578,28 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces() {
 std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 	std::vector<NetInterface> list;
 #if defined(_MSC_VER)
-	INTERFACE_INFO info[64];
+	DWORD size;
+	PIP_ADAPTER_ADDRESSES adapterAddresses;
+
+	auto status = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, NULL, NULL, &size);
+	WIN_ASSERT(
+		"SocketInterface::getNetworkInterfaces_Win()\n",
+		status != ERROR_BUFFER_OVERFLOW, status,
+		(void)0;
+	);
+
+	adapterAddresses = (PIP_ADAPTER_ADDRESSES)malloc(size);
+	status = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, NULL, adapterAddresses, &size);
+	WIN_ASSERT(
+		"SocketInterface::getNetworkInterfaces_Win()\n",
+		status != ERROR_SUCCESS, status,
+		free(adapterAddresses);
+	);
+
+	gniWinLinkTraverse(list, (void*)adapterAddresses);
+	free(adapterAddresses);
+
+	/*INTERFACE_INFO info[64];
 	int length = 0;
 
 	CATCH_ASSERT(
@@ -563,10 +632,31 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 
 		token.ipv4      = address.sin_family == AF_INET;
 		list.push_back(token);
-	}
+	}*/
 #endif
 
 	return list;
+}
+
+
+void SocketInterface::gniWinLinkTraverse(
+	std::vector<NetInterface>& list, void* adapters) {
+#if defined(_MSC_VER)
+	for (PIP_ADAPTER_ADDRESSES adapter = (PIP_ADAPTER_ADDRESSES)adapters;
+		adapter != NULL; adapter = adapter->Next) {
+		NetInterface token;
+		token.name  = toNarrowString(adapter->FriendlyName);
+		token.flags = (unsigned int)adapter->Flags;
+		for (PIP_ADAPTER_UNICAST_ADDRESS address = adapter->FirstUnicastAddress;
+			address != NULL; address = address->Next) {
+			// todo
+		}
+		list.push_back(token);
+	}
+#else
+	UNUSED(list);
+	UNUSED(adapters);
+#endif
 }
 
 
@@ -630,10 +720,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Nix() {
 void SocketInterface::gniNixLinkTraverse(
 	std::vector<NetInterface>& list, struct ifaddrs* addresses) {
 #ifndef _MSC_VER
-	UNUSED(list);
-	auto target = addresses;
-
-	while(target) {
+	for(auto target = addresses; target != NULL; target = target->ifa_next) {
 		NetInterface token;
 
 		token.flags     = target->ifa_flags;
@@ -642,7 +729,6 @@ void SocketInterface::gniNixLinkTraverse(
 		token.broadcast = sockAddr2String(target->ifa_broadaddr);
 
 		list.push_back(token);
-		target = target->ifa_next;
 	}
 #else
 	UNUSED(list);
