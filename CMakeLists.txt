@@ -31,7 +31,7 @@ else()
 	set(BUILD_FLAGS -DSTATIC)
 endif()
 
-set(LIBRARY_NAME ImpactSockets)
+set(IMPACT_SOCKETS ImpactSockets)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 #                     PROJECT MODULES                     #
@@ -42,19 +42,27 @@ include_directories(
   ${SOCKETS_INCLUDE_DIR}
 )
 file(GLOB_RECURSE SOURCE_FILES "${SOCKETS_PATH}/Source/*.cpp")
-add_library(${LIBRARY_NAME} ${BUILD_MODE} ${SOURCE_FILES})
-target_compile_definitions(${LIBRARY_NAME} PUBLIC ${BUILD_FLAGS})
+add_library(${IMPACT_SOCKETS} ${BUILD_MODE} ${SOURCE_FILES})
+target_compile_definitions(${IMPACT_SOCKETS} PUBLIC ${BUILD_FLAGS})
 
 set(DEMO_TCP_CLIENT DemoTCPClient)
 add_executable(${DEMO_TCP_CLIENT} "${EXAMPLES_PATH}/${DEMO_TCP_CLIENT}.cpp")
-target_link_libraries(${DEMO_TCP_CLIENT} ${LIBRARY_NAME})
+target_link_libraries(${DEMO_TCP_CLIENT} ${IMPACT_SOCKETS})
 
 set(DEMO_TCP_SERVER DemoTCPServer)
 add_executable(${DEMO_TCP_SERVER} "${EXAMPLES_PATH}/${DEMO_TCP_SERVER}.cpp")
-target_link_libraries(${DEMO_TCP_SERVER} ${LIBRARY_NAME})
+target_link_libraries(${DEMO_TCP_SERVER} ${IMPACT_SOCKETS})
+
+set(DISCOVERY Discovery)
+add_executable(${DISCOVERY} "${EXAMPLES_PATH}/${DISCOVERY}.cpp")
+target_link_libraries(${DISCOVERY} ${IMPACT_SOCKETS})
 
 install(
-  TARGETS ${LIBRARY_NAME} ${DEMO_TCP_CLIENT} ${DEMO_TCP_SERVER}
+  TARGETS
+  ${IMPACT_SOCKETS}
+  ${DEMO_TCP_CLIENT}
+  ${DEMO_TCP_SERVER}
+  ${DISCOVERY}
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
