@@ -10,6 +10,7 @@
 #include <cstring>           // For strerror, atoi, and memset
 #include <exception>         // For exception class
 #include <vector>
+#include <map>
 
 #include "SocketHandle.h"
 #include "SocketPollTable.h"
@@ -19,6 +20,7 @@
 #else
 	#include <sys/poll.h>    // For struct pollfd, poll()
 	#include <netinet/in.h>  // For sockaddr_in
+ 	#include <ifaddrs.h>     // getifaddrs(), freeifaddrs()
 #endif
 
 namespace Impact {
@@ -37,6 +39,8 @@ namespace Impact {
 		std::string address;
 		std::string netmask;
 		std::string broadcast;
+		// name
+		// hardware address
 		bool ipv4;
 	} NetInterface;
 
@@ -46,11 +50,14 @@ namespace Impact {
 
 		static std::string getErrorMessage();
 		static std::string getHostErrorMessage();
+		static std::string sockAddr2String(const struct sockaddr*);
 		static void fillAddress(const std::string&, unsigned short port,
 			sockaddr_in&);
 		static std::vector<NetInterface> getNetworkInterfaces_Win();
 		static void gniWinNetProbe(void*, int, int&);
 		static std::vector<NetInterface> getNetworkInterfaces_Nix();
+		static void gniNixLinkTraverse(std::vector<NetInterface>&,
+			struct ::ifaddrs*);
 
 	public:
 		/*                    *\

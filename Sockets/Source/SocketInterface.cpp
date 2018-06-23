@@ -21,6 +21,8 @@
 	#include <unistd.h>			// For close()
  	#include <netinet/tcp.h>	// For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
  								// TCP_KEEPIDLE
+    // #include <sys/ioctl.h>      // For ioctl()
+    // #include <net/if.h>         // For ifconf
 #endif
 
 #if defined(_MSC_VER)
@@ -28,6 +30,9 @@
 	#define SOC_POLL WSAPoll
 	#define CCHAR_PTR const char*
 	#define CHAR_PTR char*
+
+ 	#define INET_ADDRSTRLEN  16
+ 	#define INET6_ADDRSTRLEN 46
 
 	#pragma warning(disable:4996)
 	#pragma comment (lib, "Ws2_32.lib")
@@ -109,6 +114,30 @@ std::string SocketInterface::getHostErrorMessage() {
 	}
 	return os.str();
 #endif
+}
+
+
+std::string SocketInterface::sockAddr2String(const struct sockaddr* address) {
+	if(!address) return "";
+	switch(address->sa_family) {
+		case AF_INET: {
+			char buffer[INET_ADDRSTRLEN];
+			struct sockaddr_in* socketAddress = (struct sockaddr_in*)address;
+			auto result = inet_ntop(AF_INET, &socketAddress->sin_addr,
+				buffer, INET_ADDRSTRLEN);
+			if(result == NULL) return "";
+			else return std::string(result);
+		}
+		case AF_INET6: {
+			char buffer[INET_ADDRSTRLEN];
+			struct sockaddr_in6* socketAddress = (struct sockaddr_in6*)address;
+			auto result = inet_ntop(AF_INET6, &socketAddress->sin6_addr,
+				buffer, INET6_ADDRSTRLEN);
+			if(result == NULL) return "";
+			else return std::string(result);
+		}
+		default: return "";
+	};
 }
 
 
@@ -580,10 +609,37 @@ void SocketInterface::gniWinNetProbe(void* info, int infoLength, int& length) {
 
 std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Nix() {
 	std::vector<NetInterface> list;
-
 #ifndef _MSC_VER
+	struct ::ifaddrs* addresses;
+	auto status = ::getifaddrs(&addresses);
 
+	ASSERT("SocketInterface::getNetworkInterfaces_Nix()\n", status == -1);
+
+	gniNixLinkTraverse(list, addresses);
+	freeifaddrs(addresses);
 #endif
-
 	return list;
+}
+
+
+void SocketInterface::gniNixLinkTraverse(
+	std::vector<NetInterface>& list, struct ::ifaddrs* addresses) {
+#ifndef _MSC_VER
+	auto target = addresses;
+
+	while(target) {
+		NetInterface token;
+
+		token.flags     = target->ifa_flags;
+		token.address   = sockAddr2String(target->ifa_addr);
+		token.netmask   = sockAddr2String(target->ifa_netmask);
+		token.broadcast = sockAddr2String(target->ifa_broadaddr);
+
+		list.push_back(token);
+		target = target->ifa_next;
+	}
+#else
+	UNUSED(list);
+	UNUSED(addresses);
+#endif
 }
