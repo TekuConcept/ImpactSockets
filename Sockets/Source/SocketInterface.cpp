@@ -542,7 +542,7 @@ void SocketInterface::gniWinNetProbe(void* info, int infoLength, int& length) {
 	SocketHandle handle;
 
 	CATCH_ASSERT(
-		"SocketInterface::gniWinProbe()\n",
+		"SocketInterface::gniWinNetProbe()\n",
 		handle = create(SocketDomain::INET, SocketType::DATAGRAM,
 			SocketProtocol::DEFAULT);
 	);
@@ -559,7 +559,7 @@ void SocketInterface::gniWinNetProbe(void* info, int infoLength, int& length) {
 
 	std::ostringstream os;
 	if(status == SOCKET_ERROR) {
-		os << "SocketInterface::gniWinProbe()\n");
+		os << "SocketInterface::gniWinNetProbe()\n");
 		os << getErrorMessage() << std::endl;
 		// don't throw yet until socket is closed
 	}
