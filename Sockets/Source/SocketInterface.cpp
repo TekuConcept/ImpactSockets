@@ -664,6 +664,7 @@ void SocketInterface::gniWinAdapterTraverse(
 		NetInterface token;
 		token.name  = toNarrowString(adapter->FriendlyName);
 		token.flags = (unsigned int)adapter->Flags;
+		token.type = gniWinGetInterfaceType(adapter->IfType);
 		gniWinUnicastTraverse(token, adapter->FirstUnicastAddress);
 		list.push_back(token);
 	}
@@ -705,6 +706,22 @@ void SocketInterface::gniWinUnicastTraverse(NetInterface& token, void* addresses
 #else
 	UNUSED(token);
 	UNUSED(addresses);
+#endif
+}
+
+
+InterfaceType SocketInterface::gniWinGetInterfaceType(unsigned int code) {
+#if defined(_MSC_VER)
+	switch (code) {
+	case IF_TYPE_ETHERNET_CSMACD:	return InterfaceType::ETHERNET;
+	case IF_TYPE_IEEE80211:			return InterfaceType::WIFI;
+	case IF_TYPE_IEEE1394:			return InterfaceType::FIREWIRE;
+	case IF_TYPE_PPP:				return InterfaceType::PPP;
+	default:						return InterfaceType::OTHER;
+	}
+#else
+	UNUSED(code);
+	return InterfaceType::OTHER;
 #endif
 }
 

@@ -14,6 +14,20 @@ int main() {
 		VERBOSE("Broadcast: " << iface.broadcast);
 		VERBOSE("Flags:     " << iface.flags);
 		VERBOSE("IPv4:      " << (iface.ipv4?"true":"false"));
+
+		switch (iface.type) {
+		case Impact::InterfaceType::OTHER:
+			VERBOSE("Type:      Other"); break;
+		case Impact::InterfaceType::ETHERNET:
+			VERBOSE("Type:      Ethernet"); break;
+		case Impact::InterfaceType::WIFI:
+			VERBOSE("Type:      WiFi"); break;
+		case Impact::InterfaceType::FIREWIRE:
+			VERBOSE("Type:      Firewire");  break;
+		case Impact::InterfaceType::PPP:
+			VERBOSE("Type:      Point-to-Point Protocol");  break;
+		}
+
 		std::cout << std::endl;
 	}
 

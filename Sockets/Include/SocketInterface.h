@@ -15,6 +15,7 @@
 
 #include "SocketHandle.h"
 #include "SocketPollTable.h"
+#include "NetworkTypes.h"
 
 #if defined(_MSC_VER)
 	#include <winsock2.h>
@@ -41,8 +42,7 @@ namespace Impact {
 		std::string address;
 		std::string netmask;
 		std::string broadcast;
-		// type
-		// hardware address
+		InterfaceType type;
 		bool ipv4;
 		NetInterface();
 	} NetInterface;
@@ -63,7 +63,7 @@ namespace Impact {
 		static std::vector<NetInterface> getNetworkInterfaces_Win();
 		static void gniWinAdapterTraverse(std::vector<NetInterface>&,void*);
 		static void gniWinUnicastTraverse(NetInterface&,void*);
-		static void gniWinNetProbe(void*, int, int&);
+		static InterfaceType gniWinGetInterfaceType(unsigned int);
 		static std::vector<NetInterface> getNetworkInterfaces_Nix();
 		static void gniNixLinkTraverse(std::vector<NetInterface>&,
 			struct ifaddrs*);
