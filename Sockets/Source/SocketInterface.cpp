@@ -76,6 +76,9 @@
 		throw std::runtime_error(message);\
 	}
 
+#include <iostream>
+#include <iomanip>
+#define VERBOSE(x) std::cout << x << std::endl
 
 using namespace Impact;
 
@@ -578,25 +581,39 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces() {
 std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 	std::vector<NetInterface> list;
 #if defined(_MSC_VER)
-	DWORD size;
+	const auto MAX_RETRY = 3;
+	DWORD status;
+	DWORD size = 15000;
 	PIP_ADAPTER_ADDRESSES adapterAddresses;
+	auto flags = GAA_FLAG_INCLUDE_PREFIX |
+				 GAA_FLAG_SKIP_ANYCAST   |
+				 GAA_FLAG_SKIP_MULTICAST |
+				 GAA_FLAG_SKIP_DNS_SERVER;
 
-	auto status = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, NULL, NULL, &size);
-	WIN_ASSERT(
-		"SocketInterface::getNetworkInterfaces_Win()\n",
-		status != ERROR_BUFFER_OVERFLOW, status,
-		(void)0;
-	);
+	auto retries = 0;
+	do {
+		adapterAddresses = (PIP_ADAPTER_ADDRESSES)malloc(size);
+		if (adapterAddresses == NULL) {
+			throw std::runtime_error(
+				"SocketInterface::getNetworkInterfaces_Win()\n"
+				"Memory allocation failed.");
+		}
+		status = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, adapterAddresses, &size);
+		if (status == ERROR_BUFFER_OVERFLOW) {
+			free(adapterAddresses);
+			adapterAddresses = NULL;
+			retries++;
+		}
+		else break;
+	} while ((status == ERROR_BUFFER_OVERFLOW) && (retries < MAX_RETRY));
+	
+	if (retries >= MAX_RETRY) {
+		throw std::runtime_error(
+			"SocketInterface::getNetworkInterfaces_Win()\n"
+			"Failed to identify buffer size for Adapter Addresses.");
+	}
 
-	adapterAddresses = (PIP_ADAPTER_ADDRESSES)malloc(size);
-	status = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, NULL, adapterAddresses, &size);
-	WIN_ASSERT(
-		"SocketInterface::getNetworkInterfaces_Win()\n",
-		status != ERROR_SUCCESS, status,
-		free(adapterAddresses);
-	);
-
-	gniWinLinkTraverse(list, (void*)adapterAddresses);
+	gniWinAdapterTraverse(list, (void*)adapterAddresses);
 	free(adapterAddresses);
 
 	/*INTERFACE_INFO info[64];
@@ -639,7 +656,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 }
 
 
-void SocketInterface::gniWinLinkTraverse(
+void SocketInterface::gniWinAdapterTraverse(
 	std::vector<NetInterface>& list, void* adapters) {
 #if defined(_MSC_VER)
 	for (PIP_ADAPTER_ADDRESSES adapter = (PIP_ADAPTER_ADDRESSES)adapters;
@@ -647,10 +664,7 @@ void SocketInterface::gniWinLinkTraverse(
 		NetInterface token;
 		token.name  = toNarrowString(adapter->FriendlyName);
 		token.flags = (unsigned int)adapter->Flags;
-		for (PIP_ADAPTER_UNICAST_ADDRESS address = adapter->FirstUnicastAddress;
-			address != NULL; address = address->Next) {
-			// todo
-		}
+		gniWinUnicastTraverse(token, adapter->FirstUnicastAddress);
 		list.push_back(token);
 	}
 #else
@@ -660,44 +674,37 @@ void SocketInterface::gniWinLinkTraverse(
 }
 
 
-void SocketInterface::gniWinNetProbe(void* info, int infoLength, int& length) {
+void SocketInterface::gniWinUnicastTraverse(NetInterface& token, void* addresses) {
 #if defined(_MSC_VER)
-	DWORD bytesReturned;
-	SocketHandle handle;
+	for (PIP_ADAPTER_UNICAST_ADDRESS address = (PIP_ADAPTER_UNICAST_ADDRESS)addresses;
+		address != NULL && !token.ipv4; address = address->Next) {
+		
+		auto socketAddress = address->Address.lpSockaddr;
+		if (socketAddress->sa_family == AF_INET) {
+			token.ipv4 = true;
+			token.address = sockAddr2String(socketAddress);
 
-	CATCH_ASSERT(
-		"SocketInterface::gniWinNetProbe()\n",
-		handle = create(SocketDomain::INET, SocketType::DATAGRAM,
-			SocketProtocol::DEFAULT);
-	);
+			struct sockaddr_in mask;
+			mask.sin_family = socketAddress->sa_family;
+			ConvertLengthToIpv4Mask(
+				address->OnLinkPrefixLength,
+				(PULONG)&mask.sin_addr
+			);
+			token.netmask = sockAddr2String((struct sockaddr*)&mask);
 
-	auto status = WSAIoctl(
-		handle.descriptor,
-		SIO_GET_INTERFACE_LIST,
-		NULL, NULL,
-		info, infoLength,
-		&bytesReturned,
-		NULL, NULL
-	);
-	length = bytesReturned / sizeof(INTERFACE_INFO);
-
-	std::ostringstream os;
-	if(status == SOCKET_ERROR) {
-		os << "SocketInterface::gniWinNetProbe()\n";
-		os << getErrorMessage() << std::endl;
-		// don't throw yet until socket is closed
+			struct sockaddr_in broadcast;
+			broadcast.sin_family = socketAddress->sa_family;
+			unsigned long A = *(unsigned long*)&mask.sin_addr;
+			unsigned long B = *(unsigned long*)&(
+				(struct sockaddr_in*)socketAddress)->sin_addr;
+			unsigned long C = (A&B | ~A);
+			broadcast.sin_addr = *(struct in_addr*)&C;
+			token.broadcast = sockAddr2String((struct sockaddr*)&broadcast);
+		}
 	}
-
-	try { close(handle); }
-	catch(std::runtime_error e) {
-		os << e.what() << std::endl;
-		throw std::runtime_error(os.str());
-	}
-	if(status == SOCKET_ERROR) throw std::runtime_error(os.str());
 #else
-	UNUSED(info);
-	UNUSED(infoLength);
-	UNUSED(length);
+	UNUSED(token);
+	UNUSED(addresses);
 #endif
 }
 

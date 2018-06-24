@@ -13,6 +13,7 @@ int main() {
 		VERBOSE("Netmask:   " << iface.netmask);
 		VERBOSE("Broadcast: " << iface.broadcast);
 		VERBOSE("Flags:     " << iface.flags);
+		VERBOSE("IPv4:      " << (iface.ipv4?"true":"false"));
 		std::cout << std::endl;
 	}
 

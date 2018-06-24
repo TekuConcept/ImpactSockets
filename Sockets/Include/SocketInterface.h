@@ -61,8 +61,8 @@ namespace Impact {
 		static void fillAddress(const std::string&, unsigned short port,
 			sockaddr_in&);
 		static std::vector<NetInterface> getNetworkInterfaces_Win();
-		static void gniWinLinkTraverse(std::vector<NetInterface>&,
-			void*);
+		static void gniWinAdapterTraverse(std::vector<NetInterface>&,void*);
+		static void gniWinUnicastTraverse(NetInterface&,void*);
 		static void gniWinNetProbe(void*, int, int&);
 		static std::vector<NetInterface> getNetworkInterfaces_Nix();
 		static void gniNixLinkTraverse(std::vector<NetInterface>&,
