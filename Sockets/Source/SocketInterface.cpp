@@ -90,8 +90,8 @@ KeepAliveOptions::KeepAliveOptions() :
 
 
 NetInterface::NetInterface() :
-	flags(0), name(""), address(""),
-	netmask(""), broadcast(""), ipv4(false) {}
+	flags(0), name(""), address(""), netmask(""),
+	broadcast(""), type(InterfaceType::OTHER), ipv4(false) {}
 
 
 SocketInterface::SocketInterface() {}
@@ -146,6 +146,7 @@ std::string SocketInterface::getHostErrorMessage() {
 
 
 std::string SocketInterface::getWinErrorMessage(unsigned long code) {
+#if defined(_MSC_VER)
 	switch (code) {
 	case WSASYSNOTREADY:				return "The underlying network subsystem is not ready for network communication.";
 	case WSAVERNOTSUPPORTED:			return "The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation.";
@@ -158,7 +159,6 @@ std::string SocketInterface::getWinErrorMessage(unsigned long code) {
 	case ERROR_NOT_ENOUGH_MEMORY:		return "Insufficient memory resources are available to complete the operation.";
 	case ERROR_NO_DATA:					return "No addresses were found for the requested parameters.";
 	default:
-#if defined(_MSC_VER)
 		std::string data(128, '\0');
 		auto status = FormatMessage(
 			FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -168,10 +168,11 @@ std::string SocketInterface::getWinErrorMessage(unsigned long code) {
 		);
 		if (status == 0) return "[No Error Message Available]";
 		else return data;
-#else
-		return "";
-#endif
 	}
+#else
+	UNUSED(code);
+	return "";
+#endif
 }
 
 
@@ -748,9 +749,12 @@ void SocketInterface::gniNixLinkTraverse(
 		NetInterface token;
 
 		token.flags     = target->ifa_flags;
+		token.name      = std::string(target->ifa_name);
 		token.address   = sockAddr2String(target->ifa_addr);
 		token.netmask   = sockAddr2String(target->ifa_netmask);
 		token.broadcast = sockAddr2String(target->ifa_broadaddr);
+		// type
+		token.ipv4      = target->ifa_addr->sa_family == AF_INET;
 
 		list.push_back(token);
 	}
