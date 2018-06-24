@@ -25,8 +25,12 @@
 	#include <unistd.h>			// For close()
  	#include <netinet/tcp.h>	// For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
  								// TCP_KEEPIDLE
-    // #include <sys/ioctl.h>      // For ioctl()
-    // #include <net/if.h>         // For ifconf
+    #include <sys/ioctl.h>      // For ioctl()
+    #include <net/if.h>         // For ifconf
+#endif
+
+#if defined(__linux__)
+	#include <net/if_arp.h>
 #endif
 
 #if defined(_MSC_VER)
@@ -735,7 +739,10 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Nix() {
 
 	ASSERT("SocketInterface::getNetworkInterfaces_Nix()\n", status == -1);
 
-	gniNixLinkTraverse(list, addresses);
+	CATCH_ASSERT(
+		"SocketInterface::getNetworkInterfaces_Nix()\n",
+		gniNixLinkTraverse(list, addresses);
+	);
 	freeifaddrs(addresses);
 #endif
 	return list;
@@ -753,13 +760,110 @@ void SocketInterface::gniNixLinkTraverse(
 		token.address   = sockAddr2String(target->ifa_addr);
 		token.netmask   = sockAddr2String(target->ifa_netmask);
 		token.broadcast = sockAddr2String(target->ifa_broadaddr);
-		// type
 		token.ipv4      = target->ifa_addr->sa_family == AF_INET;
+
+		switch(target->ifa_addr->sa_family) {
+		case AF_INET: {
+			CATCH_ASSERT(
+				"SocketInterface::gniNixLinkTraverse()\n",
+				token.type = gniNixGetInterfaceType(
+					SocketDomain::INET, token.name);
+			);
+			break;
+		}
+		case AF_INET6: {
+			CATCH_ASSERT(
+				"SocketInterface::gniNixGetInterfaceType()\n",
+				token.type = gniNixGetInterfaceType(
+					SocketDomain::INET6, token.name);
+			);
+			break;
+		}
+		default: token.type = InterfaceType::OTHER;
+		}
 
 		list.push_back(token);
 	}
 #else
 	UNUSED(list);
 	UNUSED(addresses);
+#endif
+}
+
+
+InterfaceType SocketInterface::gniNixGetInterfaceType(SocketDomain domain,
+	const std::string& interfaceName) {
+#if !defined(_MSC_VER)
+	SocketHandle handle;
+	InterfaceType type;
+	CATCH_ASSERT(
+		"SocketInterface::gniNixGetInterfaceType(1)\n",
+		handle = create(domain, SocketType::DATAGRAM, SocketProtocol::DEFAULT);
+	);
+
+	struct ifreq request;
+	std::memcpy(
+		request.ifr_name,
+		(void*)&interfaceName[0],
+		interfaceName.length() + 1
+	);
+	auto status = ioctl(handle.descriptor, SIOCGIFHWADDR, &request);
+
+	std::ostringstream os;
+	if(status == -1) {
+		os << "SocketInterface::gniNixGetInterfaceType(2)\n";
+		os << getErrorMessage() << " " << interfaceName << std::endl;
+		try { close(handle); }
+		catch(std::runtime_error e) {
+			os << e.what();
+		}
+		throw std::runtime_error(os.str());
+	}
+
+	#if defined(__APPLE__)
+		type = gniOSXGetInterfaceType(request.ifr_hwaddr.sa_family);
+	#else
+		type = gniLinuxGetInterfaceType(request.ifr_hwaddr.sa_family);
+	#endif
+
+	CATCH_ASSERT(
+		"SocketInterface::gniNixGetInterfaceType(3)\n",
+		close(handle);
+	);
+	return type;
+#else
+	UNUSED(interfaceName);
+	return InterfaceType::OTHER;
+#endif
+}
+
+
+InterfaceType SocketInterface::gniLinuxGetInterfaceType(unsigned short family) {
+#if defined(__linux__)
+	switch(family) {
+	case ARPHRD_ETHER:
+	case ARPHRD_EETHER:				return InterfaceType::ETHERNET;
+	case ARPHRD_IEEE802:
+	case ARPHRD_IEEE802_TR:
+	case ARPHRD_IEEE80211:
+	case ARPHRD_IEEE80211_PRISM:
+	case ARPHRD_IEEE80211_RADIOTAP:	return InterfaceType::WIFI;
+	case ARPHRD_IEEE1394:			return InterfaceType::FIREWIRE;
+	case ARPHRD_PPP:				return InterfaceType::PPP;
+	default: return InterfaceType::OTHER;
+	}
+#else
+	UNUSED(family);
+	return InterfaceType::OTHER;
+#endif
+}
+
+
+InterfaceType SocketInterface::gniOSXGetInterfaceType(unsigned short family) {
+#if defined(__APPLE__)
+	// TODO
+#else
+	UNUSED(family);
+	return InterfaceType::OTHER;
 #endif
 }

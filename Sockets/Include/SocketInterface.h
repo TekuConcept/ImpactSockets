@@ -67,6 +67,10 @@ namespace Impact {
 		static std::vector<NetInterface> getNetworkInterfaces_Nix();
 		static void gniNixLinkTraverse(std::vector<NetInterface>&,
 			struct ifaddrs*);
+		static InterfaceType gniNixGetInterfaceType(SocketDomain,
+			const std::string&);
+		static InterfaceType gniLinuxGetInterfaceType(unsigned short);
+		static InterfaceType gniOSXGetInterfaceType(unsigned short);
 
 	public:
 		/*                    *\
