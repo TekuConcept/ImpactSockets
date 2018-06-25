@@ -28,6 +28,9 @@
 	#undef OUT
 	#pragma push_macro("ERROR")
 	#undef ERROR
+#elif defined(__clang__)
+  #pragma push_macro("EOF");
+  #undef EOF
 #endif
 
 #define ENUM_OPERATOR(T,U,O) \
@@ -60,7 +63,7 @@ namespace Impact {
 		UNSPECIFIED = AF_UNSPEC,   // Address is unspecified
 		INET        = AF_INET,     // IPv4 Internet protocols
 		INET6       = AF_INET6,    // IPv6 Internet protocols
-		
+
 		// !- PLATFORM-SPECIFIC DOMAINS -!
 	#if defined(_MSC_VER)
 		IRDA        = AF_IRDA,     // Infrared Data Association (IrDA)
@@ -438,5 +441,8 @@ namespace Impact {
 #undef ERROR
 }
 
+#if defined(__APPLE__)
+  #pragma pop_macro("EOF");
+#endif
 #undef ENUM_OPERATOR
 #endif

@@ -25,8 +25,12 @@
 	#include <unistd.h>			// For close()
  	#include <netinet/tcp.h>	// For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
  								// TCP_KEEPIDLE
-    #include <sys/ioctl.h>      // For ioctl()
-    #include <net/if.h>         // For ifconf
+  #include <sys/ioctl.h>      // For ioctl()
+  #include <net/if.h>         // For ifconf
+#if defined(__APPLE__)
+	#include <net/if_types.h>   // For IFT_XXX types
+	#include <net/if_dl.h>      // For sockaddr_dl
+#endif
 #endif
 
 #if defined(__linux__)
@@ -224,9 +228,9 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 
 void SocketInterface::close(SocketHandle& handle) {
 	auto status = CLOSE_SOCKET(handle.descriptor);
-	
+
 	ASSERT("SocketInterface::close()\n", status == SOCKET_ERROR);
-	
+
 	handle.descriptor = INVALID_SOCKET;
 #if defined(_MSC_VER)
 	WSACleanup();
@@ -276,7 +280,7 @@ void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 	const std::string& localAddress,
 	unsigned short localPort) {
 	sockaddr_in socketAddress;
-	
+
 	CATCH_ASSERT(
 		"SocketInterface::setLocalAddressAndPort()\n",
 		fillAddress(localAddress, localPort, socketAddress);
@@ -365,7 +369,7 @@ void SocketInterface::connect(const SocketHandle& handle,
 		"SocketInterface::connect()\n",
 		fillAddress(address, port, destinationAddress);
 	);
-	
+
 	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
 		sizeof(destinationAddress));
 
@@ -383,7 +387,7 @@ void SocketInterface::listen(const SocketHandle& handle, int backlog) {
 void SocketInterface::shutdown(const SocketHandle& handle,
 	SocketChannel channel) {
 	auto status = ::shutdown(handle.descriptor, (int)channel);
-	
+
 	ASSERT("SocketInterface::shutdown()\n", status == SOCKET_ERROR);
 }
 
@@ -452,7 +456,7 @@ int SocketInterface::recvfrom(const SocketHandle& handle, void* buffer,
 	socklen_t addressLength = sizeof(clientAddress);
 	auto status = ::recvfrom(handle.descriptor, (CHAR_PTR)buffer, length,
 		(int)flags, (sockaddr*)&clientAddress, (socklen_t*)&addressLength);
-	
+
 	ASSERT("SocketInterface::recvfrom()\n", status == SOCKET_ERROR);
 
 	address = inet_ntoa(clientAddress.sin_addr);
@@ -527,7 +531,7 @@ int SocketInterface::select(
 	struct timeval time_s;
 	time_s.tv_sec = (unsigned int)(0xFFFFFFFF&timeout);
 	time_s.tv_usec = microTimeout;
-	
+
 	fd_set readSet, writeSet;
 	unsigned int nfds = 0;
 
@@ -548,7 +552,7 @@ int SocketInterface::select(
 
 	auto status = ::select(nfds + 1, &readSet, &writeSet, NULL,
 		((timeout<0)?NULL:&time_s));
-	
+
 	ASSERT("SocketInterface::select()\n", status == SOCKET_ERROR);
 
 	return status;
@@ -611,7 +615,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 		}
 		else break;
 	} while ((status == ERROR_BUFFER_OVERFLOW) && (retries < MAX_RETRY));
-	
+
 	if (retries >= MAX_RETRY) {
 		throw std::runtime_error(
 			"SocketInterface::getNetworkInterfaces_Win()\n"
@@ -646,7 +650,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 			buffer, INET_ADDRSTRLEN);
 		if(result == NULL) { token.netmask = ""; }
 		else { token.netmask = std::string(result); }
-		
+
 		result = inet_ntop(broadcast.sin_family, &broadcast.sin_addr.s_addr,
 			buffer, INET_ADDRSTRLEN);
 		if(result == NULL) { token.broadcast = ""; }
@@ -684,7 +688,7 @@ void SocketInterface::gniWinUnicastTraverse(NetInterface& token, void* addresses
 #if defined(_MSC_VER)
 	for (PIP_ADAPTER_UNICAST_ADDRESS address = (PIP_ADAPTER_UNICAST_ADDRESS)addresses;
 		address != NULL && !token.ipv4; address = address->Next) {
-		
+
 		auto socketAddress = address->Address.lpSockaddr;
 		if (socketAddress->sa_family == AF_INET) {
 			token.ipv4 = true;
@@ -722,6 +726,7 @@ InterfaceType SocketInterface::gniWinGetInterfaceType(unsigned int code) {
 	case IF_TYPE_IEEE80211:			return InterfaceType::WIFI;
 	case IF_TYPE_IEEE1394:			return InterfaceType::FIREWIRE;
 	case IF_TYPE_PPP:				return InterfaceType::PPP;
+	case IF_TYPE_ATM:       return InterfaceType::ATM;
 	default:						return InterfaceType::OTHER;
 	}
 #else
@@ -752,6 +757,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Nix() {
 void SocketInterface::gniNixLinkTraverse(
 	std::vector<NetInterface>& list, struct ifaddrs* addresses) {
 #ifndef _MSC_VER
+	// WARNING: ifa_addr may be NULL
 	for(auto target = addresses; target != NULL; target = target->ifa_next) {
 		NetInterface token;
 
@@ -760,27 +766,34 @@ void SocketInterface::gniNixLinkTraverse(
 		token.address   = sockAddr2String(target->ifa_addr);
 		token.netmask   = sockAddr2String(target->ifa_netmask);
 		token.broadcast = sockAddr2String(target->ifa_broadaddr);
-		token.ipv4      = target->ifa_addr->sa_family == AF_INET;
+		token.ipv4      = (target->ifa_addr!=NULL)?
+				(target->ifa_addr->sa_family == AF_INET):false;
 
+#if defined(__APPLE__)
+		if(target->ifa_addr != NULL) {
+				struct sockaddr_dl* sdl = (struct sockaddr_dl*)target->ifa_addr;
+				token.type = gniOSXGetInterfaceType(sdl->sdl_type);
+		}
+		else token.type = InterfaceType::OTHER;
+#else
 		switch(target->ifa_addr->sa_family) {
 		case AF_INET: {
 			CATCH_ASSERT(
 				"SocketInterface::gniNixLinkTraverse()\n",
-				token.type = gniNixGetInterfaceType(
-					SocketDomain::INET, token.name);
+				token.type = gniLinuxGetInterfaceType(SocketDomain::INET, token.name);
 			);
 			break;
 		}
 		case AF_INET6: {
 			CATCH_ASSERT(
 				"SocketInterface::gniNixGetInterfaceType()\n",
-				token.type = gniNixGetInterfaceType(
-					SocketDomain::INET6, token.name);
+				token.type = gniLinuxGetInterfaceType(SocketDomain::INET6, token.name);
 			);
 			break;
 		}
 		default: token.type = InterfaceType::OTHER;
 		}
+#endif
 
 		list.push_back(token);
 	}
@@ -791,9 +804,9 @@ void SocketInterface::gniNixLinkTraverse(
 }
 
 
-InterfaceType SocketInterface::gniNixGetInterfaceType(SocketDomain domain,
+InterfaceType SocketInterface::gniLinuxGetInterfaceType(SocketDomain domain,
 	const std::string& interfaceName) {
-#if !defined(_MSC_VER)
+#if defined(__linux__)
 	SocketHandle handle;
 	InterfaceType type;
 	CATCH_ASSERT(
@@ -814,17 +827,11 @@ InterfaceType SocketInterface::gniNixGetInterfaceType(SocketDomain domain,
 		os << "SocketInterface::gniNixGetInterfaceType(2)\n";
 		os << getErrorMessage() << " " << interfaceName << std::endl;
 		try { close(handle); }
-		catch(std::runtime_error e) {
-			os << e.what();
-		}
+		catch(std::runtime_error e) { os << e.what(); }
 		throw std::runtime_error(os.str());
 	}
 
-	#if defined(__APPLE__)
-		type = gniOSXGetInterfaceType(request.ifr_hwaddr.sa_family);
-	#else
-		type = gniLinuxGetInterfaceType(request.ifr_hwaddr.sa_family);
-	#endif
+	type = gniLinuxGetInterfaceType(request.ifr_hwaddr.sa_family);
 
 	CATCH_ASSERT(
 		"SocketInterface::gniNixGetInterfaceType(3)\n",
@@ -832,6 +839,7 @@ InterfaceType SocketInterface::gniNixGetInterfaceType(SocketDomain domain,
 	);
 	return type;
 #else
+	UNUSED(domain);
 	UNUSED(interfaceName);
 	return InterfaceType::OTHER;
 #endif
@@ -842,15 +850,16 @@ InterfaceType SocketInterface::gniLinuxGetInterfaceType(unsigned short family) {
 #if defined(__linux__)
 	switch(family) {
 	case ARPHRD_ETHER:
-	case ARPHRD_EETHER:				return InterfaceType::ETHERNET;
+	case ARPHRD_EETHER:             return InterfaceType::ETHERNET;
 	case ARPHRD_IEEE802:
 	case ARPHRD_IEEE802_TR:
 	case ARPHRD_IEEE80211:
 	case ARPHRD_IEEE80211_PRISM:
-	case ARPHRD_IEEE80211_RADIOTAP:	return InterfaceType::WIFI;
-	case ARPHRD_IEEE1394:			return InterfaceType::FIREWIRE;
-	case ARPHRD_PPP:				return InterfaceType::PPP;
-	default: return InterfaceType::OTHER;
+	case ARPHRD_IEEE80211_RADIOTAP: return InterfaceType::WIFI;
+	case ARPHRD_IEEE1394:           return InterfaceType::FIREWIRE;
+	case ARPHRD_PPP:                return InterfaceType::PPP;
+	case ARPHRD_ATM:                return InterfaceType::ATM;
+	default:                        return InterfaceType::OTHER;
 	}
 #else
 	UNUSED(family);
@@ -861,7 +870,17 @@ InterfaceType SocketInterface::gniLinuxGetInterfaceType(unsigned short family) {
 
 InterfaceType SocketInterface::gniOSXGetInterfaceType(unsigned short family) {
 #if defined(__APPLE__)
-	// TODO
+	switch(family) {
+	case IFT_ETHER:
+	case IFT_XETHER:		return InterfaceType::ETHERNET;
+	// this is actually a Metropolitan Area Network (MAN)
+	// but it can be used for WiFi interfaces
+	case IFT_ISO88026:	return InterfaceType::WIFI;
+	case IFT_IEEE1394:  return InterfaceType::FIREWIRE;
+	case IFT_PPP:				return InterfaceType::PPP;
+	case IFT_ATM:       return InterfaceType::ATM;
+	default:            return InterfaceType::OTHER;
+	}
 #else
 	UNUSED(family);
 	return InterfaceType::OTHER;

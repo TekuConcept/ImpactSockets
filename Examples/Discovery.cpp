@@ -26,6 +26,10 @@ int main() {
 			VERBOSE("Type:      Firewire");  break;
 		case Impact::InterfaceType::PPP:
 			VERBOSE("Type:      Point-to-Point Protocol");  break;
+		case Impact::InterfaceType::ATM:
+			VERBOSE("Type:      Asynchronous Transfer Mode"); break;
+		default:
+			VERBOSE("Type:      [unknown]"); break;
 		}
 
 		std::cout << std::endl;

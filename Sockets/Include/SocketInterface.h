@@ -47,7 +47,7 @@ namespace Impact {
 		NetInterface();
 	} NetInterface;
 
-	
+
 	class SocketInterface {
 		SocketInterface(); // static-only class
 
@@ -60,14 +60,16 @@ namespace Impact {
 		static std::string sockAddr2String(const struct sockaddr*);
 		static void fillAddress(const std::string&, unsigned short port,
 			sockaddr_in&);
+
 		static std::vector<NetInterface> getNetworkInterfaces_Win();
 		static void gniWinAdapterTraverse(std::vector<NetInterface>&,void*);
 		static void gniWinUnicastTraverse(NetInterface&,void*);
 		static InterfaceType gniWinGetInterfaceType(unsigned int);
+
 		static std::vector<NetInterface> getNetworkInterfaces_Nix();
 		static void gniNixLinkTraverse(std::vector<NetInterface>&,
 			struct ifaddrs*);
-		static InterfaceType gniNixGetInterfaceType(SocketDomain,
+		static InterfaceType gniLinuxGetInterfaceType(SocketDomain,
 			const std::string&);
 		static InterfaceType gniLinuxGetInterfaceType(unsigned short);
 		static InterfaceType gniOSXGetInterfaceType(unsigned short);

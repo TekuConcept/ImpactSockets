@@ -13,17 +13,13 @@ namespace Impact {
 		WIFI,
 		FIREWIRE,
 		PPP,
+		ATM,
 
 		// !- PLATFORM-SPECIFIC TYPES -!
 	// #if defined(_MSC_VER)
 	// 	// #include <iphlpaoi.h>
 	// 	// #pragma comment(lib, "IPHLPAPI.lib")
-	// 	ETHERNET  = IF_TYPE_ETHERNET_CSMACD,
-	// 	PPP       = IF_TYPE_PPP, /* Point-to-Point Protocol */
 	// 	LOOPBACK  = IF_TYPE_SOFTWARE_LOOPBACK,
-	// 	WIFI      = IF_TYPE_IEEE80211,
-	// 	FIREWIRE  = IF_TYPE_IEEE1394,
-	// 	ATM       = IF_TYPE_ATM,
 	// 	TUNNEL    = IF_TYPE_TUNNEL,
 	// 	TOKENRING = IF_TYPE_ISO88025_TOKENRING,
 	// 	OTHER     = IF_TYPE_OTHER,
@@ -49,24 +45,83 @@ namespace Impact {
 	// 	// LOOPBACK  = kSCNetworkInterfaceTypeLoopback,
 	// 	// BRIDGE    = kSCNetworkInterfaceTypeBridge,
 	// 	// VPN       = kSCNetworkInterfaceTypeVPN,
+	// // #include <net/if_types.h>
+	// // #include <net/if_dl.h>
+	    // IFT_OTHER       /* none of the following */
+      // IFT_1822        /* old-style arpanet imp */
+      // IFT_HDH1822     /* HDH arpanet imp */
+      // IFT_X25DDN      /* x25 to imp */
+      // IFT_X25         /* PDN X25 interface (RFC877) */
+      // IFT_ISO88023    /* CMSA CD */
+      // IFT_ISO88024    /* Token Bus */
+      // IFT_ISO88025    /* Token Ring */
+      // IFT_STARLAN
+      // IFT_P10         /* Proteon 10MBit ring */
+      // IFT_P80         /* Proteon 80MBit ring */
+      // IFT_HY          /* Hyperchannel */
+      // IFT_FDDI
+      // IFT_LAPB
+      // IFT_SDLC
+      // IFT_T1
+      // IFT_CEPT        /* E1 - european T1 */
+      // IFT_ISDNBASIC
+      // IFT_ISDNPRIMARY
+      // IFT_PTPSERIAL   /* Proprietary PTP serial */
+      // IFT_PPP         /* RFC 1331 */
+      // IFT_LOOP        /* loopback */
+      // IFT_EON         /* ISO over IP */
+      // IFT_NSIP        /* XNS over IP */
+      // IFT_SLIP        /* IP over generic TTY */
+      // IFT_ULTRA       /* Ultra Technologies */
+      // IFT_DS3         /* Generic T3 */
+      // IFT_SIP         /* SMDS */
+      // IFT_FRELAY      /* Frame Relay DTE only */
+      // IFT_RS232
+      // IFT_PARA        /* parallel-port */
+      // IFT_ARCNET
+      // IFT_ARCNETPLUS
+      // IFT_MIOX25
+      // IFT_SONET       /* SONET or SDH */
+      // IFT_X25PLE
+      // IFT_ISO88022LLC
+      // IFT_LOCALTALK
+      // IFT_SMDSDXI
+      // IFT_FRELAYDCE   /* Frame Relay DCE */
+      // IFT_V35
+      // IFT_HSSI
+      // IFT_HIPPI
+      // IFT_MODEM       /* Generic Modem */
+      // IFT_AAL5        /* AAL5 over ATM */
+      // IFT_SONETPATH
+      // IFT_SONETVT
+      // IFT_SMDSICIP    /* SMDS InterCarrier Interface */
+      // IFT_PROPVIRTUAL /* Proprietary Virtual/internal */
+      // IFT_PROPMUX     /* Proprietary Multiplexing */
+      // IFT_GIF         /*0xf0*/
+      // IFT_FAITH       /*0xf2*/
+      // IFT_STF         /*0xf3*/
+      // IFT_L2VLAN      /* Layer 2 Virtual LAN using 802.1Q */
+      // IFT_IEEE8023ADLAG /* IEEE802.3ad Link Aggregate */
+      // IFT_BRIDGE      /* Transparent bridge interface */
+      // IFT_ENC         /* Encapsulation */
+      // IFT_PFLOG       /* Packet filter logging */
+      // IFT_PFSYNC      /* Packet filter state syncing */
+      // IFT_CARP        /* Common Address Redundancy Protocol */
+      // IFT_PKTAP       /* Packet tap pseudo interface */
+      // IFT_CELLULAR    /* Packet Data over Cellular */
+      // IFT_PDP         /* deprecated; use IFT_CELLULAR */
 	// #else /* linux */
 	// 	// #include <net/if_arp.h>
 	// 	NET_ROM   = ARPHRD_NETROM,     // 0
-	// 	ETHERNET  = ARPHRD_ETHER,      // 1
-	// 	EETHERNET = ARPHRD_EETHER,     // 2 experimental
 	// 	AX25      = ARPHRD_AX25,       // 3
 	// 	PRONET    = ARPHRD_PRONET,     // 4
 	// 	CHAOS     = ARPHRD_CHAOS,      // 5
-	// 	WIFI      = ARPHRD_IEEE802,    // 6
 	// 	ARCNET    = ARPHRD_ARCNET,     // 7
 	// 	APPLE_TLK = ARPHRD_APPLETLK,   // 8
 	// 	DLCI      = ARPHRD_DLCI,       // 15
-	// 	ATM       = ARPHRD_ATM,        // 19
 	// 	METRICOM  = ARPHRD_METRICOM,   // 23
-	// 	FIREWIRE  = ARPHRD_IEEE1394,   // 24
 	// 	EUI64     = ARPHRD_EUI64,      // 27
 	// 	INFINIBAND= ARPHRD_INFINIBAND, // 32
-
 	// 	SLIP      = ARPHRD_SLIP,       // 256
 	// 	CSLIP     = ARPHRD_CSLIP,      // 257
 	// 	SLIP6     = ARPHRD_SLIP6,      // 258
@@ -76,7 +131,6 @@ namespace Impact {
 	// 	ROSE      = ARPHRD_ROSE,       // 270
 	// 	X25       = ARPHRD_X25,        // 271
 	// 	HWX25     = ARPHRD_HWX25,      // 272
-	// 	PPP       = ARPHRD_PPP,        // 512 /* Point-to-Point Protocol */
 	// 	CISCO     = ARPHRD_CISCO,      // 513
 	// 	HDLC      = ARPHRD_CISCO,      // 513
 	// 	LAPB      = ARPHRD_LAPB,       // 516
@@ -102,10 +156,6 @@ namespace Impact {
 	// 	AL_FIBER  = ARPHRD_FCAL,       // 785
 	// 	PL_FIBER  = ARPHRD_FCPL,       // 786
 	// 	FABRIC_FIBER = ARPHRD_FCFABRIC, // 787
-	// 	WIFI_MAGIC = ARPHRD_IEEE802_TR, // 800
-	// 	WIFI2     = ARPHRD_IEEE80211,  // 801
-	// 	WIFI_PRISM = ARPHRD_IEEE80211_PRISM, // 802
-	// 	WIFI_RADIO = ARPHRD_IEEE80211_RADIOTAP, // 803
 	// 	LR_WPAN   = ARPHRD_IEEE802154, // 804
 	// 	LR_WPAN_PHY = ARPHRD_IEEE802154_PHY, // 805
 	// 	VOID      = ARPHRD_VOID, // 0xFFFF - unknown
