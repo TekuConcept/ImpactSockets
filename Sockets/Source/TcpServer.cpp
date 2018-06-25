@@ -39,7 +39,8 @@ TcpServer::TcpServer(unsigned short port, const std::string& address,
 
 TcpServer::~TcpServer() {
 	if(_isOpen_) {
-		try { close(); } catch (...) {}
+		try { close(); }
+		catch (...) { /* do nothing - swallow error */ }
 		_isOpen_ = false;
 	}
 }

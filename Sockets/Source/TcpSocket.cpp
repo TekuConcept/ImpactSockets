@@ -21,7 +21,8 @@ TcpSocket::TcpSocket(int port, std::string address,
 	unsigned int streamBufferSize) :
     std::iostream(this) {
 	initialize(streamBufferSize);
-	open(port, address);
+	try { open(port, address); }
+	catch (...) { throw; }
 }
 
 

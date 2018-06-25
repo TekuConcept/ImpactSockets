@@ -674,7 +674,8 @@ void SocketInterface::gniWinAdapterTraverse(
 		token.name  = toNarrowString(adapter->FriendlyName);
 		token.flags = (unsigned int)adapter->Flags;
 		token.type = gniWinGetInterfaceType(adapter->IfType);
-		gniWinUnicastTraverse(token, adapter->FirstUnicastAddress);
+		//token.ipv4 = adapter->Ipv4Enabled;
+		gniWinUnicastTraverse(list, token, adapter->FirstUnicastAddress);
 		list.push_back(token);
 	}
 #else
@@ -684,15 +685,17 @@ void SocketInterface::gniWinAdapterTraverse(
 }
 
 
-void SocketInterface::gniWinUnicastTraverse(NetInterface& token, void* addresses) {
+void SocketInterface::gniWinUnicastTraverse(std::vector<NetInterface>& list,
+	NetInterface token, void* addresses) {
 #if defined(_MSC_VER)
 	for (PIP_ADAPTER_UNICAST_ADDRESS address = (PIP_ADAPTER_UNICAST_ADDRESS)addresses;
-		address != NULL && !token.ipv4; address = address->Next) {
+		address != NULL; address = address->Next) {
 
 		auto socketAddress = address->Address.lpSockaddr;
+		token.address = sockAddr2String(socketAddress);
+
 		if (socketAddress->sa_family == AF_INET) {
 			token.ipv4 = true;
-			token.address = sockAddr2String(socketAddress);
 
 			struct sockaddr_in mask;
 			mask.sin_family = socketAddress->sa_family;
@@ -711,6 +714,9 @@ void SocketInterface::gniWinUnicastTraverse(NetInterface& token, void* addresses
 			broadcast.sin_addr = *(struct in_addr*)&C;
 			token.broadcast = sockAddr2String((struct sockaddr*)&broadcast);
 		}
+		// TODO: IPv6 mask and broadcast
+
+		list.push_back(token);
 	}
 #else
 	UNUSED(token);

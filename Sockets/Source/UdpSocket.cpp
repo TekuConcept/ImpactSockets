@@ -36,7 +36,12 @@ UdpSocket::UdpSocket(unsigned short port, const std::string& address) {
 }
 
 
-UdpSocket::~UdpSocket() {}
+UdpSocket::~UdpSocket() {
+	if (_isOpen_) {
+		try { close(); }
+		catch (...) { /* do nothing - swallow error */ }
+	}
+}
 
 
 void UdpSocket::initialize() {

@@ -63,7 +63,7 @@ namespace Impact {
 
 		static std::vector<NetInterface> getNetworkInterfaces_Win();
 		static void gniWinAdapterTraverse(std::vector<NetInterface>&,void*);
-		static void gniWinUnicastTraverse(NetInterface&,void*);
+		static void gniWinUnicastTraverse(std::vector<NetInterface>&,NetInterface,void*);
 		static InterfaceType gniWinGetInterfaceType(unsigned int);
 
 		static std::vector<NetInterface> getNetworkInterfaces_Nix();
