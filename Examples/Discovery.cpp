@@ -42,18 +42,18 @@ std::vector<NetInterface> filter(std::vector<NetInterface> list) {
 	std::vector<NetInterface> table;
 
 	// collect interfaces with the following characteristics
-	for (const auto& interface : list) {
-		if(!interface.ipv4) continue;
-		if(!(interface.type == InterfaceType::WIFI ||
-			interface.type == InterfaceType::ETHERNET)) continue;
-		if(interface.address.size() == 0) continue;
-		std::string name = interface.name;
+	for (const auto& iface : list) {
+		if(!iface.ipv4) continue;
+		if(!(iface.type == InterfaceType::WIFI ||
+			iface.type == InterfaceType::ETHERNET)) continue;
+		if(iface.address.size() == 0) continue;
+		std::string name = iface.name;
 		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
 		if(name.compare(0, 2, "en") == 0 ||
 			name.compare(0, 3, "eth") == 0 ||
 			name.compare(0, 4, "wlan") == 0 ||
 			name.compare(0, 5, "wi-fi") == 0)
-			table.push_back(interface);
+			table.push_back(iface);
 	}
 
 	return table;
