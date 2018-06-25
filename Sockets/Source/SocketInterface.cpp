@@ -719,6 +719,7 @@ void SocketInterface::gniWinUnicastTraverse(std::vector<NetInterface>& list,
 		list.push_back(token);
 	}
 #else
+	UNUSED(list);
 	UNUSED(token);
 	UNUSED(addresses);
 #endif

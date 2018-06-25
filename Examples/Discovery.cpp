@@ -1,12 +1,14 @@
 #include <iostream>
+#include <stdexcept>
+#include <algorithm> /* For transform() */
 #include <SocketInterface.h>
 
 #define VERBOSE(x) std::cout << x << std::endl
 
-int main() {
-	VERBOSE("- BEGINING NETWORK DISCOVERY -");
+using NetInterface  = Impact::NetInterface;
+using InterfaceType = Impact::InterfaceType;
 
-	auto list = Impact::SocketInterface::getNetworkInterfaces();
+void printInterfaces(std::vector<NetInterface> list) {
 	for(const auto& iface : list) {
 		VERBOSE("Name:      " << iface.name);
 		VERBOSE("Address:   " << iface.address);
@@ -34,6 +36,40 @@ int main() {
 
 		std::cout << std::endl;
 	}
+}
+
+std::vector<NetInterface> filter(std::vector<NetInterface> list) {
+	std::vector<NetInterface> table;
+
+	// collect interfaces with the following characteristics
+	for (const auto& interface : list) {
+		if(!interface.ipv4) continue;
+		if(!(interface.type == InterfaceType::WIFI ||
+			interface.type == InterfaceType::ETHERNET)) continue;
+		if(interface.address.size() == 0) continue;
+		std::string name = interface.name;
+		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+		if(name.compare(0, 2, "en") == 0 ||
+			name.compare(0, 3, "eth") == 0 ||
+			name.compare(0, 4, "wlan") == 0 ||
+			name.compare(0, 5, "wi-fi") == 0)
+			table.push_back(interface);
+	}
+
+	return table;
+}
+
+int main() {
+	VERBOSE("- BEGINING NETWORK DISCOVERY -");
+
+	std::vector<NetInterface> list;
+	try { list = Impact::SocketInterface::getNetworkInterfaces(); }
+	catch (std::runtime_error e) {
+		VERBOSE(e.what());
+		return 1;
+	}
+
+	printInterfaces(filter(list));
 
 	VERBOSE("- END OF LINE -");
 	return 0;
