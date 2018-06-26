@@ -75,7 +75,7 @@ void sendMessage(Impact::UdpSocket& socket, std::vector<NetInterface> list) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 			try {
 				VERBOSE("Sending to " << iface.broadcast << ":5001");
-				socket.sendTo(&message[0], message.length()+1,
+				socket.sendTo(&message[0], message.length(),
 					5001, iface.broadcast);
 			}
 			catch (std::runtime_error e) {
@@ -169,7 +169,7 @@ void runClient() {
 		exit(1);
 	}
 
-	try { socket.setMulticastTTL(1); }
+	try { socket.setMulticastTTL(2); }
 	catch (std::runtime_error e) {
 		VERBOSE(e.what());
 		CATCH(socket.close();)
@@ -185,8 +185,8 @@ void runClient() {
 int main() {
 	VERBOSE("- BEGINING NETWORK DISCOVERY -");
 
-	runServer();
-	std::this_thread::sleep_for(std::chrono::seconds(1));
+	//runServer();
+	//std::this_thread::sleep_for(std::chrono::seconds(1));
 	runClient();
 
 	fshutdown = true;
