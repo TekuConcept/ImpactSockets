@@ -160,7 +160,13 @@ void runClient() {
 	printInterfaces(list);
 
 	Impact::UdpSocket socket;
+#if defined(_MSC_VER)
+	// Windows automatically listens on the given port
+	// No need to manuall bind to inaddrany:port
+	CATCH(socket.open();)
+#else
 	CATCH(socket.open(5001, "0.0.0.0");)
+#endif
 
 	try { socket.setBroadcast(true); }
 	catch (std::runtime_error e) {
