@@ -7,7 +7,9 @@ project(SocketsLibrary)
 
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX OR
 	CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Werror -Wextra")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Werror -Wextra -pthread")
+  # Note: -pthread is currently used in the Discovery example
+  # but will eventually be used for io-pipelining
 endif()
 
 # Set install directory to project root if building on Windows

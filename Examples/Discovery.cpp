@@ -1,9 +1,17 @@
 #include <iostream>
 #include <stdexcept>
 #include <algorithm> /* For transform() */
+#include <thread>
+#include <chrono>
+#include <future> /* async() */
+#include <atomic>
 #include <SocketInterface.h>
+#include <UdpSocket.h>
 
 #define VERBOSE(x) std::cout << x << std::endl
+#define CATCH(x) \
+	try { x } catch (std::runtime_error e)\
+	{ VERBOSE(e.what()); exit(1); }
 
 using NetInterface  = Impact::NetInterface;
 using InterfaceType = Impact::InterfaceType;
@@ -46,7 +54,7 @@ std::vector<NetInterface> filter(std::vector<NetInterface> list) {
 		if(!iface.ipv4) continue;
 		if(!(iface.type == InterfaceType::WIFI ||
 			iface.type == InterfaceType::ETHERNET)) continue;
-		if(iface.address.size() == 0) continue;
+		if(iface.broadcast.size() == 0) continue;
 		std::string name = iface.name;
 		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
 		if(name.compare(0, 2, "en") == 0 ||
@@ -59,18 +67,131 @@ std::vector<NetInterface> filter(std::vector<NetInterface> list) {
 	return table;
 }
 
+void sendMessage(Impact::UdpSocket& socket, std::vector<NetInterface> list) {
+	std::string message("msc-discovery-request");
+	for(const auto& iface : list) {
+		// (void)list;
+		for(auto i = 0; i < 5; i++) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			try {
+				VERBOSE("Sending to " << iface.broadcast << ":5001");
+				socket.sendTo(&message[0], message.length()+1,
+					5001, iface.broadcast);
+			}
+			catch (std::runtime_error e) {
+				VERBOSE(e.what());
+				CATCH(socket.close();)
+				exit(1);
+			}
+		}
+	}
+}
+
+void receiveResponse(Impact::UdpSocket& socket) {
+	const int TIMEOUT = 1000;
+	const int LENGTH = 512;
+	char buffer[LENGTH];
+	for(auto retries = 0; retries < 5;) {
+		std::string address;
+		unsigned short port;
+		int size;
+		try { size = socket.recvFrom(buffer, LENGTH, port, address, TIMEOUT); }
+		catch (std::runtime_error e) {
+			VERBOSE(e.what());
+			CATCH(socket.close();)
+			exit(1);
+		}
+		if (size == LENGTH) VERBOSE("[ overflow ]");
+		else if(size > 0) {
+			retries = 0;
+			buffer[size] = 0;
+			VERBOSE(address << ":" << port << "\t" << buffer);
+		}
+		else retries++;
+	}
+}
+
+std::thread service;
+std::atomic<bool> fshutdown(false);
+void runServer() {
+	service = std::thread([](){
+		Impact::UdpSocket socket;
+		CATCH(socket.open(5001, "0.0.0.0");)
+
+		try { socket.setBroadcast(true); }
+		catch (std::runtime_error e) {
+			VERBOSE(e.what());
+			CATCH(socket.close();)
+			exit(1);
+		}
+
+		VERBOSE("UDP Listening On Port 5001\n");
+
+		const int TIMEOUT = 1000;
+		const int LENGTH = 512;
+		char buffer[LENGTH];
+		while(!fshutdown) {
+			std::string address;
+			unsigned short port;
+			int size;
+			try { size = socket.recvFrom(
+				buffer, LENGTH, port, address, TIMEOUT); }
+			catch (std::runtime_error e) {
+				VERBOSE(e.what());
+				CATCH(socket.close();)
+				exit(1);
+			}
+			if (size == LENGTH) VERBOSE("[ overflow ]");
+			else if(size > 0) {
+				VERBOSE("Received: " << buffer);
+			}
+			else continue;
+		}
+
+		CATCH(socket.close();)
+	});
+}
+
+void runClient() {
+	std::vector<NetInterface> list;
+	CATCH(list = Impact::SocketInterface::getNetworkInterfaces();)
+
+	list = filter(list);
+	printInterfaces(list);
+
+	Impact::UdpSocket socket;
+	CATCH(socket.open();)
+
+	try { socket.setBroadcast(true); }
+	catch (std::runtime_error e) {
+		VERBOSE(e.what());
+		CATCH(socket.close();)
+		exit(1);
+	}
+
+	try { socket.setMulticastTTL(1); }
+	catch (std::runtime_error e) {
+		VERBOSE(e.what());
+		CATCH(socket.close();)
+		exit(1);
+	}
+
+	sendMessage(socket, list);
+	receiveResponse(socket);
+
+	CATCH(socket.close();)
+}
+
 int main() {
 	VERBOSE("- BEGINING NETWORK DISCOVERY -");
 
-	std::vector<NetInterface> list;
-	try { list = Impact::SocketInterface::getNetworkInterfaces(); }
-	catch (std::runtime_error e) {
-		VERBOSE(e.what());
-		return 1;
-	}
+	runServer();
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+	runClient();
 
-	printInterfaces(filter(list));
-
+	fshutdown = true;
+	if(service.joinable()) service.join();
+	
 	VERBOSE("- END OF LINE -");
 	return 0;
 }

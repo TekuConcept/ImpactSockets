@@ -114,6 +114,15 @@ std::string SocketInterface::toNarrowString(
 }
 
 
+int SocketInterface::getLastError() {
+#if defined(_MSC_VER)
+	return WSAGetLastError();
+#else
+	return errno;
+#endif
+}
+
+
 std::string SocketInterface::getErrorMessage() {
 	std::ostringstream os;
 #if defined(_MSC_VER)
@@ -214,12 +223,15 @@ SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 #if defined(_MSC_VER)
 	static WSADATA wsaData;
 	auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	WIN_ASSERT("SocketInterface::create()\n", status != 0, status, (void)0;);
+	WIN_ASSERT("SocketInterface::create(1)\n", status != 0, status, (void)0;);
 #endif
 	SocketHandle handle;
+	handle.domain     = domain;
+	handle.type       = socketType;
+	handle.protocol   = protocol;
 	handle.descriptor = ::socket((int)domain, (int)socketType, (int)protocol);
 	ASSERT(
-		"SocketInterface::create()\n",
+		"SocketInterface::create(2)\n",
 		handle.descriptor == INVALID_SOCKET
 	);
 	return handle;
@@ -282,14 +294,14 @@ void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 	sockaddr_in socketAddress;
 
 	CATCH_ASSERT(
-		"SocketInterface::setLocalAddressAndPort()\n",
-		fillAddress(localAddress, localPort, socketAddress);
+		"SocketInterface::setLocalAddressAndPort(1)\n",
+		fillAddress(handle, localAddress, localPort, socketAddress);
 	);
 
 	auto status = ::bind(handle.descriptor, (sockaddr*)&socketAddress,
 		sizeof(sockaddr_in));
 
-	ASSERT("SocketInterface::setLocalAddressAndPort()\n", status == SOCKET_ERROR);
+	ASSERT("SocketInterface::setLocalAddressAndPort(2)\n", status == SOCKET_ERROR);
 }
 
 
@@ -324,16 +336,37 @@ unsigned short SocketInterface::resolveService(const std::string& service,
 }
 
 
-void SocketInterface::fillAddress(const std::string& address,
-	unsigned short port, sockaddr_in& socketAddress) {
+// TODO: Support IPv6
+void SocketInterface::fillAddress(const SocketHandle& handle,
+	const std::string& address, unsigned short port,
+	sockaddr_in& socketAddress) {
+	struct addrinfo hints, *result;
+	memset(&hints, 0, sizeof(hints));
 	memset(&socketAddress, 0, sizeof(socketAddress));
-	socketAddress.sin_family = AF_INET; // Internet address
-	hostent* host = ::gethostbyname(address.c_str());
 
-	ASSERT("SocketInterface::fillAddress()\n", host == NULL);
+	hints.ai_family   = AF_INET;//(int)handle.domain;
+	hints.ai_socktype = (int)handle.type;
+	hints.ai_flags    = AI_PASSIVE;
+	hints.ai_protocol = (int)handle.protocol;
 
-	socketAddress.sin_addr.s_addr = *((unsigned long *)host->h_addr_list[0]);
-	socketAddress.sin_port = htons(port); // Assign port in network byte order
+	auto sport = std::to_string(port);
+	auto status = getaddrinfo(&address[0], &sport[0], &hints, &result);
+	ASSERT("SocketInterface::fillAddress(1)\n", status == EAI_SYSTEM);
+	if(status != 0) {
+		std::string message("SocketInterface::fillAddress(2)\n");
+		message.append(gai_strerror(status));
+		throw std::runtime_error(message);
+	}
+	socketAddress = *(sockaddr_in*)result->ai_addr;
+
+	// socketAddress.sin_family = AF_INET; // Internet address
+	// hostent* host = ::gethostbyname(address.c_str());
+
+	// ASSERT("SocketInterface::fillAddress()\n", host == NULL);
+
+	// socketAddress.sin_addr.s_addr = *((unsigned long *)host->h_addr_list[0]);
+	// socketAddress.sin_port = htons(port); // Assign port in network byte order
+	freeaddrinfo(result);
 }
 
 
@@ -366,14 +399,14 @@ void SocketInterface::connect(const SocketHandle& handle,
 	sockaddr_in destinationAddress;
 
 	CATCH_ASSERT(
-		"SocketInterface::connect()\n",
-		fillAddress(address, port, destinationAddress);
+		"SocketInterface::connect(1)\n",
+		fillAddress(handle, address, port, destinationAddress);
 	);
 
 	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
 		sizeof(destinationAddress));
 
-	ASSERT("SocketInterface::connect()\n", status == SOCKET_ERROR);
+	ASSERT("SocketInterface::connect(2)\n", status == SOCKET_ERROR);
 }
 
 
@@ -426,14 +459,14 @@ int SocketInterface::sendto(const SocketHandle& handle, const void* buffer,
 	sockaddr_in destinationAddress;
 
 	CATCH_ASSERT(
-		"SocketInterface::sendto()\n",
-		fillAddress(address, port, destinationAddress);
+		"SocketInterface::sendto(1)\n",
+		fillAddress(handle, address, port, destinationAddress);
 	);
 
 	auto status = ::sendto(handle.descriptor, (CCHAR_PTR)buffer, length,
 		(int)flags, (sockaddr*)&destinationAddress, sizeof(destinationAddress));
 
-	ASSERT("SocketInterface::sendto()\n", status == SOCKET_ERROR);
+	ASSERT("SocketInterface::sendto(2)\n", status == SOCKET_ERROR);
 
 	return status;
 }
@@ -604,7 +637,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 		adapterAddresses = (PIP_ADAPTER_ADDRESSES)malloc(size);
 		if (adapterAddresses == NULL) {
 			throw std::runtime_error(
-				"SocketInterface::getNetworkInterfaces_Win()\n"
+				"SocketInterface::getNetworkInterfaces_Win(1)\n"
 				"Memory allocation failed.");
 		}
 		status = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, adapterAddresses, &size);
@@ -618,7 +651,7 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 
 	if (retries >= MAX_RETRY) {
 		throw std::runtime_error(
-			"SocketInterface::getNetworkInterfaces_Win()\n"
+			"SocketInterface::getNetworkInterfaces_Win(2)\n"
 			"Failed to identify buffer size for Adapter Addresses.");
 	}
 
@@ -660,7 +693,6 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Win() {
 		list.push_back(token);
 	}*/
 #endif
-
 	return list;
 }
 
@@ -674,7 +706,6 @@ void SocketInterface::gniWinAdapterTraverse(
 		token.name  = toNarrowString(adapter->FriendlyName);
 		token.flags = (unsigned int)adapter->Flags;
 		token.type = gniWinGetInterfaceType(adapter->IfType);
-		//token.ipv4 = adapter->Ipv4Enabled;
 		gniWinUnicastTraverse(list, token, adapter->FirstUnicastAddress);
 		list.push_back(token);
 	}
@@ -688,7 +719,8 @@ void SocketInterface::gniWinAdapterTraverse(
 void SocketInterface::gniWinUnicastTraverse(std::vector<NetInterface>& list,
 	NetInterface token, void* addresses) {
 #if defined(_MSC_VER)
-	for (PIP_ADAPTER_UNICAST_ADDRESS address = (PIP_ADAPTER_UNICAST_ADDRESS)addresses;
+	for (PIP_ADAPTER_UNICAST_ADDRESS address =
+		(PIP_ADAPTER_UNICAST_ADDRESS)addresses;
 		address != NULL; address = address->Next) {
 
 		auto socketAddress = address->Address.lpSockaddr;
@@ -749,10 +781,10 @@ std::vector<NetInterface> SocketInterface::getNetworkInterfaces_Nix() {
 	struct ::ifaddrs* addresses;
 	auto status = ::getifaddrs(&addresses);
 
-	ASSERT("SocketInterface::getNetworkInterfaces_Nix()\n", status == -1);
+	ASSERT("SocketInterface::getNetworkInterfaces_Nix(1)\n", status == -1);
 
 	CATCH_ASSERT(
-		"SocketInterface::getNetworkInterfaces_Nix()\n",
+		"SocketInterface::getNetworkInterfaces_Nix(2)\n",
 		gniNixLinkTraverse(list, addresses);
 	);
 	freeifaddrs(addresses);
@@ -786,14 +818,14 @@ void SocketInterface::gniNixLinkTraverse(
 		switch(target->ifa_addr->sa_family) {
 		case AF_INET: {
 			CATCH_ASSERT(
-				"SocketInterface::gniNixLinkTraverse()\n",
+				"SocketInterface::gniNixLinkTraverse(1)\n",
 				token.type = gniLinuxGetInterfaceType(SocketDomain::INET, token.name);
 			);
 			break;
 		}
 		case AF_INET6: {
 			CATCH_ASSERT(
-				"SocketInterface::gniNixGetInterfaceType()\n",
+				"SocketInterface::gniNixGetInterfaceType(2)\n",
 				token.type = gniLinuxGetInterfaceType(SocketDomain::INET6, token.name);
 			);
 			break;
@@ -879,12 +911,12 @@ InterfaceType SocketInterface::gniOSXGetInterfaceType(unsigned short family) {
 #if defined(__APPLE__)
 	switch(family) {
 	case IFT_ETHER:
-	case IFT_XETHER:		return InterfaceType::ETHERNET;
+	case IFT_XETHER:    return InterfaceType::ETHERNET;
 	// this is actually a Metropolitan Area Network (MAN)
 	// but it can be used for WiFi interfaces
 	case IFT_ISO88026:	return InterfaceType::WIFI;
 	case IFT_IEEE1394:  return InterfaceType::FIREWIRE;
-	case IFT_PPP:				return InterfaceType::PPP;
+	case IFT_PPP:       return InterfaceType::PPP;
 	case IFT_ATM:       return InterfaceType::ATM;
 	default:            return InterfaceType::OTHER;
 	}

@@ -5,6 +5,8 @@
 #ifndef _SOCKET_HANDLE_H_
 #define _SOCKET_HANDLE_H_
 
+#include "SocketTypes.h"
+
 namespace Impact {
 	class SocketHandle {
 	public:
@@ -16,6 +18,9 @@ namespace Impact {
 
 	protected:
 		int descriptor;
+		SocketDomain domain;
+		SocketType type;
+		SocketProtocol protocol;
 
 		/* LIST ALL FRIEND CLASSES WHO NEED ACCESS HERE */
 		friend class SocketInterface;

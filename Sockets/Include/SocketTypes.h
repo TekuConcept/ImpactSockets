@@ -371,6 +371,7 @@ namespace Impact {
 	typedef enum class SocketError { /* errno | WSAGetLastError */
 		// !- CROSS-PLATFORM FLAGS    -!
 		OTHER                        = -1,
+		SUCCESS                      = 0,
 
 		ACCESS                       = SERROR(EACCES),
 		ADDRESS_FAMILY_NOT_SUPPORTED = SERROR(EAFNOSUPPORT),

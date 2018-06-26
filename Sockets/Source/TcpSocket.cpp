@@ -109,7 +109,7 @@ int TcpSocket::underflow() {
 
 	try {
 		auto status = SocketInterface::poll(_pollTable_, _timeout_);
-		if(status <= 0) return EOF; // timeout or error
+		if(status == 0) return EOF; // timeout
 		auto flags = _pollTable_[0];
 		_pollTable_.resetEvents();
 

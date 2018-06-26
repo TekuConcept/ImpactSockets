@@ -60,6 +60,7 @@ void UdpSocket::open(std::function<void ()> configure) {
 				SocketType::DATAGRAM, SocketProtocol::UDP);
 			if(configure) configure();
 			SocketInterface::setBroadcast(_handle_, true);
+			_pollTable_.push_back({_handle_,PollFlags::IN});
 		}
 		catch (std::runtime_error e) {
 			std::string message("UdpSocket::open({})\n");
@@ -108,6 +109,7 @@ void UdpSocket::close() {
 	else {
 		try {
 			SocketInterface::close(_handle_);
+			_pollTable_.pop_back();
 			_isOpen_ = false;
 		}
 		catch (std::runtime_error e) {
@@ -135,16 +137,33 @@ int UdpSocket::sendTo(const void* buffer, int length,
 }
 
 
-int UdpSocket::recvFrom(void* buffer, int length,
-	unsigned short& sourcePort, std::string& sourceAddress) {
+int UdpSocket::recvFrom(void* buffer, int length, unsigned short& sourcePort,
+	std::string& sourceAddress, int timeout) {
 	try {
-		return SocketInterface::sendto(
-			_handle_, buffer, length,
-			sourcePort, sourceAddress
-		);
+		auto status = SocketInterface::poll(_pollTable_, timeout);
+		if(status == 0) return 0;
+		auto flags = _pollTable_[0];
+		_pollTable_.resetEvents();
+
+		if((int)(flags & PollFlags::IN)) {
+			return SocketInterface::recvfrom(
+				_handle_, buffer, length,
+				sourcePort, sourceAddress
+			);
+		} else return 0;
 	}
 	catch (std::runtime_error e) {
 		std::string message("UdpSocket::recvFrom()\n");
+		message.append(e.what());
+		throw std::runtime_error(message);
+	}
+}
+
+
+void UdpSocket::setBroadcast(bool enabled) {
+	try { SocketInterface::setBroadcast(_handle_, enabled); }
+	catch (std::runtime_error e) {
+		std::string message("UdpSocket::setBroadcast()\n");
 		message.append(e.what());
 		throw std::runtime_error(message);
 	}

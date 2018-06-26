@@ -7,12 +7,14 @@
 
 #include "SocketHandle.h"
 #include "SocketTypes.h"
+#include "SocketPollTable.h"
 #include <string>
 #include <functional>
 
 namespace Impact {
 	class UdpSocket {
 		SocketHandle _handle_;
+		SocketPollTable _pollTable_;
 
 		bool _isOpen_;
 
@@ -42,9 +44,12 @@ namespace Impact {
 			unsigned short targetPort, const std::string& targetAddress)
 			/* throw(std::runtime_error) */;
 		int recvFrom(void* buffer, int length,
-			unsigned short& sourcePort, std::string& sourceAddress)
+			unsigned short& sourcePort, std::string& sourceAddress,
+			int timeout = -1)
 			/* throw(std::runtime_error) */;
 
+		void setBroadcast(bool enabled)
+			/* throw(std::runtime_error) */;
 		void setMulticastTTL(unsigned char ttl = 1)
 			/* throw(std::runtime_error) */;
 		void group(const std::string& group, GroupApplication method)

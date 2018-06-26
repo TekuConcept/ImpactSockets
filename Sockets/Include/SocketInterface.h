@@ -54,12 +54,13 @@ namespace Impact {
 		static std::string toNarrowString(
 			const wchar_t* original, char unknown = '?',
 			const std::locale& env = std::locale());
+		static int getLastError();
 		static std::string getErrorMessage();
 		static std::string getHostErrorMessage();
 		static std::string getWinErrorMessage(unsigned long);
 		static std::string sockAddr2String(const struct sockaddr*);
-		static void fillAddress(const std::string&, unsigned short port,
-			sockaddr_in&);
+		static void fillAddress(const SocketHandle&,const std::string&,
+			unsigned short port, sockaddr_in&);
 
 		static std::vector<NetInterface> getNetworkInterfaces_Win();
 		static void gniWinAdapterTraverse(std::vector<NetInterface>&,void*);
@@ -101,7 +102,7 @@ namespace Impact {
 		static void setBroadcast(const SocketHandle& handle, bool enabled)
 			/* throw(std::runtime_error) */;
 		static void setMulticastTTL(const SocketHandle& handle,
-			unsigned char ttl = 1)
+			unsigned char timeToLive = 1)
 			/* throw(std::runtime_error) */;
 		static unsigned short resolveService(const std::string& service,
 			const std::string& protocol = "tcp");
