@@ -351,7 +351,9 @@ void SocketInterface::fillAddress(const SocketHandle& handle,
 
 	auto sport = std::to_string(port);
 	auto status = getaddrinfo(&address[0], &sport[0], &hints, &result);
+#if !defined(_MSC_VER)
 	ASSERT("SocketInterface::fillAddress(1)\n", status == EAI_SYSTEM);
+#endif
 	if(status != 0) {
 		std::string message("SocketInterface::fillAddress(2)\n");
 		message.append(gai_strerror(status));
