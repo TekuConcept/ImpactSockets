@@ -160,7 +160,7 @@ void runClient() {
 	printInterfaces(list);
 
 	Impact::UdpSocket socket;
-	CATCH(socket.open();)
+	CATCH(socket.open(5001, "0.0.0.0");)
 
 	try { socket.setBroadcast(true); }
 	catch (std::runtime_error e) {
