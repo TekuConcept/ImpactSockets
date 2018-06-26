@@ -185,7 +185,7 @@ void runClient() {
 int main() {
 	VERBOSE("- BEGINING NETWORK DISCOVERY -");
 
-	//runServer();
+	//runServer(); // Fails to run on windows
 	//std::this_thread::sleep_for(std::chrono::seconds(1));
 	runClient();
 
