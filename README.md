@@ -20,8 +20,6 @@ This project has also been tested by others and found to work on Chrome OS and P
 An attempt is underway to add full RFC 6455 websocket support wrapping the current TCP sockets.
 
 ### Credits
-`Sockets.h` and `Sockets.cpp` originally provided by Michael Donahoo and Kenneth Calvert. Authors of _Practical TCP/IP Sockets in C_.
-
 [Nathan Copier](https://github.com/nfcopier) of the Utah State RoboSub Team provided the C++ implementation of iostream wrappers for `TcpClient`.
 
 
