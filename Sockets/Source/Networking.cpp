@@ -48,8 +48,10 @@ using InterfaceType = Impact::Networking::InterfaceType;
 namespace Impact {
 namespace Internal {
 #if defined(__WINDOWS__)
-    void traverseAdapters(std::vector<NetInterface>&, void*);
-	void traverseUnicast(std::vector<NetInterface>&, NetInterface, void*);
+    void traverseAdapters(std::vector<NetInterface>&,
+        PIP_ADAPTER_ADDRESSES);
+	void traverseUnicast(std::vector<NetInterface>&, NetInterface,
+	    PIP_ADAPTER_UNICAST_ADDRESS);
 	InterfaceType getInterfaceType(unsigned int);
 #else /* NIX */
 	void traverseLinks(std::vector<NetInterface>&, struct ifaddrs*);
@@ -110,15 +112,15 @@ Networking::NetInterface::NetInterface() :
     			"Failed to identify buffer size for Adapter Addresses.");
     	}
     
-    	Internal::traverseAdapters(list, (void*)adapterAddresses);
+    	Internal::traverseAdapters(list, adapterAddresses);
     	free(adapterAddresses);
     	return list;
     }
 
 
     void Internal::traverseAdapters(std::vector<NetInterface>& list,
-        void* adapters) {
-    	for (PIP_ADAPTER_ADDRESSES adapter = (PIP_ADAPTER_ADDRESSES)adapters;
+        PIP_ADAPTER_ADDRESSES adapters) {
+    	for (PIP_ADAPTER_ADDRESSES adapter = adapters;
     		adapter != NULL; adapter = adapter->Next) {
     		NetInterface token;
     		token.name  = toNarrowString(adapter->FriendlyName);
@@ -131,9 +133,8 @@ Networking::NetInterface::NetInterface() :
     
     
     void Internal::traverseUnicast(std::vector<NetInterface>& list,
-    	NetInterface token, void* addresses) {
-    	for (PIP_ADAPTER_UNICAST_ADDRESS address =
-    		(PIP_ADAPTER_UNICAST_ADDRESS)addresses;
+    	NetInterface token, PIP_ADAPTER_UNICAST_ADDRESS addresses) {
+    	for (PIP_ADAPTER_UNICAST_ADDRESS address = addresses;
     		address != NULL; address = address->Next) {
     
     		auto socketAddress = address->Address.lpSockaddr;
