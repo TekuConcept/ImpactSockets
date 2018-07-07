@@ -80,7 +80,7 @@ void SocketPollTable::pop_back() {
 
 PollFlags SocketPollTable::at(unsigned int idx) {
 	std::lock_guard<std::mutex> lock(_mtx_);
-	return static_cast<PollFlags>(_descriptors_[idx].revents);
+	return static_cast<PollFlags>(_descriptors_.at(idx).revents);
 }
 
 
