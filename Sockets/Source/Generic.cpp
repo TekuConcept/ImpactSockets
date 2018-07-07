@@ -12,7 +12,12 @@
 #endif
 
 #if defined(__WINDOWS__)
-    #undef ASSERT
+	#pragma pop_macro("IN")     // pushed in SocketTypes.h
+	#pragma pop_macro("OUT")    // pushed in SocketTypes.h
+	#pragma pop_macro("ERROR")  // pushed in SocketTypes.h
+	#include <ws2tcpip.h>
+	#pragma comment (lib, "Ws2_32.lib")
+	#undef ASSERT
 #endif
 
 #define ASSERT(title,cond)\
@@ -125,13 +130,13 @@ void Internal::fillAddress(const SocketHandle& handle,
 	hints.ai_protocol = (int)handle.protocol;
 
 	auto sport = std::to_string(port);
-	auto status = getaddrinfo(&address[0], &sport[0], &hints, &result);
+	auto status = ::getaddrinfo(&address[0], &sport[0], &hints, &result);
 #if !defined(__WINDOWS__)
 	ASSERT("SocketInterface::fillAddress(1)\n", status == EAI_SYSTEM);
 #endif
 	if(status != 0) {
 		std::string message("SocketInterface::fillAddress(2)\n");
-		message.append(gai_strerror(status));
+		message.append(::gai_strerror(status));
 		throw std::runtime_error(message);
 	}
 	socketAddress = *(sockaddr_in*)result->ai_addr;

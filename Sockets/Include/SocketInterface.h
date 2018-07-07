@@ -5,16 +5,16 @@
 #ifndef _SOCKET_INTERFACE_H_
 #define _SOCKET_INTERFACE_H_
 
+#include "Environment.h"
+#include "SocketHandle.h"
+#include "SocketPollTable.h"
 #include <string>            // For string
 #include <cstring>           // For strerror, atoi, and memset
 #include <exception>         // For exception class
 #include <vector>
 #include <map>
 
-#include "SocketHandle.h"
-#include "SocketPollTable.h"
-
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	#include <winsock2.h>
 #else
 	#include <sys/poll.h>    // For struct pollfd, poll()

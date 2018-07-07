@@ -3,7 +3,6 @@
  */
 
 #include "SocketInterface.h"
-#include "Environment.h"
 #include "Generic.h"
 
 #include <sys/types.h>			// For data types
@@ -50,7 +49,7 @@
 	#pragma comment (lib, "Ws2_32.lib")
 	#pragma comment (lib, "Mswsock.lib")
 	#pragma comment (lib, "AdvApi32.lib")
-	#pragma comment(lib, "IPHLPAPI.lib")
+	#pragma comment (lib, "IPHLPAPI.lib")
 #else
 	#define CLOSE_SOCKET(x) ::close(x)
 	#define SOC_POLL ::poll

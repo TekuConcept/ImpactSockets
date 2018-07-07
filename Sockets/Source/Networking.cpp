@@ -12,6 +12,8 @@
 
 #if defined(__WINDOWS__)
     #include <winsock2.h>
+	#include <iphlpapi.h>
+	#pragma comment (lib, "IPHLPAPI.lib")
 #else /* NIX */
     #include <ifaddrs.h>        // getifaddrs(), freeifaddrs()
     #include <sys/ioctl.h>      // ioctl()
