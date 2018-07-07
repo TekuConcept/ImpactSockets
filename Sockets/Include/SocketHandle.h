@@ -19,8 +19,10 @@ namespace Impact {
 	namespace Internal {
 		void fillAddress(const SocketHandle&,
 			const std::string&, unsigned short port, sockaddr_in&);
-		Networking::InterfaceType gniLinuxGetInterfaceType(SocketDomain domain,
+		#if defined(__LINUX__)
+		Networking::InterfaceType getInterfaceType(SocketDomain domain,
 			const std::string& interfaceName);
+		#endif
 	}
 
 	class SocketHandle {
@@ -42,8 +44,10 @@ namespace Impact {
 		friend class SocketPollTable;
 		friend void Internal::fillAddress(const SocketHandle&,
 			const std::string&, unsigned short port, sockaddr_in&);
-		friend Networking::InterfaceType Internal::gniLinuxGetInterfaceType(
+		#if defined(__LINUX__)
+		friend Networking::InterfaceType Internal::getInterfaceType(
 			SocketDomain domain, const std::string& interfaceName);
+		#endif
 	};
 }
 
