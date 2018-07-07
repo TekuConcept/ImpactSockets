@@ -60,7 +60,8 @@ std::vector<NetInterface> filter(std::vector<NetInterface> list) {
 		if(name.compare(0, 2, "en") == 0 ||
 			name.compare(0, 3, "eth") == 0 ||
 			name.compare(0, 4, "wlan") == 0 ||
-			name.compare(0, 5, "wi-fi") == 0)
+			name.compare(0, 5, "wi-fi") == 0 ||
+			name.compare(0, 3, "wlp") == 0)
 			table.push_back(iface);
 	}
 
