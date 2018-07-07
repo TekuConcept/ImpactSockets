@@ -6,8 +6,20 @@
 #define _SOCKET_HANDLE_H_
 
 #include "SocketTypes.h"
+#include <string>
+#if defined(__WINDOWS__)
+    #include <winsock2.h> // sockaddr_in
+#else
+    #include <netinet/in.h> // sockaddr_in
+#endif
 
 namespace Impact {
+	class SocketHandle;
+	namespace Internal {
+		void fillAddress(const SocketHandle&,
+			const std::string&, unsigned short port, sockaddr_in&);
+	}
+
 	class SocketHandle {
 	public:
 		SocketHandle();
@@ -22,9 +34,11 @@ namespace Impact {
 		SocketType type;
 		SocketProtocol protocol;
 
-		/* LIST ALL FRIEND CLASSES WHO NEED ACCESS HERE */
+		/* LIST ALL FRIENDS HERE */
 		friend class SocketInterface;
 		friend class SocketPollTable;
+		friend void Internal::fillAddress(const SocketHandle&,
+			const std::string&, unsigned short port, sockaddr_in&);
 	};
 }
 

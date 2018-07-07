@@ -208,7 +208,7 @@ void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 
 	CATCH_ASSERT(
 		"SocketInterface::setLocalAddressAndPort(1)\n",
-		fillAddress(handle, localAddress, localPort, socketAddress);
+		Internal::fillAddress(handle, localAddress, localPort, socketAddress);
 	);
 
 	auto status = ::bind(handle.descriptor, (sockaddr*)&socketAddress,
@@ -249,42 +249,6 @@ unsigned short SocketInterface::resolveService(const std::string& service,
 }
 
 
-// TODO: Support IPv6
-void SocketInterface::fillAddress(const SocketHandle& handle,
-	const std::string& address, unsigned short port,
-	sockaddr_in& socketAddress) {
-	struct addrinfo hints, *result;
-	memset(&hints, 0, sizeof(hints));
-	memset(&socketAddress, 0, sizeof(socketAddress));
-
-	hints.ai_family   = AF_INET;//(int)handle.domain;
-	hints.ai_socktype = (int)handle.type;
-	hints.ai_flags    = AI_PASSIVE;
-	hints.ai_protocol = (int)handle.protocol;
-
-	auto sport = std::to_string(port);
-	auto status = getaddrinfo(&address[0], &sport[0], &hints, &result);
-#if !defined(_MSC_VER)
-	ASSERT("SocketInterface::fillAddress(1)\n", status == EAI_SYSTEM);
-#endif
-	if(status != 0) {
-		std::string message("SocketInterface::fillAddress(2)\n");
-		message.append(gai_strerror(status));
-		throw std::runtime_error(message);
-	}
-	socketAddress = *(sockaddr_in*)result->ai_addr;
-
-	// socketAddress.sin_family = AF_INET; // Internet address
-	// hostent* host = ::gethostbyname(address.c_str());
-
-	// ASSERT("SocketInterface::fillAddress()\n", host == NULL);
-
-	// socketAddress.sin_addr.s_addr = *((unsigned long *)host->h_addr_list[0]);
-	// socketAddress.sin_port = htons(port); // Assign port in network byte order
-	freeaddrinfo(result);
-}
-
-
 std::string SocketInterface::getForeignAddress(const SocketHandle& handle) {
 	sockaddr_in address;
 	unsigned int addressLength = sizeof(address);
@@ -315,7 +279,7 @@ void SocketInterface::connect(const SocketHandle& handle,
 
 	CATCH_ASSERT(
 		"SocketInterface::connect(1)\n",
-		fillAddress(handle, address, port, destinationAddress);
+		Internal::fillAddress(handle, address, port, destinationAddress);
 	);
 
 	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
@@ -375,7 +339,7 @@ int SocketInterface::sendto(const SocketHandle& handle, const void* buffer,
 
 	CATCH_ASSERT(
 		"SocketInterface::sendto(1)\n",
-		fillAddress(handle, address, port, destinationAddress);
+		Internal::fillAddress(handle, address, port, destinationAddress);
 	);
 
 	auto status = ::sendto(handle.descriptor, (CCHAR_PTR)buffer, length,

@@ -52,9 +52,7 @@ namespace Impact {
 		SocketInterface(); // static-only class
 
 		static std::string sockAddr2String(const struct sockaddr*);
-		static void fillAddress(const SocketHandle&,const std::string&,
-			unsigned short port, sockaddr_in&);
-
+		
 		static std::vector<NetInterface> getNetworkInterfaces_Win();
 		static void gniWinAdapterTraverse(std::vector<NetInterface>&,void*);
 		static void gniWinUnicastTraverse(std::vector<NetInterface>&,NetInterface,void*);

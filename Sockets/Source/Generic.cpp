@@ -3,12 +3,24 @@
  */
 
 #include "Generic.h"
-#include <sstream>
-#include <cstring>				// For strerror and memset
+#include <sstream>              // ostringstream
+#include <cstring>				// strerror
+#include <stdexcept>            // runtime_error
 
 #if defined(__LINUX__)
     #include <netdb.h>          // h_errno
 #endif
+
+#if defined(__WINDOWS__)
+    #undef ASSERT
+#endif
+
+#define ASSERT(title,cond)\
+ 	if (cond) {\
+ 		std::string message( title );\
+ 		message.append(Internal::getErrorMessage());\
+ 		throw std::runtime_error(message);\
+ 	}
 
 using namespace Impact;
 
@@ -97,3 +109,32 @@ std::string Internal::getHostErrorMessage() {
 #endif
 }
 */
+
+// TODO: Support IPv6
+void Internal::fillAddress(const SocketHandle& handle,
+	const std::string& address, unsigned short port,
+	sockaddr_in& socketAddress) {
+
+	struct addrinfo hints, *result;
+	memset(&hints, 0, sizeof(hints));
+	memset(&socketAddress, 0, sizeof(socketAddress));
+
+	hints.ai_family   = AF_INET;//(int)handle.domain;
+	hints.ai_socktype = (int)handle.type;
+	hints.ai_flags    = AI_PASSIVE;
+	hints.ai_protocol = (int)handle.protocol;
+
+	auto sport = std::to_string(port);
+	auto status = getaddrinfo(&address[0], &sport[0], &hints, &result);
+#if !defined(__WINDOWS__)
+	ASSERT("SocketInterface::fillAddress(1)\n", status == EAI_SYSTEM);
+#endif
+	if(status != 0) {
+		std::string message("SocketInterface::fillAddress(2)\n");
+		message.append(gai_strerror(status));
+		throw std::runtime_error(message);
+	}
+	socketAddress = *(sockaddr_in*)result->ai_addr;
+
+	freeaddrinfo(result);
+}
