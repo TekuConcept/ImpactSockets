@@ -3,6 +3,7 @@
  */
 
 #include "SocketInterface.h"
+#include "Environment.h"
 #include "Generic.h"
 
 #include <sys/types.h>			// For data types
@@ -12,7 +13,7 @@
 #include <stdexcept>			// For std::runtime_error
 #include <sstream>
 
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	#pragma pop_macro("IN")     // pushed in SocketTypes.h
 	#pragma pop_macro("OUT")    // pushed in SocketTypes.h
 	#pragma pop_macro("ERROR")  // pushed in SocketTypes.h
@@ -34,11 +35,11 @@
 #endif
 #endif
 
-#if defined(__linux__)
+#if defined(__LINUX__)
 	#include <net/if_arp.h>
 #endif
 
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	#define CLOSE_SOCKET(x) closesocket(x)
 	#define SOC_POLL WSAPoll
 	#define CCHAR_PTR const char*
@@ -59,8 +60,6 @@
  	#define SOCKET_ERROR -1
  	#define INVALID_SOCKET -1
 #endif
-
-#define UNUSED(x) (void)x
 
 #define CATCH_ASSERT(title,code)\
  	try { code }\
@@ -85,9 +84,6 @@
 		throw std::runtime_error(message);\
 	}
 
-#include <iostream>
-#include <iomanip>
-#define VERBOSE(x) std::cout << x << std::endl
 
 using namespace Impact;
 
@@ -102,7 +98,7 @@ SocketInterface::SocketInterface() {}
 
 SocketHandle SocketInterface::create(SocketDomain domain, SocketType socketType,
 	SocketProtocol protocol) {
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	static WSADATA wsaData;
 	auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	WIN_ASSERT("SocketInterface::create(1)\n", status != 0, status, (void)0;);
@@ -126,7 +122,7 @@ void SocketInterface::close(SocketHandle& handle) {
 	ASSERT("SocketInterface::close()\n", status == SOCKET_ERROR);
 
 	handle.descriptor = INVALID_SOCKET;
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	WSACleanup();
 #endif
 }
@@ -157,12 +153,12 @@ unsigned short SocketInterface::getLocalPort(const SocketHandle& handle) {
 
 
 void SocketInterface::setLocalPort(const SocketHandle& handle,
-	unsigned short localPort) {
+	unsigned short port) {
 	sockaddr_in socketAddress;
 	::memset(&socketAddress, 0, sizeof(socketAddress));
 	socketAddress.sin_family = AF_INET;
 	socketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-	socketAddress.sin_port = htons(localPort);
+	socketAddress.sin_port = htons(port);
 	auto status = ::bind(handle.descriptor, (sockaddr*)&socketAddress,
 		sizeof(sockaddr_in));
 
@@ -171,13 +167,12 @@ void SocketInterface::setLocalPort(const SocketHandle& handle,
 
 
 void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
-	const std::string& localAddress,
-	unsigned short localPort) {
+	const std::string& address, unsigned short port) {
 	sockaddr_in socketAddress;
 
 	CATCH_ASSERT(
 		"SocketInterface::setLocalAddressAndPort(1)\n",
-		Internal::fillAddress(handle, localAddress, localPort, socketAddress);
+		Internal::fillAddress(handle, address, port, socketAddress);
 	);
 
 	auto status = ::bind(handle.descriptor, (sockaddr*)&socketAddress,
@@ -341,7 +336,7 @@ int SocketInterface::recvfrom(const SocketHandle& handle, void* buffer,
 	ASSERT("SocketInterface::recvfrom()\n", status == SOCKET_ERROR);
 
 	address = inet_ntoa(clientAddress.sin_addr);
-	port = ntohs(clientAddress.sin_port);
+	port    = ntohs(clientAddress.sin_port);
 
 	return status;
 }
@@ -353,7 +348,7 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 	std::ostringstream os("SocketInterface::keepalive()\n");
 	auto errors = 0;
 	auto status = 0;
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	DWORD bytesReturned = 0;
 	struct tcp_keepalive config;
 	config.onoff = options.enabled;

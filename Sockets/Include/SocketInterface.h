@@ -5,13 +5,11 @@
 #ifndef _SOCKET_INTERFACE_H_
 #define _SOCKET_INTERFACE_H_
 
-#include <iostream>
 #include <string>            // For string
 #include <cstring>           // For strerror, atoi, and memset
 #include <exception>         // For exception class
 #include <vector>
 #include <map>
-#include <locale>
 
 #include "SocketHandle.h"
 #include "SocketPollTable.h"

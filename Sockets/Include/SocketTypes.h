@@ -5,7 +5,9 @@
 #ifndef _SOCKET_TYPES_H_
 #define _SOCKET_TYPES_H_
 
-#if defined(_MSC_VER)
+#include "Environment.h"
+
+#if defined(__WINDOWS__)
  	#include <WinSock2.h>
  	#include <Ws2def.h>
 	#include <Ws2ipdef.h>
@@ -17,11 +19,11 @@
  	#include <errno.h>
 #endif
 
-#if defined(__linux__)
+#if defined(__LINUX__)
  	#include <linux/version.h>
 #endif
 
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	#pragma push_macro("IN")
 	#undef IN
 	#pragma push_macro("OUT")
@@ -46,7 +48,7 @@ namespace Impact {
 
 
 	typedef enum class SocketChannel {
-	#if defined(_MSC_VER)
+	#if defined(__WINDOWS__)
 		BOTH  = SD_BOTH,
 		READ  = SD_RECEIVE,
 		WRITE = SD_SEND,
@@ -65,7 +67,7 @@ namespace Impact {
 		INET6       = AF_INET6,    // IPv6 Internet protocols
 
 		// !- PLATFORM-SPECIFIC DOMAINS -!
-	#if defined(_MSC_VER)
+	#if defined(__WINDOWS__)
 		IRDA        = AF_IRDA,     // Infrared Data Association (IrDA)
 	#elif defined(__APPLE__)
 		// see <sys/socket.h> for more address families
@@ -143,7 +145,7 @@ namespace Impact {
 		// MAX           = IPPROT_MAX,       /* maximum value of IPPROTO */
 
 		// !-- PLATFORM-SPECIFIC PROTOCOL SUPPORT --!
-	#if defined(_MSC_VER)
+	#if defined(__WINDOWS__)
 		// GGP           = IPPROTO_GGP,      /*m Gateway-to-Gateway Protocol */
 		// IPV4          = IPPROTO_IPV4,     /*m IPv4 Encapsulation */
 		// ST            = IPPROTO_ST,       /*m Stream Protocol */
@@ -260,7 +262,7 @@ namespace Impact {
 		WAITALL = MSG_WAITALL, /* Wait for full request or error. */
 
 		// !- PLATFORM-SPECIFIC FLAGS -!
-	#if defined(_MSC_VER)
+	#if defined(__WINDOWS__)
 		PUSH_IMMEDIATE = MSG_PUSH_IMMEDIATE, /* Do not delay receive request completion if data is available. */
 		PARTIAL        = MSG_PARTIAL,        /* Partial send or recv for message xport. */
 		INTERRUPT      = MSG_INTERRUPT,      /* send/recv in the interrupt context. */
@@ -350,7 +352,7 @@ namespace Impact {
 		ATTRIBUTE   = POLLATTRIB, /* File attributes may have changed. */
 		NEW_LINK    = POLLNLINK,  /* (Un)link/rename may have happened. */
 		WRITE       = POLLWRITE,  /* File's contents may have changed. */
-	#elif defined (_linux_)
+	#elif defined (__LINUX__)
 		#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 		RDHUP       = POLLRDHUP, /* Peer closed connection, or shut down writing half of connection. */
 		#endif
@@ -363,7 +365,7 @@ namespace Impact {
 	ENUM_OPERATOR(PollFlags, int, &)
 
 
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	#define SERROR(x) WSA##x
 #else
 	#define SERROR(x) x
@@ -407,7 +409,7 @@ namespace Impact {
 		WRONG_PROTOTYPE              = SERROR(EPROTOTYPE),
 
 		// !- PLATFORM-SPECIFIC FLAGS -!
-	#if defined(_MSC_VER)
+	#if defined(__WINDOWS__)
 		INVALID_PROVIDER             = SERROR(EINVALIDPROVIDER),
 		INVALID_PROCEDURE_TABLE      = SERROR(EINVALIDPROCTABLE),
 		NOT_INITIALIZED              = SERROR(NOTINITIALISED),
@@ -442,7 +444,7 @@ namespace Impact {
 #undef ERROR
 }
 
-#if defined(__APPLE__)
+#if defined(__clang__)
   #pragma pop_macro("EOF");
 #endif
 #undef ENUM_OPERATOR
