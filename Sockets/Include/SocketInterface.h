@@ -51,13 +51,6 @@ namespace Impact {
 	class SocketInterface {
 		SocketInterface(); // static-only class
 
-		static std::string toNarrowString(
-			const wchar_t* original, char unknown = '?',
-			const std::locale& env = std::locale());
-		static int getLastError();
-		static std::string getErrorMessage();
-		static std::string getHostErrorMessage();
-		static std::string getWinErrorMessage(unsigned long);
 		static std::string sockAddr2String(const struct sockaddr*);
 		static void fillAddress(const SocketHandle&,const std::string&,
 			unsigned short port, sockaddr_in&);

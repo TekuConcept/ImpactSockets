@@ -3,6 +3,7 @@
  */
 
 #include "SocketInterface.h"
+#include "Generic.h"
 
 #include <sys/types.h>			// For data types
 #include <cstring>				// For strerror and memset
@@ -25,8 +26,8 @@
 	#include <unistd.h>			// For close()
  	#include <netinet/tcp.h>	// For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
  								// TCP_KEEPIDLE
-  #include <sys/ioctl.h>      // For ioctl()
-  #include <net/if.h>         // For ifconf
+    #include <sys/ioctl.h>      // For ioctl()
+    #include <net/if.h>         // For ifconf
 #if defined(__APPLE__)
 	#include <net/if_types.h>   // For IFT_XXX types
 	#include <net/if_dl.h>      // For sockaddr_dl
@@ -72,7 +73,7 @@
 #define ASSERT(title,cond)\
  	if (cond) {\
  		std::string message( title );\
- 		message.append(getErrorMessage());\
+ 		message.append(Internal::getErrorMessage());\
  		throw std::runtime_error(message);\
  	}
 
@@ -80,7 +81,7 @@
 	if(cond) {\
 		fin\
 		std::string message( title );\
-		message.append(getWinErrorMessage( error ));\
+		message.append(Internal::getWinErrorMessage( error ));\
 		throw std::runtime_error(message);\
 	}
 
@@ -103,94 +104,6 @@ NetInterface::NetInterface() :
 
 
 SocketInterface::SocketInterface() {}
-
-
-std::string SocketInterface::toNarrowString(
-	const wchar_t* original, char unknown, const std::locale& env) {
-	std::ostringstream os;
-	while (*original != L'\0')
-		os << std::use_facet< std::ctype<wchar_t> >(env).narrow(*original++, unknown);
-	return os.str();
-}
-
-
-int SocketInterface::getLastError() {
-#if defined(_MSC_VER)
-	return WSAGetLastError();
-#else
-	return errno;
-#endif
-}
-
-
-std::string SocketInterface::getErrorMessage() {
-	std::ostringstream os;
-#if defined(_MSC_VER)
-	char data[128];
-	auto errorCode = WSAGetLastError();
-	auto status = FormatMessage(
-		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL,
-		errorCode,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		data,
-		128,
-		NULL
-	);
-	if(status == 0) os << "[No Error Message Available]";
-	else os << data;
-#else
-	os << strerror(errno);
-#endif
-	return os.str();
-}
-
-
-std::string SocketInterface::getHostErrorMessage() {
-#if defined(_MSC_VER)
-	return getErrorMessage();
-#else
-	std::ostringstream os;
-	switch(h_errno) {
-	case HOST_NOT_FOUND:	os << "[Host Error] Host Not Found"; break;
-	case NO_DATA:			os << "[Host Error] No Data"; break;
-	case NO_RECOVERY:		os << "[Host Error] No Recovery"; break;
-	case TRY_AGAIN:			os << "[Host Error] Try Again"; break;
-	}
-	return os.str();
-#endif
-}
-
-
-std::string SocketInterface::getWinErrorMessage(unsigned long code) {
-#if defined(_MSC_VER)
-	switch (code) {
-	case WSASYSNOTREADY:				return "The underlying network subsystem is not ready for network communication.";
-	case WSAVERNOTSUPPORTED:			return "The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation.";
-	case WSAEINPROGRESS:				return "A blocking Windows Sockets 1.1 operation is in progress.";
-	case WSAEPROCLIM:					return "A limit on the number of tasks supported by the Windows Sockets implementation has been reached.";
-	case WSAEFAULT:						return "The lpWSAData parameter is not a valid pointer.";
-	case ERROR_ADDRESS_NOT_ASSOCIATED:	return "An address has not yet been associated with the network endpoint.DHCP lease information was available.";
-	case ERROR_BUFFER_OVERFLOW:			return "The buffer size indicated by the SizePointer parameter is too small to hold the adapter information or the AdapterAddresses parameter is NULL.The SizePointer parameter returned points to the required size of the buffer to hold the adapter information.";
-	case ERROR_INVALID_PARAMETER:		return "One of the parameters is invalid.This error is returned for any of the following conditions : the SizePointer parameter is NULL, the Address parameter is not AF_INET, AF_INET6, or AF_UNSPEC, or the address information for the parameters requested is greater than ULONG_MAX.";
-	case ERROR_NOT_ENOUGH_MEMORY:		return "Insufficient memory resources are available to complete the operation.";
-	case ERROR_NO_DATA:					return "No addresses were found for the requested parameters.";
-	default:
-		std::string data(128, '\0');
-		auto status = FormatMessage(
-			FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-			NULL, code,
-			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-			&data[0], 128, NULL
-		);
-		if (status == 0) return "[No Error Message Available]";
-		else return data;
-	}
-#else
-	UNUSED(code);
-	return "";
-#endif
-}
 
 
 std::string SocketInterface::sockAddr2String(const struct sockaddr* address) {
@@ -516,7 +429,7 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 	status = WSAIoctl(handle.descriptor, SIO_KEEPALIVE_VALS, &config,
 		sizeof(config), NULL, 0, &bytesReturned, NULL, NULL);
 	if (status == SOCKET_ERROR) {
-		os << getErrorMessage();
+		os << Internal::getErrorMessage();
 		throw std::runtime_error(os.str());
 	}
 #else /* OSX|LINUX */
@@ -524,7 +437,7 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 		(const char*)&options.enabled, sizeof(int));
 	if(status == SOCKET_ERROR) {
 		os << "[keepalive] ";
-		os << getErrorMessage();
+		os << Internal::getErrorMessage();
 		os << std::endl;
 		errors |= 1;
 	}
@@ -533,7 +446,7 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 		(const char*)&options.idleTime, sizeof(int));
 	if(status == SOCKET_ERROR) {
 		os << "[idle] ";
-		os << getErrorMessage();
+		os << Internal::getErrorMessage();
 		os << std::endl;
 		errors |= 8;
 	}
@@ -542,7 +455,7 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 		(const char*)&options.interval, sizeof(int));
 	if(status == SOCKET_ERROR) {
 		os << "[interval] ";
-		os << getErrorMessage();
+		os << Internal::getErrorMessage();
 		os << std::endl;
 		errors |= 2;
 	}
@@ -551,7 +464,7 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 		(const char*)&options.retries, sizeof(int));
 	if(status == SOCKET_ERROR) {
 		os << "[count] ";
-		os << getErrorMessage();
+		os << Internal::getErrorMessage();
 		os << std::endl;
 		errors |= 4;
 	}
@@ -705,7 +618,7 @@ void SocketInterface::gniWinAdapterTraverse(
 	for (PIP_ADAPTER_ADDRESSES adapter = (PIP_ADAPTER_ADDRESSES)adapters;
 		adapter != NULL; adapter = adapter->Next) {
 		NetInterface token;
-		token.name  = toNarrowString(adapter->FriendlyName);
+		token.name  = Internal::toNarrowString(adapter->FriendlyName);
 		token.flags = (unsigned int)adapter->Flags;
 		token.type = gniWinGetInterfaceType(adapter->IfType);
 		gniWinUnicastTraverse(list, token, adapter->FirstUnicastAddress);
@@ -866,7 +779,7 @@ InterfaceType SocketInterface::gniLinuxGetInterfaceType(SocketDomain domain,
 	std::ostringstream os;
 	if(status == -1) {
 		os << "SocketInterface::gniNixGetInterfaceType(2)\n";
-		os << getErrorMessage() << " " << interfaceName << std::endl;
+		os << Internal::getErrorMessage() << " " << interfaceName << std::endl;
 		try { close(handle); }
 		catch(std::runtime_error e) { os << e.what(); }
 		throw std::runtime_error(os.str());
