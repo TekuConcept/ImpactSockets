@@ -53,12 +53,10 @@ namespace Internal {
 	InterfaceType getInterfaceType(unsigned int);
 #else /* NIX */
 	void traverseLinks(std::vector<NetInterface>&, struct ifaddrs*);
+	InterfaceType getInterfaceType(unsigned short);
 
 #if defined(__LINUX__)
 	InterfaceType getInterfaceType(SocketDomain, const std::string&);
-	InterfaceType getInterfaceType(unsigned short);
-#else /* __APPLE__ */
-	InterfaceType getInterfaceType(unsigned short);
 #endif /* __LINUX__ */
 #endif /* __WINDOWS__ */
 }}
