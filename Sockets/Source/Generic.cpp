@@ -116,18 +116,19 @@ std::string Internal::getHostErrorMessage() {
 */
 
 // TODO: Support IPv6
-void Internal::fillAddress(const SocketHandle& handle,
-	const std::string& address, unsigned short port,
-	sockaddr_in& socketAddress) {
+void Internal::fillAddress(SocketDomain domain, SocketType type,
+	SocketProtocol protocol, const std::string& address,
+	unsigned short port, sockaddr_in& socketAddress) {
 
 	struct addrinfo hints, *result;
 	memset(&hints, 0, sizeof(hints));
 	memset(&socketAddress, 0, sizeof(socketAddress));
 
-	hints.ai_family   = AF_INET;//(int)handle.domain;
-	hints.ai_socktype = (int)handle.type;
+	UNUSED(domain);
+	hints.ai_family   = AF_INET;//(int)domain;
+	hints.ai_socktype = (int)type;
 	hints.ai_flags    = AI_PASSIVE;
-	hints.ai_protocol = (int)handle.protocol;
+	hints.ai_protocol = (int)protocol;
 
 	auto sport = std::to_string(port);
 	auto status = ::getaddrinfo(&address[0], &sport[0], &hints, &result);

@@ -6,7 +6,7 @@
 
 using namespace Impact;
 
-#if defined(_MSC_VER)
+#if defined(__WINDOWS__)
 	#include <WinSock2.h>
 #else
  	#define INVALID_SOCKET -1

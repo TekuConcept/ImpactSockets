@@ -171,7 +171,8 @@ void SocketInterface::setLocalAddressAndPort(const SocketHandle& handle,
 
 	CATCH_ASSERT(
 		"SocketInterface::setLocalAddressAndPort(1)\n",
-		Internal::fillAddress(handle, address, port, socketAddress);
+		Internal::fillAddress(handle.domain, handle.type, handle.protocol,
+			address, port, socketAddress);
 	);
 
 	auto status = ::bind(handle.descriptor, (sockaddr*)&socketAddress,
@@ -242,7 +243,8 @@ void SocketInterface::connect(const SocketHandle& handle,
 
 	CATCH_ASSERT(
 		"SocketInterface::connect(1)\n",
-		Internal::fillAddress(handle, address, port, destinationAddress);
+		Internal::fillAddress(handle.domain, handle.type, handle.protocol,
+			address, port, destinationAddress);
 	);
 
 	auto status = ::connect(handle.descriptor, (sockaddr*)&destinationAddress,
@@ -302,7 +304,8 @@ int SocketInterface::sendto(const SocketHandle& handle, const void* buffer,
 
 	CATCH_ASSERT(
 		"SocketInterface::sendto(1)\n",
-		Internal::fillAddress(handle, address, port, destinationAddress);
+		Internal::fillAddress(handle.domain, handle.type, handle.protocol,
+			address, port, destinationAddress);
 	);
 
 	auto status = ::sendto(handle.descriptor, (CCHAR_PTR)buffer, length,

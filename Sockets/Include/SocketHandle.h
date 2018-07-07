@@ -5,9 +5,11 @@
 #ifndef _SOCKET_HANDLE_H_
 #define _SOCKET_HANDLE_H_
 
+#include "Environment.h"
 #include "SocketTypes.h"
 #include "Networking.h"
 #include <string>
+
 #if defined(__WINDOWS__)
     #include <winsock2.h> // sockaddr_in
 #else
@@ -17,8 +19,6 @@
 namespace Impact {
 	class SocketHandle;
 	namespace Internal {
-		void fillAddress(const SocketHandle&,
-			const std::string&, unsigned short port, sockaddr_in&);
 		#if defined(__LINUX__)
 		Networking::InterfaceType getInterfaceType(SocketDomain domain,
 			const std::string& interfaceName);
@@ -42,8 +42,6 @@ namespace Impact {
 		/* LIST ALL FRIENDS HERE */
 		friend class SocketInterface;
 		friend class SocketPollTable;
-		friend void Internal::fillAddress(const SocketHandle&,
-			const std::string&, unsigned short port, sockaddr_in&);
 		#if defined(__LINUX__)
 		friend Networking::InterfaceType Internal::getInterfaceType(
 			SocketDomain domain, const std::string& interfaceName);

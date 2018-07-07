@@ -31,8 +31,8 @@ namespace Internal {
 	std::string getErrorMessage();
     // std::string getHostErrorMessage();
     
-    void fillAddress(const SocketHandle&, const std::string&,
-        unsigned short port, sockaddr_in&)
+    void fillAddress(SocketDomain, SocketType, SocketProtocol,
+		const std::string&, unsigned short, sockaddr_in&)
         /* throw(std::runtime_error) */;
 
     std::string sockAddr2String(const struct sockaddr*);
