@@ -54,7 +54,6 @@ namespace Internal {
 #else /* NIX */
 	void traverseLinks(std::vector<NetInterface>&, struct ifaddrs*);
 	InterfaceType getInterfaceType(unsigned short);
-
 #if defined(__LINUX__)
 	InterfaceType getInterfaceType(SocketDomain, const std::string&);
 #endif /* __LINUX__ */
@@ -232,7 +231,7 @@ Networking::NetInterface::NetInterface() :
     		}
     		case AF_INET6: {
     			CATCH_ASSERT(
-    				"Networking::getInterfaceType(2)\n",
+    				"Networking::traverseLinks(2)\n",
     				token.type = getInterfaceType(SocketDomain::INET6, token.name);
     			);
     			break;
@@ -253,7 +252,7 @@ Networking::NetInterface::NetInterface() :
     	SocketHandle handle;
     	InterfaceType type;
     	CATCH_ASSERT(
-    		"SocketInterface::gniNixGetInterfaceType(1)\n",
+    		"Networking::getInterfaceType(1)\n",
     		handle = SocketInterface::create(domain, SocketType::DATAGRAM,
     		    SocketProtocol::DEFAULT);
     	);
@@ -268,7 +267,7 @@ Networking::NetInterface::NetInterface() :
     
     	std::ostringstream os;
     	if(status == -1) {
-    		os << "SocketInterface::gniNixGetInterfaceType(2)\n";
+    		os << "Networking::getInterfaceType(2)\n";
     		os << Internal::getErrorMessage() << " " << interfaceName << std::endl;
     		try { SocketInterface::close(handle); }
     		catch(std::runtime_error e) { os << e.what(); }
@@ -278,7 +277,7 @@ Networking::NetInterface::NetInterface() :
     	type = getInterfaceType(request.ifr_hwaddr.sa_family);
     
     	CATCH_ASSERT(
-    		"SocketInterface::gniNixGetInterfaceType(3)\n",
+    		"Networking::getInterfaceType(3)\n",
     		SocketInterface::close(handle);
     	);
     	return type;
