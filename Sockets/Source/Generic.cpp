@@ -138,3 +138,28 @@ void Internal::fillAddress(const SocketHandle& handle,
 
 	freeaddrinfo(result);
 }
+
+
+std::string Internal::sockAddr2String(const struct sockaddr* address) {
+	if(!address) return "";
+	switch(address->sa_family) {
+		case AF_INET: {
+			char buffer[INET_ADDRSTRLEN];
+			struct sockaddr_in* socketAddress = (struct sockaddr_in*)address;
+			auto result = inet_ntop(AF_INET, &socketAddress->sin_addr,
+				buffer, INET_ADDRSTRLEN);
+			if(result == NULL) return "";
+			else return std::string(result);
+		}
+		case AF_INET6: {
+			char buffer[INET6_ADDRSTRLEN];
+			struct sockaddr_in6* socketAddress = (struct sockaddr_in6*)address;
+			auto result = inet_ntop(AF_INET6, &socketAddress->sin6_addr,
+				buffer, INET6_ADDRSTRLEN);
+			if(result == NULL) return "";
+			else return std::string(result);
+			return std::string(buffer);
+		}
+		default: return "";
+	};
+}

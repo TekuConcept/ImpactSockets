@@ -15,7 +15,6 @@
 
 #include "SocketHandle.h"
 #include "SocketPollTable.h"
-#include "NetworkTypes.h"
 
 #if defined(_MSC_VER)
 	#include <winsock2.h>
@@ -36,35 +35,8 @@ namespace Impact {
 	} KeepAliveOptions;
 
 
-	typedef struct NetInterface {
-		unsigned int flags;
-		std::string name;
-		std::string address;
-		std::string netmask;
-		std::string broadcast;
-		InterfaceType type;
-		bool ipv4;
-		NetInterface();
-	} NetInterface;
-
-
 	class SocketInterface {
 		SocketInterface(); // static-only class
-
-		static std::string sockAddr2String(const struct sockaddr*);
-		
-		static std::vector<NetInterface> getNetworkInterfaces_Win();
-		static void gniWinAdapterTraverse(std::vector<NetInterface>&,void*);
-		static void gniWinUnicastTraverse(std::vector<NetInterface>&,NetInterface,void*);
-		static InterfaceType gniWinGetInterfaceType(unsigned int);
-
-		static std::vector<NetInterface> getNetworkInterfaces_Nix();
-		static void gniNixLinkTraverse(std::vector<NetInterface>&,
-			struct ifaddrs*);
-		static InterfaceType gniLinuxGetInterfaceType(SocketDomain,
-			const std::string&);
-		static InterfaceType gniLinuxGetInterfaceType(unsigned short);
-		static InterfaceType gniOSXGetInterfaceType(unsigned short);
 
 	public:
 		/*                    *\
@@ -142,13 +114,6 @@ namespace Impact {
 			int timeout=-1, unsigned int microTimeout=0)
 			/* throw(std::runtime_error) */;
 		static int poll(SocketPollTable& token, int timeout)
-			/* throw(std::runtime_error) */;
-
-
-		/*                    *\
-		| MISCELLANEOUS        |
-		\*                    */
-		static std::vector<NetInterface> getNetworkInterfaces()
 			/* throw(std::runtime_error) */;
 	};
 }

@@ -5,16 +5,16 @@
 #include <chrono>
 #include <future> /* async() */
 #include <atomic>
-#include <SocketInterface.h>
 #include <UdpSocket.h>
+#include <Networking.h>
 
 #define VERBOSE(x) std::cout << x << std::endl
 #define CATCH(x) \
 	try { x } catch (std::runtime_error e)\
 	{ VERBOSE(e.what()); exit(1); }
 
-using NetInterface  = Impact::NetInterface;
-using InterfaceType = Impact::InterfaceType;
+using NetInterface  = Impact::Networking::NetInterface;
+using InterfaceType = Impact::Networking::InterfaceType;
 
 void printInterfaces(std::vector<NetInterface> list) {
 	for(const auto& iface : list) {
@@ -26,17 +26,17 @@ void printInterfaces(std::vector<NetInterface> list) {
 		VERBOSE("IPv4:      " << (iface.ipv4?"true":"false"));
 
 		switch (iface.type) {
-		case Impact::InterfaceType::OTHER:
+		case InterfaceType::OTHER:
 			VERBOSE("Type:      Other"); break;
-		case Impact::InterfaceType::ETHERNET:
+		case InterfaceType::ETHERNET:
 			VERBOSE("Type:      Ethernet"); break;
-		case Impact::InterfaceType::WIFI:
+		case InterfaceType::WIFI:
 			VERBOSE("Type:      WiFi"); break;
-		case Impact::InterfaceType::FIREWIRE:
+		case InterfaceType::FIREWIRE:
 			VERBOSE("Type:      Firewire");  break;
-		case Impact::InterfaceType::PPP:
+		case InterfaceType::PPP:
 			VERBOSE("Type:      Point-to-Point Protocol");  break;
-		case Impact::InterfaceType::ATM:
+		case InterfaceType::ATM:
 			VERBOSE("Type:      Asynchronous Transfer Mode"); break;
 		default:
 			VERBOSE("Type:      [unknown]"); break;
@@ -155,7 +155,7 @@ void runServer() {
 
 void runClient() {
 	std::vector<NetInterface> list;
-	CATCH(list = Impact::SocketInterface::getNetworkInterfaces();)
+	CATCH(list = Impact::Networking::findNetworkInterfaces();)
 
 	list = filter(list);
 	printInterfaces(list);

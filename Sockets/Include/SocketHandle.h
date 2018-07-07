@@ -6,6 +6,7 @@
 #define _SOCKET_HANDLE_H_
 
 #include "SocketTypes.h"
+#include "Networking.h"
 #include <string>
 #if defined(__WINDOWS__)
     #include <winsock2.h> // sockaddr_in
@@ -18,6 +19,8 @@ namespace Impact {
 	namespace Internal {
 		void fillAddress(const SocketHandle&,
 			const std::string&, unsigned short port, sockaddr_in&);
+		Networking::InterfaceType gniLinuxGetInterfaceType(SocketDomain domain,
+			const std::string& interfaceName);
 	}
 
 	class SocketHandle {
@@ -39,6 +42,8 @@ namespace Impact {
 		friend class SocketPollTable;
 		friend void Internal::fillAddress(const SocketHandle&,
 			const std::string&, unsigned short port, sockaddr_in&);
+		friend Networking::InterfaceType Internal::gniLinuxGetInterfaceType(
+			SocketDomain domain, const std::string& interfaceName);
 	};
 }
 

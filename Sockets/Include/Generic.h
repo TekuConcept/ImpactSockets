@@ -35,6 +35,8 @@ namespace Internal {
         unsigned short port, sockaddr_in&)
         /* throw(std::runtime_error) */;
 
+    std::string sockAddr2String(const struct sockaddr*);
+
 }}
 
 #endif
