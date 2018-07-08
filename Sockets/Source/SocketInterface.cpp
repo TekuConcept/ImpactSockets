@@ -16,6 +16,7 @@
 	#pragma pop_macro("IN")     // pushed in SocketTypes.h
 	#pragma pop_macro("OUT")    // pushed in SocketTypes.h
 	#pragma pop_macro("ERROR")  // pushed in SocketTypes.h
+	#include <winsock2.h>
 	#include <ws2tcpip.h>
  	#include <mstcpip.h>		// struct tcp_keepalive
 	#include <iphlpapi.h>
@@ -26,8 +27,11 @@
 	#include <unistd.h>			// For close()
  	#include <netinet/tcp.h>	// For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
  								// TCP_KEEPIDLE
-    #include <sys/ioctl.h>      // For ioctl()
-    #include <net/if.h>         // For ifconf
+  #include <sys/ioctl.h>      // For ioctl()
+  #include <net/if.h>         // For ifconf
+  #include <sys/poll.h>    // For struct pollfd, poll()
+  #include <netinet/in.h>  // For sockaddr_in
+  #include <ifaddrs.h>     // getifaddrs(), freeifaddrs()
 #if defined(__APPLE__)
 	#include <net/if_types.h>   // For IFT_XXX types
 	#include <net/if_dl.h>      // For sockaddr_dl

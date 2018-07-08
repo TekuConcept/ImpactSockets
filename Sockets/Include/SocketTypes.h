@@ -41,6 +41,15 @@ inline T operator O (T lhs, T rhs) {\
 }
 
 namespace Impact {
+  typedef struct KeepAliveOptions {
+		int enabled;  /* Enables KEEPALIVE on the target socket connection.  */
+		int idleTime; /* Number of idle seconds before sending a KA probe.   */
+		int interval; /* How often in seconds to resend an unacked KA probe. */
+		int retries;  /* How many times to resend a KA probe if previous
+		                 probe was unacked.                                  */
+		KeepAliveOptions();
+	} KeepAliveOptions;
+
 	typedef enum class GroupApplication {
 		JOIN  = IP_ADD_MEMBERSHIP,
 		LEAVE = IP_DROP_MEMBERSHIP
