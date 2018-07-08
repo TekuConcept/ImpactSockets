@@ -5,7 +5,7 @@
 #ifndef _SOCKET_POLL_TABLE_H_
 #define _SOCKET_POLL_TABLE_H_
 
-#include "SocketHandle.h"
+#include "basic_socket.h"
 #include "SocketTypes.h"
 #include <vector>
 #include <mutex>
@@ -16,7 +16,7 @@
 #endif
 
 namespace Impact {
-	typedef std::pair<const SocketHandle&,PollFlags> HandleEventPair;
+	typedef std::pair<const basic_socket&,PollFlags> HandleEventPair;
 	typedef std::initializer_list<HandleEventPair> PollInitializer;
 
 	class SocketPollTable {
@@ -30,7 +30,7 @@ namespace Impact {
 			~SocketPollTable();
 
 			void resetEvents();
-			
+
 			// -- capacity --
 			bool empty() const;
 			unsigned int size() const;
@@ -48,9 +48,9 @@ namespace Impact {
 			// access return events at index
 			PollFlags at(unsigned int idx);
 			PollFlags operator[] (unsigned int idx);
-			unsigned int find(const SocketHandle& target);
+			unsigned int find(const basic_socket& target);
 
-			friend class SocketInterface;
+			 friend class SocketProbe;
 	};
 }
 

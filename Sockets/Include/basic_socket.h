@@ -16,26 +16,26 @@ namespace Impact {
     SocketType _type_;
     SocketProtocol _protocol_;
 
-    void local_port(unsigned short port) /* throw(io_error) */;
-    void local_address_port(const std::string& address,
-      unsigned short port = 0) /* throw(io_error) */;
     unsigned short resolve_service(const std::string& service,
       const std::string& protocol = "tcp");
 
-    basic_socket();
-    bool close() /* throw(io_error) */;
+    void copy(const basic_socket&);
+    void move(basic_socket&&);
+    void dtor();
 
   public:
     // constructors
-    basic_socket(SocketDomain domain, SocketType type, SocketProtocol proto)
-      /* throw(io_error) */;
+    basic_socket() /* throw(io_error) */;
     basic_socket(const basic_socket& r)
       /* throw(std::runtime_error) */;
     basic_socket(basic_socket&& r)
       /* throw(std::runtime_error) */;
 
     // destructors
-    ~basic_socket(); // close socket if open
+    ~basic_socket();
+
+    // file operators
+    void close();
 
     // assignment
     basic_socket& operator=(const basic_socket& r) /* throw(io_error) */;
@@ -75,6 +75,9 @@ namespace Impact {
       /* throw(io_error) */;
 
     // miscillaneous
+	void local_port(unsigned short port) /* throw(io_error) */;
+	void local_address_port(const std::string& address,
+		unsigned short port = 0) /* throw(io_error) */;
     std::string local_address() /* throw(io_error) */;
     unsigned short local_port() /* throw(io_error) */;
     std::string peer_address() /* throw(io_error) */;
@@ -82,7 +85,12 @@ namespace Impact {
     void broadcast(bool enabled) /* throw(io_error) */;
     void multicast_ttl(unsigned char timeToLive = 1)
       /* throw(io_error) */;
+
+    friend basic_socket make_socket(SocketDomain, SocketType, SocketProtocol);
   };
+
+  basic_socket make_socket(SocketDomain domain, SocketType type,
+    SocketProtocol proto) /* throw(io_error) */;
 }
 
 #endif

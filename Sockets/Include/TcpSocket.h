@@ -5,7 +5,7 @@
 #ifndef _TCP_SOCKET_H_
 #define _TCP_SOCKET_H_
 
-#include "SocketHandle.h"
+#include "basic_socket.h"
 #include "SocketPollTable.h"
 #include <string>
 #include <streambuf>
@@ -14,9 +14,8 @@
 #define LOCAL "localhost"
 
 namespace Impact {
-	class TcpSocket :
-	private std::streambuf, public std::iostream {
-		SocketHandle _handle_;
+	class TcpSocket : private std::streambuf, public std::iostream {
+		basic_socket _handle_;
 		SocketPollTable _pollTable_;
 
 		unsigned int _streamBufferSize_;

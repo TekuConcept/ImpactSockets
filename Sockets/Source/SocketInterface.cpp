@@ -405,7 +405,7 @@ void SocketInterface::keepalive(const SocketHandle& handle,
 	if(errors) throw std::runtime_error(os.str());
 }
 
-
+/*
 int SocketInterface::select(
 	std::vector<SocketHandle*> readHandles,
 	std::vector<SocketHandle*> writeHandles,
@@ -442,13 +442,14 @@ int SocketInterface::select(
 
 
 int SocketInterface::poll(SocketPollTable& token, int timeout) {
-	/* timeout: -1 blocking, 0 nonblocking, 0> timeout */
+	// timeout: -1 blocking, 0 nonblocking, 0> timeout
 	struct pollfd* fds = token._descriptors_.data();
 	auto size = token.size();
 	auto status = SOC_POLL(fds, size, timeout);
 
 	ASSERT("SocketInterface::poll()\n", status == SOCKET_ERROR);
 
-	/* status: -1 error, 0 timeout, 0> success */
+	// status: -1 error, 0 timeout, 0> success
 	return status;
 }
+*/

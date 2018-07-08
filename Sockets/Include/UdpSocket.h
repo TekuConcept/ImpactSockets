@@ -5,7 +5,7 @@
 #ifndef _UDP_SOCKET_H_
 #define _UDP_SOCKET_H_
 
-#include "SocketHandle.h"
+#include "basic_socket.h"
 #include "SocketTypes.h"
 #include "SocketPollTable.h"
 #include <string>
@@ -13,7 +13,7 @@
 
 namespace Impact {
 	class UdpSocket {
-		SocketHandle _handle_;
+		basic_socket _handle_;
 		SocketPollTable _pollTable_;
 
 		bool _isOpen_;

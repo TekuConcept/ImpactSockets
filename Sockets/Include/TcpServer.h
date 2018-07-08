@@ -8,7 +8,7 @@
 // #include "CrossPlatformSockets.h"
 // #include "Sockets.h"
 // #include "TcpClient.h"
-#include "SocketHandle.h"
+#include "basic_socket.h"
 #include "TcpSocket.h"
 #include <string>
 #include <functional>
@@ -17,7 +17,7 @@
 
 namespace Impact {
 	class TcpServer {
-		SocketHandle _handle_;
+		basic_socket _handle_;
 
 		bool _isOpen_;
 

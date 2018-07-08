@@ -104,14 +104,14 @@ namespace Impact {
 			KeepAliveOptions options)
 			/* throw(std::runtime_error) */;
 
-		static int select(
-			std::vector<SocketHandle*> readHandles,
-			std::vector<SocketHandle*> writeHandles,
-			int timeout=-1, unsigned int microTimeout=0)
-			/* throw(std::runtime_error) */;
-
-		static int poll(SocketPollTable& token, int timeout)
-			/* throw(std::runtime_error) */;
+		// static int select(
+		// 	std::vector<SocketHandle*> readHandles,
+		// 	std::vector<SocketHandle*> writeHandles,
+		// 	int timeout=-1, unsigned int microTimeout=0)
+		// 	/* throw(std::runtime_error) */;
+		//
+		// static int poll(SocketPollTable& token, int timeout)
+		// 	/* throw(std::runtime_error) */;
 	};
 }
 

@@ -3,7 +3,7 @@
  */
 
 #include "TcpSocket.h"
-#include "SocketInterface.h"
+#include "SocketProbe.h"
 #include <stdexcept>
 
 using namespace Impact;
@@ -18,8 +18,7 @@ TcpSocket::TcpSocket(unsigned int streamBufferSize) :
 
 
 TcpSocket::TcpSocket(int port, std::string address,
-	unsigned int streamBufferSize) :
-    std::iostream(this) {
+	unsigned int streamBufferSize) : std::iostream(this) {
 	initialize(streamBufferSize);
 	try { open(port, address); }
 	catch (...) { throw; }
@@ -27,11 +26,6 @@ TcpSocket::TcpSocket(int port, std::string address,
 
 
 TcpSocket::~TcpSocket() {
-	if (_isOpen_) {
-		try { close(); } catch (...) {}
-		_isOpen_ = false;
-	}
-
 	if(_outputBuffer_ != NULL) {
 		delete[] _outputBuffer_;
 		_outputBuffer_ = NULL;
@@ -46,15 +40,15 @@ TcpSocket::~TcpSocket() {
 void TcpSocket::initialize(unsigned int bufferSize) {
 	_streamBufferSize_ = bufferSize<256?256:bufferSize;
 	_outputBuffer_     = new char[_streamBufferSize_ + 1];
-    _inputBuffer_      = new char[_streamBufferSize_ + 1];
+  _inputBuffer_      = new char[_streamBufferSize_ + 1];
 
-    _isOpen_  = false;
-    _hangup_  = false;
-    _timeout_ = -1;
+  _isOpen_  = false;
+  _hangup_  = false;
+  _timeout_ = -1;
 
 	setp(_outputBuffer_, _outputBuffer_ + _streamBufferSize_ - 1);
-    setg(_inputBuffer_, _inputBuffer_ + _streamBufferSize_ - 1,
-    	_inputBuffer_ + _streamBufferSize_ - 1);
+  setg(_inputBuffer_, _inputBuffer_ + _streamBufferSize_ - 1,
+  	_inputBuffer_ + _streamBufferSize_ - 1);
 }
 
 
@@ -62,9 +56,8 @@ void TcpSocket::open(int port, std::string address) {
 	if(_isOpen_) { setstate(std::ios_base::failbit); }
 	else {
 		try {
-			_handle_ = SocketInterface::create(SocketDomain::INET,
-				SocketType::STREAM, SocketProtocol::TCP);
-			SocketInterface::connect(_handle_, port, address);
+      _handle_ = make_socket(SocketDomain::INET, SocketType::STREAM, SocketProtocol::TCP);
+      _handle_.connect(port, address);
 			_pollTable_.push_back({_handle_,PollFlags::IN});
 			clear();
 		}
@@ -86,7 +79,7 @@ void TcpSocket::close() {
 	if(!_isOpen_) { setstate(std::ios_base::failbit); }
 	else {
 		try {
-			SocketInterface::close(_handle_);
+			_handle_.close();
 			_pollTable_.pop_back();
 			_isOpen_ = false;
 		}
@@ -108,7 +101,7 @@ int TcpSocket::underflow() {
 	}
 
 	try {
-		auto status = SocketInterface::poll(_pollTable_, _timeout_);
+		auto status = SocketProbe::poll(_pollTable_, _timeout_);
 		if(status == 0) return EOF; // timeout
 		auto flags = _pollTable_[0];
 		_pollTable_.resetEvents();
@@ -120,8 +113,7 @@ int TcpSocket::underflow() {
 		}
 
 		if((int)(flags & PollFlags::IN)) {
-			int bytesReceived = SocketInterface::recv(
-				_handle_, eback(), _streamBufferSize_);
+			int bytesReceived = _handle_.recv(eback(), _streamBufferSize_);
 			if(bytesReceived == 0) return EOF;
 
 			setg(eback(), eback(), eback() + bytesReceived);
@@ -148,7 +140,7 @@ int TcpSocket::writeBase(int c) {
 
 	try {
 		auto length = int(pptr() - pbase());
-		SocketInterface::send(_handle_, pbase(), length);
+		_handle_.send(pbase(), length);
 		setp(pbase(), epptr());
 	}
 	catch (...) { return EOF; }

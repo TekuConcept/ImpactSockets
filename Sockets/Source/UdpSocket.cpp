@@ -3,7 +3,7 @@
  */
 
 #include "UdpSocket.h"
-#include "SocketInterface.h"
+#include "SocketProbe.h"
 #include <stdexcept>
 
 using namespace Impact;
@@ -56,10 +56,10 @@ void UdpSocket::open(std::function<void ()> configure) {
 	}
 	else {
 		try {
-			_handle_ = SocketInterface::create(SocketDomain::INET,
-				SocketType::DATAGRAM, SocketProtocol::UDP);
+			_handle_ = make_socket(SocketDomain::INET, SocketType::DATAGRAM,
+				SocketProtocol::UDP);
 			if(configure) configure();
-			SocketInterface::setBroadcast(_handle_, true);
+			_handle_.broadcast(true);
 			_pollTable_.push_back({_handle_,PollFlags::IN});
 		}
 		catch (std::runtime_error e) {
@@ -80,18 +80,13 @@ void UdpSocket::open() {
 
 
 void UdpSocket::open(unsigned short port) {
-	try { open([&](){ SocketInterface::setLocalPort(_handle_, port); }); }
+	try { open([&]() { _handle_.local_port(port); }); }
 	catch (...) { throw; }
 }
 
 
 void UdpSocket::open(unsigned short port, const std::string& address) {
-	try {
-		open([&](){
-			SocketInterface::setLocalAddressAndPort(
-				_handle_, address, port);
-		});
-	}
+	try { open([&](){ _handle_.local_address_port(address, port); }); }
 	catch (...) { throw; }
 }
 
@@ -108,7 +103,7 @@ void UdpSocket::close() {
 	}
 	else {
 		try {
-			SocketInterface::close(_handle_);
+			_handle_.close();
 			_pollTable_.pop_back();
 			_isOpen_ = false;
 		}
@@ -123,12 +118,7 @@ void UdpSocket::close() {
 
 int UdpSocket::sendTo(const void* buffer, int length,
 	unsigned short targetPort, const std::string& targetAddress) {
-	try {
-		return SocketInterface::sendto(
-			_handle_, buffer, length,
-			targetPort, targetAddress
-		);
-	}
+	try { return _handle_.sendto(buffer, length, targetPort, targetAddress); }
 	catch (std::runtime_error e) {
 		std::string message("UdpSocket::sendTo()\n");
 		message.append(e.what());
@@ -140,16 +130,13 @@ int UdpSocket::sendTo(const void* buffer, int length,
 int UdpSocket::recvFrom(void* buffer, int length, unsigned short& sourcePort,
 	std::string& sourceAddress, int timeout) {
 	try {
-		auto status = SocketInterface::poll(_pollTable_, timeout);
+		auto status = SocketProbe::poll(_pollTable_, timeout);
 		if(status == 0) return 0;
 		auto flags = _pollTable_[0];
 		_pollTable_.resetEvents();
 
 		if((int)(flags & PollFlags::IN)) {
-			return SocketInterface::recvfrom(
-				_handle_, buffer, length,
-				sourcePort, sourceAddress
-			);
+			return _handle_.recvfrom(buffer, length, sourcePort, sourceAddress);
 		} else return 0;
 	}
 	catch (std::runtime_error e) {
@@ -161,7 +148,7 @@ int UdpSocket::recvFrom(void* buffer, int length, unsigned short& sourcePort,
 
 
 void UdpSocket::setBroadcast(bool enabled) {
-	try { SocketInterface::setBroadcast(_handle_, enabled); }
+	try { _handle_.broadcast(enabled); }
 	catch (std::runtime_error e) {
 		std::string message("UdpSocket::setBroadcast()\n");
 		message.append(e.what());
@@ -171,7 +158,7 @@ void UdpSocket::setBroadcast(bool enabled) {
 
 
 void UdpSocket::setMulticastTTL(unsigned char ttl) {
-	try { SocketInterface::setMulticastTTL(_handle_, ttl); }
+	try { _handle_.multicast_ttl(ttl); }
 	catch (std::runtime_error e) {
 		std::string message("UdpSocket::setMulticastTTL()\n");
 		message.append(e.what());
@@ -181,7 +168,7 @@ void UdpSocket::setMulticastTTL(unsigned char ttl) {
 
 
 void UdpSocket::group(const std::string& group, GroupApplication method) {
-	try { SocketInterface::group(_handle_, group, method); }
+	try { _handle_.group(group, method); }
 	catch (std::runtime_error e) {
 		std::string message("UdpSocket::group()\n");
 		message.append(e.what());

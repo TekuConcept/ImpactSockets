@@ -53,14 +53,17 @@ void TcpServer::initialize() {
 
 void TcpServer::open(std::function<void()> configure, int backlog) {
 	if(_isOpen_) {
-		throw std::runtime_error("TcpServer::open({})\nServer already open.");
+		throw std::runtime_error(
+			"TcpServer::open({})\n"
+			"Server already open."
+		);
 	}
 	else {
 		try {
-			_handle_ = SocketInterface::create(SocketDomain::INET,
-				SocketType::STREAM, SocketProtocol::TCP);
+			_handle_ = make_socket(SocketDomain::INET, SocketType::STREAM,
+				SocketProtocol::TCP);
 			configure();
-			SocketInterface::listen(_handle_, backlog);
+			_handle_.listen(backlog);
 		}
 		catch (std::runtime_error e) {
 			std::string message("TcpServer::open({})\n");
@@ -74,23 +77,14 @@ void TcpServer::open(std::function<void()> configure, int backlog) {
 
 
 void TcpServer::open(unsigned short port, int backlog) {
-	try {
-		open([&](){
-			SocketInterface::setLocalPort(_handle_, port);
-		}, backlog);
-	}
+	try { open([&](){ _handle_.local_port(port); }, backlog); }
 	catch (...) { throw; }
 }
 
 
 void TcpServer::open(unsigned short port, const std::string& address,
 	int backlog) {
-	try {
-		open([&](){
-			SocketInterface::setLocalAddressAndPort(
-				_handle_, address, port);
-		}, backlog);
-	}
+	try { open([&](){ _handle_.local_address_port(address, port); }, backlog); }
 	catch (...) { throw; }
 }
 
@@ -106,7 +100,7 @@ void TcpServer::close() {
 	}
 	else {
 		try {
-			SocketInterface::close(_handle_);
+			_handle_.close();
 			_isOpen_ = false;
 		}
 		catch (std::runtime_error e) {
@@ -124,7 +118,7 @@ void TcpServer::accept(TcpSocket& socket) {
 	}
 	else {
 		try {
-			SocketInterface::accept(_handle_, socket._handle_);
+			socket._handle_ = _handle_.accept();
 			socket._pollTable_.push_back({socket._handle_,PollFlags::IN});
 			socket._isOpen_ = true;
 		}
@@ -143,7 +137,7 @@ int TcpServer::port() {
 	}
 	else {
 		try {
-			return SocketInterface::getLocalPort(_handle_);
+			return _handle_.local_port();
 		}
 		catch (std::runtime_error e) {
 			std::string message("TcpServer::port()\n");

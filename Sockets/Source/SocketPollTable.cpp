@@ -59,7 +59,7 @@ void SocketPollTable::clear() {
 void SocketPollTable::push_back(HandleEventPair pair) {
 	std::lock_guard<std::mutex> lock(_mtx_);
 	struct pollfd sfd;
-	sfd.fd = pair.first.descriptor;
+	sfd.fd = pair.first.get();
 	sfd.events = (short)pair.second;
 	sfd.revents = 0;
 	_descriptors_.push_back(sfd);
@@ -90,12 +90,12 @@ PollFlags SocketPollTable::operator[] (unsigned int idx) {
 }
 
 
-unsigned int SocketPollTable::find(const SocketHandle& target) {
+unsigned int SocketPollTable::find(const basic_socket& target) {
 	std::lock_guard<std::mutex> lock(_mtx_);
 	if(_descriptors_.size() == 0) return static_cast<unsigned int>(-1);
 	unsigned int index = 0;
 	for(const auto& descriptor : _descriptors_) {
-		if(descriptor.fd == target.descriptor)
+		if(descriptor.fd == target.get())
 			return index;
 		index++;
 	}

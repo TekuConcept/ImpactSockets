@@ -93,36 +93,6 @@
 using namespace Impact;
 
 
-void basic_socket::local_port(unsigned short port) {
-  sockaddr_in socketAddress;
-	::memset(&socketAddress, 0, sizeof(socketAddress));
-	socketAddress.sin_family = AF_INET;
-	socketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-	socketAddress.sin_port = htons(port);
-	auto status = ::bind(_descriptor_, (sockaddr*)&socketAddress,
-		sizeof(sockaddr_in));
-
-	ASSERT("basic_socket::local_port()\n", status == SOCKET_ERROR);
-}
-
-
-void basic_socket::local_address_port(const std::string& address,
-  unsigned short port) {
-  sockaddr_in socketAddress;
-
-	CATCH_ASSERT(
-		"basic_socket::local_address_port(1)\n",
-		Internal::fillAddress(_domain_, _type_, _protocol_, address, port,
-      socketAddress);
-	);
-
-	auto status = ::bind(_descriptor_, (sockaddr*)&socketAddress,
-		sizeof(sockaddr_in));
-
-	ASSERT("basic_socket::local_address_port(2)\n", status == SOCKET_ERROR);
-}
-
-
 unsigned short basic_socket::resolve_service(const std::string& service,
   const std::string& protocol) {
   struct servent* serviceInfo = ::getservbyname(service.c_str(),
@@ -136,51 +106,44 @@ unsigned short basic_socket::resolve_service(const std::string& service,
 }
 
 
-bool basic_socket::close() {
-  auto status = CLOSE_SOCKET(_descriptor_);
-	_descriptor_ = INVALID_SOCKET;
-#if defined(__WINDOWS__)
-	WSACleanup();
-#endif
-  return status == SOCKET_ERROR;
+void basic_socket::copy(const basic_socket& r) {
+	_ref_ = r._ref_;
+	if(_ref_ == NULL) {
+		throw std::runtime_error(
+			"basic_socket::copy()\n"
+			"Copying moved socket"
+		);
+	}
+	if(*_ref_ > 0) (*_ref_)++; // only increment if valid
+	_domain_     = r._domain_;
+  _type_       = r._type_;
+  _protocol_   = r._protocol_;
+  _descriptor_ = r._descriptor_;
 }
 
 
-basic_socket::basic_socket() {
-  _ref_ = new long; *_ref_ = 1;
+void basic_socket::move(basic_socket&& r) {
+	_ref_ = r._ref_;
+  if(_ref_ == NULL) {
+    throw std::runtime_error(
+      "basic_socket::basic_socket()\n"
+      "Moving already moved object"
+    );
+  }
+  _domain_       = r._domain_;
+  _type_         = r._type_;
+  _protocol_     = r._protocol_;
+  _descriptor_   = r._descriptor_;
+  r._ref_        = NULL;
+  r._descriptor_ = INVALID_SOCKET;
 }
 
 
-basic_socket::basic_socket(SocketDomain domain, SocketType type,
-  SocketProtocol proto) : _domain_(domain), _type_(type), _protocol_(proto) {
-  _ref_ = new long; *_ref_ = 1;
-#if defined(__WINDOWS__)
-	static WSADATA wsaData;
-	auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	WIN_ASSERT("SocketInterface::create(1)\n", status != 0, status, (void)0;);
-#endif
-	_descriptor_ = ::socket((int)domain, (int)type, (int)proto);
-	ASSERT(
-		"SocketInterface::create(2)\n",
-		_descriptor_ == INVALID_SOCKET
-	);
-}
-
-
-basic_socket::basic_socket(const basic_socket& r) {
-  CATCH_ASSERT("basic_socket::basic_socket()\n", *this = r;)
-}
-
-
-basic_socket::basic_socket(basic_socket&& r) {
-  CATCH_ASSERT("basic_socket::basic_socket()\n", *this = std::move(r);)
-}
-
-
-basic_socket::~basic_socket() {
-  if(_ref_ != NULL) {
+void basic_socket::dtor() {
+	if(_ref_ != NULL) {
     if(*_ref_ == 1) {
-      close();
+      try { close(); }
+			catch (...) { throw; }
       delete _ref_;
       _ref_ = NULL;
     }
@@ -190,37 +153,72 @@ basic_socket::~basic_socket() {
 }
 
 
+basic_socket::basic_socket() {
+  _ref_        = new long; *_ref_ = 0;
+	_domain_     = SocketDomain::UNSPECIFIED;
+	_type_       = SocketType::RAW;
+	_protocol_   = SocketProtocol::DEFAULT;
+	_descriptor_ = INVALID_SOCKET;
+}
+
+
+basic_socket::basic_socket(const basic_socket& r) {
+	CATCH_ASSERT("basic_socket::basic_socket()\n", copy(r);)
+}
+
+
+basic_socket::basic_socket(basic_socket&& r) {
+	CATCH_ASSERT("basic_socket::basic_socket()\n", move(std::move(r));)
+}
+
+
+basic_socket Impact::make_socket(SocketDomain domain, SocketType type,
+	SocketProtocol proto) {
+	basic_socket result;
+	#if defined(__WINDOWS__)
+		static WSADATA wsaData;
+		auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
+		WIN_ASSERT("basic_socket::make_socket(1)\n", status != 0, status, (void)0;);
+	#endif
+		result._descriptor_ = ::socket((int)domain, (int)type, (int)proto);
+		result._domain_     = domain;
+		result._type_       = type;
+		result._protocol_   = proto;
+		ASSERT(
+			"basic_socket::make_socket(2)\n",
+			result._descriptor_ == INVALID_SOCKET
+		);
+		*result._ref_ = 1;
+	return result;
+}
+
+
+basic_socket::~basic_socket() {
+  try { dtor(); }
+	catch (...) { /* do nothing */ }
+}
+
+
+void basic_socket::close() {
+  auto status = CLOSE_SOCKET(_descriptor_);
+	ASSERT("basic_socket::close()\n", status == SOCKET_ERROR);
+	_descriptor_ = INVALID_SOCKET;
+#if defined(__WINDOWS__)
+	WSACleanup();
+#endif
+}
+
+
 basic_socket& basic_socket::operator=(const basic_socket& r) {
-  _ref_ = r._ref_;
-  if(_ref_ == NULL) {
-    throw std::runtime_error(
-      "basic_socket::operator=()\n"
-      "Copying moved object"
-    );
-  }
-  (*_ref_)++;
-  _domain_     = r._domain_;
-  _type_       = r._type_;
-  _protocol_   = r._protocol_;
-  _descriptor_ = r._descriptor_;
+	dtor();
+  CATCH_ASSERT("basic_socket::operator=()\n", copy(r);)
   return *this;
 }
 
 
 basic_socket& basic_socket::operator=(basic_socket&& r) {
-  _ref_ = r._ref_;
-  if(_ref_ == NULL) {
-    throw std::runtime_error(
-      "basic_socket::operator=()\n"
-      "Moving already moved object"
-    );
-  }
-  r._ref_      = NULL;
-  _domain_       = r._domain_;
-  _type_         = r._type_;
-  _protocol_     = r._protocol_;
-  _descriptor_   = r._descriptor_;
-  r._descriptor_ = INVALID_SOCKET;
+	dtor();
+  CATCH_ASSERT("basic_socket::operator=()\n", move(std::move(r));)
   return *this;
 }
 
@@ -228,7 +226,6 @@ basic_socket& basic_socket::operator=(basic_socket&& r) {
 long basic_socket::use_count() const noexcept {
   if (_ref_ == NULL) return 0;
   else return *_ref_;
-  return *_ref_;
 }
 
 
@@ -407,6 +404,36 @@ int basic_socket::recvfrom(void* buffer, int length, unsigned short& port,
 	port    = ntohs(clientAddress.sin_port);
 
 	return status;
+}
+
+
+void basic_socket::local_port(unsigned short port) {
+	sockaddr_in socketAddress;
+	::memset(&socketAddress, 0, sizeof(socketAddress));
+	socketAddress.sin_family = AF_INET;
+	socketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+	socketAddress.sin_port = htons(port);
+	auto status = ::bind(_descriptor_, (sockaddr*)&socketAddress,
+		sizeof(sockaddr_in));
+
+	ASSERT("basic_socket::local_port()\n", status == SOCKET_ERROR);
+}
+
+
+void basic_socket::local_address_port(const std::string& address,
+	unsigned short port) {
+	sockaddr_in socketAddress;
+
+	CATCH_ASSERT(
+		"basic_socket::local_address_port(1)\n",
+		Internal::fillAddress(_domain_, _type_, _protocol_, address, port,
+			socketAddress);
+	);
+
+	auto status = ::bind(_descriptor_, (sockaddr*)&socketAddress,
+		sizeof(sockaddr_in));
+
+	ASSERT("basic_socket::local_address_port(2)\n", status == SOCKET_ERROR);
 }
 
 
