@@ -1,31 +1,30 @@
 /**
- * Created by TekuConcept on June 19, 2018
+ * Created by TekuConcept on July 8, 2018
  */
 
-#include "TcpSocket.h"
+#include "socketstream.h"
 #include "SocketProbe.h"
 #include <stdexcept>
 
 using namespace Impact;
+
 #define SUCCESS	0
 #define FAIL	-1
 #define VERBOSE(x) std::cout << x << std::endl
 
-TcpSocket::TcpSocket(unsigned int streamBufferSize) :
-    std::iostream(this) {
+socketstream::socketstream(basic_socket socket, unsigned int streamBufferSize) :
+  std::iostream(this), _handle_(socket) {
+  if(socket.type() != SocketType::STREAM) {
+    throw std::runtime_error(
+      "socketstream::socketstream()\n"
+      "Socket is not a streamable"
+    );
+  }
 	initialize(streamBufferSize);
 }
 
 
-TcpSocket::TcpSocket(int port, std::string address,
-	unsigned int streamBufferSize) : std::iostream(this) {
-	initialize(streamBufferSize);
-	try { open(port, address); }
-	catch (...) { throw; }
-}
-
-
-TcpSocket::~TcpSocket() {
+socketstream::~socketstream() {
 	if(_outputBuffer_ != NULL) {
 		delete[] _outputBuffer_;
 		_outputBuffer_ = NULL;
@@ -37,64 +36,30 @@ TcpSocket::~TcpSocket() {
 }
 
 
-void TcpSocket::initialize(unsigned int bufferSize) {
+void socketstream::initialize(unsigned int bufferSize) {
 	_streamBufferSize_ = bufferSize<256?256:bufferSize;
 	_outputBuffer_     = new char[_streamBufferSize_ + 1];
   _inputBuffer_      = new char[_streamBufferSize_ + 1];
 
-  _isOpen_  = false;
   _hangup_  = false;
   _timeout_ = -1;
 
 	setp(_outputBuffer_, _outputBuffer_ + _streamBufferSize_ - 1);
   setg(_inputBuffer_, _inputBuffer_ + _streamBufferSize_ - 1,
   	_inputBuffer_ + _streamBufferSize_ - 1);
+
+  _pollTable_.push_back({_handle_,PollFlags::IN});
 }
 
 
-void TcpSocket::open(int port, std::string address) {
-	if(_isOpen_) { setstate(std::ios_base::failbit); }
-	else {
-		try {
-      _handle_ = make_socket(SocketDomain::INET, SocketType::STREAM, SocketProtocol::TCP);
-      _handle_.connect(port, address);
-			_pollTable_.push_back({_handle_,PollFlags::IN});
-			clear();
-		}
-		catch (std::runtime_error e) {
-			VERBOSE(e.what());
-			setstate(std::ios_base::badbit);
-		}
-
-		_isOpen_ = true;
-		_hangup_ = false;
-	}
+int socketstream::sync() {
+	return write_base(SUCCESS);
 }
 
 
-bool TcpSocket::is_open() const { return _isOpen_; }
+int socketstream::underflow() {
+	if(!_handle_) return EOF;
 
-
-void TcpSocket::close() {
-	if(!_isOpen_) { setstate(std::ios_base::failbit); }
-	else {
-		try {
-			_handle_.close();
-			_pollTable_.pop_back();
-			_isOpen_ = false;
-		}
-		catch (...) { setstate(std::ios_base::failbit); }
-	}
-}
-
-
-int TcpSocket::sync() {
-	return writeBase(SUCCESS);
-}
-
-
-int TcpSocket::underflow() {
-	if(!_isOpen_) { return EOF; }
 	if(_hangup_) {
 		setstate(std::ios_base::badbit);
 		return EOF;
@@ -120,20 +85,21 @@ int TcpSocket::underflow() {
 			return *eback();
 		}
 	}
-	catch (...) { return EOF; }
+	catch (std::exception e) { return EOF; }
 
 	return EOF;
 }
 
 
-int TcpSocket::overflow(int c) {
-	return writeBase(c);
+int socketstream::overflow(int c) {
+	return write_base(c);
 }
 
 
-int TcpSocket::writeBase(int c) {
-	if(!_isOpen_) { return EOF; }
-	if(_hangup_) {
+int socketstream::write_base(int c) {
+	if(!_handle_) return EOF;
+
+  if(_hangup_) {
 		setstate(std::ios_base::badbit);
 		return EOF;
 	}
@@ -143,17 +109,19 @@ int TcpSocket::writeBase(int c) {
 		_handle_.send(pbase(), length);
 		setp(pbase(), epptr());
 	}
-	catch (...) { return EOF; }
+	catch (std::exception e) {
+    return EOF;
+  }
 
 	return c;
 }
 
 
-bool TcpSocket::hup() const {
+bool socketstream::hup() const noexcept {
 	return _hangup_;
 }
 
 
-void TcpSocket::setTimeout(int milliseconds) {
+void socketstream::set_timeout(int milliseconds) noexcept {
 	_timeout_ = milliseconds<-1?-1:milliseconds;
 }

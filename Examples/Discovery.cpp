@@ -69,9 +69,8 @@ std::vector<NetInterface> filter(std::vector<NetInterface> list) {
 }
 
 void sendMessage(Impact::UdpSocket& socket, std::vector<NetInterface> list) {
-	std::string message("msc-discovery-request");
+	std::string message("discovery-request");
 	for(const auto& iface : list) {
-		// (void)list;
 		for(auto i = 0; i < 5; i++) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 			try {
@@ -192,13 +191,14 @@ void runClient() {
 int main() {
 	VERBOSE("- BEGINING NETWORK DISCOVERY -");
 
-	//runServer(); // Fails to run on windows
-	//std::this_thread::sleep_for(std::chrono::seconds(1));
+	runServer();
+	// give time for server to start
+	std::this_thread::sleep_for(std::chrono::seconds(1));
 	runClient();
 
 	fshutdown = true;
 	if(service.joinable()) service.join();
-	
+
 	VERBOSE("- END OF LINE -");
 	return 0;
 }

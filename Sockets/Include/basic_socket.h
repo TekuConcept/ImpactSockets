@@ -11,7 +11,9 @@
 namespace Impact {
   class basic_socket {
     long* _ref_;
-    int _descriptor_;
+    int*  _descriptor_;
+    bool* _wsa_;
+
     SocketDomain _domain_;
     SocketType _type_;
     SocketProtocol _protocol_;
@@ -25,7 +27,7 @@ namespace Impact {
 
   public:
     // constructors
-    basic_socket() /* throw(io_error) */;
+    basic_socket();
     basic_socket(const basic_socket& r)
       /* throw(std::runtime_error) */;
     basic_socket(basic_socket&& r)
@@ -50,7 +52,7 @@ namespace Impact {
     explicit operator bool() const noexcept; // get() != INVALID_SOCKET
 
     // communication
-    void connect(unsigned short port, const std::string& address)
+    void connect(unsigned short port, const std::string& address = "localhost")
       /* throw(io_error) */;
     void listen(int backlog = 5)
       /* throw(io_error) */;
@@ -87,10 +89,14 @@ namespace Impact {
       /* throw(io_error) */;
 
     friend basic_socket make_socket(SocketDomain, SocketType, SocketProtocol);
+    friend basic_socket make_tcp_socket();
+    friend basic_socket make_udp_socket();
   };
 
   basic_socket make_socket(SocketDomain domain, SocketType type,
     SocketProtocol proto) /* throw(io_error) */;
+  basic_socket make_tcp_socket() /* throw(io_error) */;
+  basic_socket make_udp_socket() /* throw(io_error) */;
 }
 
 #endif

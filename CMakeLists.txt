@@ -8,8 +8,8 @@ project(SocketsLibrary)
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX OR
 	CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Werror -Wextra -pthread")
-  # Note: -pthread is currently used in the Discovery example
-  # but will eventually be used for io-pipelining
+  # Note: -pthread is currently used in the Discovery and TcpClientServer
+	# examples
 endif()
 
 # Set install directory to project root if building on Windows
@@ -23,6 +23,7 @@ set(EVENTS_INCLUDE_DIR ${LIBRARIES_PATH}/Events/Include)
 set(SOCKETS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Sockets)
 set(SOCKETS_INCLUDE_DIR ${SOCKETS_PATH}/Include)
 set(EXAMPLES_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Examples)
+set(TESTS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Tests)
 
 option(BUILD_SHARED "Build shared libraries instead of static ones." OFF)
 if(${BUILD_SHARED})
@@ -79,3 +80,11 @@ INSTALL (
   DESTINATION include/sockets
   FILES_MATCHING PATTERN "*.h"
 )
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+#                       TEST MODULES                      #
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+set(BASIC_SOCKET_TEST basic_socket_test)
+add_executable(${BASIC_SOCKET_TEST} "${TESTS_PATH}/${BASIC_SOCKET_TEST}.cpp")
+target_link_libraries(${BASIC_SOCKET_TEST} ${IMPACT_SOCKETS})

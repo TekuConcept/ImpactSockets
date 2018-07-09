@@ -4,6 +4,7 @@
 
 #include "basic_socket.h"
 #include "io_error.h"
+#include "Environment.h"
 #include "Generic.h"
 
 #include <sys/types.h>			 // For data types
@@ -65,7 +66,6 @@
  	#define INVALID_SOCKET -1
 #endif
 
-
 #define CATCH_ASSERT(title,code)\
  	try { code }\
  	catch (std::runtime_error e) {\
@@ -119,6 +119,7 @@ void basic_socket::copy(const basic_socket& r) {
   _type_       = r._type_;
   _protocol_   = r._protocol_;
   _descriptor_ = r._descriptor_;
+	_wsa_        = r._wsa_;
 }
 
 
@@ -134,31 +135,40 @@ void basic_socket::move(basic_socket&& r) {
   _type_         = r._type_;
   _protocol_     = r._protocol_;
   _descriptor_   = r._descriptor_;
+	_wsa_          = r._wsa_;
   r._ref_        = NULL;
-  r._descriptor_ = INVALID_SOCKET;
+  r._descriptor_ = NULL;
+	r._wsa_        = NULL;
 }
 
 
 void basic_socket::dtor() {
 	if(_ref_ != NULL) {
     if(*_ref_ == 1) {
-      try { close(); }
-			catch (...) { throw; }
+      try { close(); } catch (...) { throw; }
       delete _ref_;
+			delete _wsa_;
+			delete _descriptor_;
       _ref_ = NULL;
+			_wsa_ = NULL;
+			_descriptor_ = NULL;
     }
-    else (*_ref_)--;
+    else if(*_ref_ > 1) (*_ref_)--;
   }
   // else moved
 }
 
 
 basic_socket::basic_socket() {
-  _ref_        = new long; *_ref_ = 0;
-	_domain_     = SocketDomain::UNSPECIFIED;
-	_type_       = SocketType::RAW;
-	_protocol_   = SocketProtocol::DEFAULT;
-	_descriptor_ = INVALID_SOCKET;
+  _ref_         = new long;
+	_wsa_         = new bool;
+	_descriptor_  = new int;
+	*_ref_        = 0;
+	*_wsa_        = false;
+	*_descriptor_ = INVALID_SOCKET;
+	_domain_      = SocketDomain::UNSPECIFIED;
+	_type_        = SocketType::RAW;
+	_protocol_    = SocketProtocol::DEFAULT;
 }
 
 
@@ -178,18 +188,37 @@ basic_socket Impact::make_socket(SocketDomain domain, SocketType type,
 	#if defined(__WINDOWS__)
 		static WSADATA wsaData;
 		auto status = WSAStartup(MAKEWORD(2, 2), &wsaData);
-		WIN_ASSERT("basic_socket::make_socket(1)\n", status != 0, status, (void)0;);
+		WIN_ASSERT("::make_socket(1)\n", status != 0, status, (void)0;);
+		*result._wsa_ = true;
 	#endif
-		result._descriptor_ = ::socket((int)domain, (int)type, (int)proto);
-		result._domain_     = domain;
-		result._type_       = type;
-		result._protocol_   = proto;
+		*result._descriptor_ = ::socket((int)domain, (int)type, (int)proto);
+		result._domain_      = domain;
+		result._type_        = type;
+		result._protocol_    = proto;
 		ASSERT(
 			"basic_socket::make_socket(2)\n",
-			result._descriptor_ == INVALID_SOCKET
+			*result._descriptor_ == INVALID_SOCKET
 		);
 		*result._ref_ = 1;
 	return result;
+}
+
+
+basic_socket Impact::make_tcp_socket() {
+	CATCH_ASSERT(
+		"::make_tcp_socket()\n",
+		return make_socket(SocketDomain::INET, SocketType::STREAM,
+			SocketProtocol::TCP);
+	)
+}
+
+
+basic_socket Impact::make_udp_socket() {
+	CATCH_ASSERT(
+		"::make_udp_socket()\n",
+		return make_socket(SocketDomain::INET, SocketType::DATAGRAM,
+			SocketProtocol::UDP);
+	)
 }
 
 
@@ -200,37 +229,49 @@ basic_socket::~basic_socket() {
 
 
 void basic_socket::close() {
-  auto status = CLOSE_SOCKET(_descriptor_);
+	if(!_descriptor_) {
+		throw io_error(
+			"basic_socket::close()\n"
+			"Closing moved socket"
+		);
+	}
+  auto status = CLOSE_SOCKET(*_descriptor_);
 	ASSERT("basic_socket::close()\n", status == SOCKET_ERROR);
-	_descriptor_ = INVALID_SOCKET;
+	*_ref_ = 0;
+	*_descriptor_ = INVALID_SOCKET;
 #if defined(__WINDOWS__)
-	WSACleanup();
+	if(*_wsa_)
+		WSACleanup();
+	*_wsa_ = false;
 #endif
 }
 
 
 basic_socket& basic_socket::operator=(const basic_socket& r) {
-	dtor();
+	if(_ref_ && *_ref_ > 0)
+		dtor();
   CATCH_ASSERT("basic_socket::operator=()\n", copy(r);)
   return *this;
 }
 
 
 basic_socket& basic_socket::operator=(basic_socket&& r) {
-	dtor();
+	if(_ref_ && *_ref_ > 0)
+		dtor();
   CATCH_ASSERT("basic_socket::operator=()\n", move(std::move(r));)
   return *this;
 }
 
 
 long basic_socket::use_count() const noexcept {
-  if (_ref_ == NULL) return 0;
-  else return *_ref_;
+  if (_ref_) return *_ref_;
+  else return 0;
 }
 
 
 int basic_socket::get() const noexcept {
-  return _descriptor_;
+	if(_descriptor_) return *_descriptor_;
+  else return 0;
 }
 
 
@@ -250,7 +291,8 @@ SocketProtocol basic_socket::protocol() const noexcept {
 
 
 basic_socket::operator bool() const noexcept {
-  return _descriptor_ == INVALID_SOCKET;
+  if(_descriptor_) return *_descriptor_ != INVALID_SOCKET;
+	else return false;
 }
 
 
@@ -263,7 +305,7 @@ void basic_socket::connect(unsigned short port, const std::string& address) {
       destinationAddress);
 	);
 
-	auto status = ::connect(_descriptor_, (sockaddr*)&destinationAddress,
+	auto status = ::connect(*_descriptor_, (sockaddr*)&destinationAddress,
 		sizeof(destinationAddress));
 
 	ASSERT("basic_socket::connect(2)\n", status == SOCKET_ERROR);
@@ -271,24 +313,26 @@ void basic_socket::connect(unsigned short port, const std::string& address) {
 
 
 void basic_socket::listen(int backlog) {
-  auto status = ::listen(_descriptor_, backlog);
+  auto status = ::listen(*_descriptor_, backlog);
   ASSERT("basic_socket::listen()\n", status == SOCKET_ERROR);
 }
 
 
 basic_socket basic_socket::accept() {
   basic_socket peer;
-  peer._domain_     = _domain_;
-  peer._type_       = _type_;
-  peer._protocol_   = _protocol_;
-  peer._descriptor_ = ::accept(_descriptor_, NULL, NULL);
-	ASSERT("basic_socket::accept()\n", peer._descriptor_ == INVALID_SOCKET);
+  peer._domain_      = _domain_;
+  peer._type_        = _type_;
+  peer._protocol_    = _protocol_;
+  *peer._descriptor_ = ::accept(*_descriptor_, NULL, NULL);
+	ASSERT("basic_socket::accept()\n", *peer._descriptor_ == INVALID_SOCKET);
+	*peer._ref_ = 1;
+	*peer._wsa_ = false;
   return peer;
 }
 
 
 void basic_socket::shutdown(SocketChannel channel) {
-  auto status = ::shutdown(_descriptor_, (int)channel);
+  auto status = ::shutdown(*_descriptor_, (int)channel);
   ASSERT("basic_socket::shutdown()\n", status == SOCKET_ERROR);
 }
 
@@ -297,7 +341,7 @@ void basic_socket::group(std::string multicastName, GroupApplication method) {
 	struct ip_mreq multicastRequest;
 	multicastRequest.imr_multiaddr.s_addr = inet_addr(multicastName.c_str());
 	multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
-	auto status = ::setsockopt(_descriptor_, IPPROTO_IP, (int)method,
+	auto status = ::setsockopt(*_descriptor_, IPPROTO_IP, (int)method,
 		(CCHAR_PTR)&multicastRequest, sizeof(multicastRequest));
 	ASSERT("basic_socket::group()\n", status == SOCKET_ERROR);
 }
@@ -314,14 +358,14 @@ void basic_socket::keepalive(KeepAliveOptions options) {
 	config.onoff             = options.enabled;
 	config.keepalivetime     = options.idleTime;
 	config.keepaliveinterval = options.interval;
-	status = WSAIoctl(_descriptor_, SIO_KEEPALIVE_VALS, &config,
+	status = WSAIoctl(*_descriptor_, SIO_KEEPALIVE_VALS, &config,
 		sizeof(config), NULL, 0, &bytesReturned, NULL, NULL);
 	if (status == SOCKET_ERROR) {
 		os << Internal::getErrorMessage();
 		throw io_error(os.str());
 	}
 #else /* OSX|LINUX */
-	status = setsockopt(_descriptor_, SOL_SOCKET, SO_KEEPALIVE,
+	status = setsockopt(*_descriptor_, SOL_SOCKET, SO_KEEPALIVE,
 		(const char*)&options.enabled, sizeof(int));
 	if(status == SOCKET_ERROR) {
 		os << "[keepalive] ";
@@ -330,7 +374,7 @@ void basic_socket::keepalive(KeepAliveOptions options) {
 		errors |= 1;
 	}
 #ifndef __APPLE__
-	status = setsockopt(_descriptor_, IPPROTO_TCP, TCP_KEEPIDLE,
+	status = setsockopt(*_descriptor_, IPPROTO_TCP, TCP_KEEPIDLE,
 		(const char*)&options.idleTime, sizeof(int));
 	if(status == SOCKET_ERROR) {
 		os << "[idle] ";
@@ -339,7 +383,7 @@ void basic_socket::keepalive(KeepAliveOptions options) {
 		errors |= 8;
 	}
 #endif /* __APPLE__ */
-	status = setsockopt(_descriptor_, IPPROTO_TCP, TCP_KEEPINTVL,
+	status = setsockopt(*_descriptor_, IPPROTO_TCP, TCP_KEEPINTVL,
 		(const char*)&options.interval, sizeof(int));
 	if(status == SOCKET_ERROR) {
 		os << "[interval] ";
@@ -348,7 +392,7 @@ void basic_socket::keepalive(KeepAliveOptions options) {
 		errors |= 2;
 	}
 #endif /* UNIX|LINUX */
-	status = setsockopt(_descriptor_, IPPROTO_TCP, TCP_KEEPCNT,
+	status = setsockopt(*_descriptor_, IPPROTO_TCP, TCP_KEEPCNT,
 		(const char*)&options.retries, sizeof(int));
 	if(status == SOCKET_ERROR) {
 		os << "[count] ";
@@ -361,7 +405,7 @@ void basic_socket::keepalive(KeepAliveOptions options) {
 
 
 void basic_socket::send(const void* buffer, int length, MessageFlags flags) {
-  auto status = ::send(_descriptor_, (CCHAR_PTR)buffer, length, (int)flags);
+  auto status = ::send(*_descriptor_, (CCHAR_PTR)buffer, length, (int)flags);
   ASSERT("basic_socket::send()\n", status == SOCKET_ERROR);
 }
 
@@ -376,7 +420,7 @@ int basic_socket::sendto(const void* buffer, int length, unsigned short port,
       destinationAddress);
 	);
 
-	auto status = ::sendto(_descriptor_, (CCHAR_PTR)buffer, length,
+	auto status = ::sendto(*_descriptor_, (CCHAR_PTR)buffer, length,
 		(int)flags, (sockaddr*)&destinationAddress, sizeof(destinationAddress));
 
 	ASSERT("basic_socket::sendto(2)\n", status == SOCKET_ERROR);
@@ -385,7 +429,7 @@ int basic_socket::sendto(const void* buffer, int length, unsigned short port,
 
 
 int basic_socket::recv(void* buffer, int length, MessageFlags flags) {
-  int status = ::recv(_descriptor_, (CHAR_PTR)buffer, length, (int)flags);
+  int status = ::recv(*_descriptor_, (CHAR_PTR)buffer, length, (int)flags);
 	ASSERT("basic_socket::recv()\n", status == SOCKET_ERROR);
 	return status; /* number of bytes received or EOF */
 }
@@ -395,7 +439,7 @@ int basic_socket::recvfrom(void* buffer, int length, unsigned short& port,
   std::string& address, MessageFlags flags) {
   sockaddr_in clientAddress;
 	socklen_t addressLength = sizeof(clientAddress);
-	auto status = ::recvfrom(_descriptor_, (CHAR_PTR)buffer, length,
+	auto status = ::recvfrom(*_descriptor_, (CHAR_PTR)buffer, length,
 		(int)flags, (sockaddr*)&clientAddress, (socklen_t*)&addressLength);
 
 	ASSERT("basic_socket::recvfrom()\n", status == SOCKET_ERROR);
@@ -413,7 +457,7 @@ void basic_socket::local_port(unsigned short port) {
 	socketAddress.sin_family = AF_INET;
 	socketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
 	socketAddress.sin_port = htons(port);
-	auto status = ::bind(_descriptor_, (sockaddr*)&socketAddress,
+	auto status = ::bind(*_descriptor_, (sockaddr*)&socketAddress,
 		sizeof(sockaddr_in));
 
 	ASSERT("basic_socket::local_port()\n", status == SOCKET_ERROR);
@@ -430,7 +474,7 @@ void basic_socket::local_address_port(const std::string& address,
 			socketAddress);
 	);
 
-	auto status = ::bind(_descriptor_, (sockaddr*)&socketAddress,
+	auto status = ::bind(*_descriptor_, (sockaddr*)&socketAddress,
 		sizeof(sockaddr_in));
 
 	ASSERT("basic_socket::local_address_port(2)\n", status == SOCKET_ERROR);
@@ -440,7 +484,7 @@ void basic_socket::local_address_port(const std::string& address,
 std::string basic_socket::local_address() {
   sockaddr_in address;
 	auto addressLength = sizeof(address);
-	auto status = ::getsockname(_descriptor_,
+	auto status = ::getsockname(*_descriptor_,
 		(sockaddr*)&address, (socklen_t*)&addressLength);
 	ASSERT("basic_socket::local_address()\n", status == SOCKET_ERROR);
 	return inet_ntoa(address.sin_addr);
@@ -450,7 +494,7 @@ std::string basic_socket::local_address() {
 unsigned short basic_socket::local_port() {
   sockaddr_in address;
 	auto addressLength = sizeof(address);
-	auto status = ::getsockname(_descriptor_,
+	auto status = ::getsockname(*_descriptor_,
 		(sockaddr*)&address, (socklen_t*)&addressLength);
 	ASSERT("basic_socket::local_port()\n", status == SOCKET_ERROR);
 	return ntohs(address.sin_port);
@@ -460,7 +504,7 @@ unsigned short basic_socket::local_port() {
 std::string basic_socket::peer_address() {
   sockaddr_in address;
   unsigned int addressLength = sizeof(address);
-  auto status = ::getpeername(_descriptor_, (sockaddr*)&address,
+  auto status = ::getpeername(*_descriptor_, (sockaddr*)&address,
     (socklen_t*)&addressLength);
   ASSERT("basic_socket::peer_address()\n", status == SOCKET_ERROR);
   return inet_ntoa(address.sin_addr);
@@ -470,7 +514,7 @@ std::string basic_socket::peer_address() {
 unsigned short basic_socket::peer_port() {
   sockaddr_in address;
   unsigned int addressLength = sizeof(address);
-  auto status = ::getpeername(_descriptor_, (sockaddr*)&address,
+  auto status = ::getpeername(*_descriptor_, (sockaddr*)&address,
     (socklen_t*)&addressLength);
   ASSERT("basic_socket::peer_port()\n", status == SOCKET_ERROR);
   return ntohs(address.sin_port);
@@ -479,14 +523,14 @@ unsigned short basic_socket::peer_port() {
 
 void basic_socket::broadcast(bool enabled) {
   auto permission = enabled?1:0;
-	auto status = ::setsockopt(_descriptor_, SOL_SOCKET, SO_BROADCAST,
+	auto status = ::setsockopt(*_descriptor_, SOL_SOCKET, SO_BROADCAST,
 		(CCHAR_PTR)&permission, sizeof(permission));
 	ASSERT("basic_socket::broadcast()\n", status == SOCKET_ERROR);
 }
 
 
 void basic_socket::multicast_ttl(unsigned char ttl) {
-  auto status = ::setsockopt(_descriptor_, IPPROTO_IP, IP_MULTICAST_TTL,
+  auto status = ::setsockopt(*_descriptor_, IPPROTO_IP, IP_MULTICAST_TTL,
 		(CCHAR_PTR)&ttl, sizeof(ttl));
 	ASSERT("basic_socket::multicast_ttl()\n", status == SOCKET_ERROR);
 }
