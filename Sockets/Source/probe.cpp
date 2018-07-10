@@ -10,6 +10,10 @@
 #include "sockets/generic.h"
 #include "sockets/io_error.h"
 
+#if defined(__APPLE__)
+	#include <unistd.h> // select()
+#endif
+
 #if defined(__WINDOWS__)
 	#define POLL WSAPoll
 #else
