@@ -33,6 +33,26 @@
 	#endif /* __LINUX__ */
 #endif /* __WINDOWS__ */
 
+#if defined(__APPLE__)
+	// some apple sources are incomplete
+	// net/if_types.h doesn't have every numeric definition
+	// for convinience interfaces type values used are listed here
+
+	// IFT_ETHER    0x6
+	// IFT_ISO88026 0xa
+	// IFT_XETHER   0x1a
+	// IFT_PPP      0x17
+	// IFT_ATM      0x25
+	// IFT_IEEE1394 0x90
+
+	#ifndef IFT_IEEE80211
+		#define IFT_IEEE80211 0x47
+	#endif
+
+	#ifndef IFT_REACHDSL
+	 	#define IFT_REACHDSL 0xc0
+	#endif
+#endif
 
 #define CATCH_ASSERT(title,code)\
  	try { code }\
@@ -49,6 +69,8 @@
  		throw std::runtime_error(message);\
  	}
 
+#include <iostream>
+#define DEBUG(x) std::cout << x << std::endl
 
 using netinterface   = impact::networking::netinterface;
 using interface_type = impact::networking::interface_type;
@@ -359,6 +381,10 @@ internal::get_interface_type(unsigned short __family)
   	switch (__family) {
   	case IFT_ETHER:
   	case IFT_XETHER:    return interface_type::ETHERNET;
+		case IFT_IEEE80211:
+		// DSL/modem router - tested against wifi network,
+		// but may also be used for ethernet network
+		case IFT_REACHDSL:
   	// this is actually a Metropolitan Area Network (MAN)
   	// but it can be used for WiFi interfaces
   	case IFT_ISO88026:	return interface_type::WIFI;
