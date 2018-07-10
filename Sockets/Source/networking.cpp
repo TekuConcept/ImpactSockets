@@ -6,10 +6,15 @@
 
 #include <stdexcept>            // runtime_error
 #include <sstream>              // ostringstream
+#include <cstring>              // memcpy
 
 #include "sockets/environment.h"
 #include "sockets/generic.h"
 #include "sockets/types.h"
+
+#if defined(__LINUX__)
+	#include "sockets/basic_socket.h"
+#endif
 
 #if defined(__WINDOWS__)
 	#include <winsock2.h>
@@ -40,7 +45,7 @@
 #define ASSERT(title,cond)\
  	if (cond) {\
  		std::string message( title );\
- 		message.append(Internal::getErrorMessage());\
+ 		message.append(internal::error_message());\
  		throw std::runtime_error(message);\
  	}
 
@@ -235,13 +240,13 @@ internal::traverse_links(
 {
 	// WARNING: ifa_addr may be NULL
 	for (auto target = __addresses; target != NULL; target = target->ifa_next) {
-		interface token;
+		netinterface token;
 
 		token.flags     = target->ifa_flags;
 		token.name      = std::string(target->ifa_name);
-		token.address   = sockAddr2String(target->ifa_addr);
-		token.netmask   = sockAddr2String(target->ifa_netmask);
-		token.broadcast = sockAddr2String(target->ifa_broadaddr);
+		token.address   = sock_addr_string(target->ifa_addr);
+		token.netmask   = sock_addr_string(target->ifa_netmask);
+		token.broadcast = sock_addr_string(target->ifa_broadaddr);
 		token.ipv4      = (target->ifa_addr != NULL) ?
 			(target->ifa_addr->sa_family == AF_INET) : false;
 

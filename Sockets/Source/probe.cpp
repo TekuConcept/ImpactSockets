@@ -14,6 +14,7 @@
 	#define POLL WSAPoll
 #else
 	#define POLL ::poll
+	#define SOCKET_ERROR -1
 #endif
 
 #define ASSERT(title,cond)\

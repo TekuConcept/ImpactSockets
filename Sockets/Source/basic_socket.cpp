@@ -446,7 +446,7 @@ basic_socket::keepalive(struct keep_alive_options __options)
 		*m_descriptor_,
 		SOL_SOCKET,
 		SO_KEEPALIVE,
-		(const char*)&options.enabled,
+		(const char*)&__options.enabled,
 		sizeof(int)
 	);
 

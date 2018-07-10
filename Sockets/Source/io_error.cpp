@@ -10,7 +10,7 @@ io_error::io_error(const std::string& __arg)
   : exception(), m_msg_(__arg) { }
 
 
-io_error::~io_error() { }
+io_error::~io_error() throw() { }
 
 
-const char* io_error::what() const { return m_msg_.c_str(); }
+const char* io_error::what() const throw() { return m_msg_.c_str(); }
