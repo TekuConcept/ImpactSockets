@@ -76,6 +76,7 @@ namespace impact {
     unsigned short peer_port() /* throw(io_error) */;
     void broadcast(bool enabled) /* throw(io_error) */;
     void multicast_ttl(unsigned char time_to_live = 1) /* throw(io_error) */;
+	void reuse_address(bool enabled) /* throw(io_error) */;
 
     friend basic_socket make_socket(socket_domain, socket_type, socket_protocol);
     friend basic_socket make_tcp_socket();

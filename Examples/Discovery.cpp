@@ -20,11 +20,6 @@ using Interface     = networking::netinterface;
 using InterfaceType = networking::InterfaceType;
 
 
-std::thread service;
-std::atomic<bool> shutdownServer(false);
-poll_vector pollHandle;
-
-
 void printInterfaces(std::vector<Interface> list) {
 	for (const auto& iface : list) {
 		VERBOSE("Name:      " << iface.name);
@@ -69,10 +64,10 @@ std::vector<Interface> filter(std::vector<Interface> list) {
 		std::string name = iface.name;
 		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
 		if (name.compare(0, 2, "en")    == 0 ||
-			  name.compare(0, 3, "eth")   == 0 ||
-			  name.compare(0, 4, "wlan")  == 0 ||
-			  name.compare(0, 5, "wi-fi") == 0 ||
-			  name.compare(0, 3, "wlp")   == 0)
+            name.compare(0, 3, "eth")   == 0 ||
+            name.compare(0, 4, "wlan")  == 0 ||
+            name.compare(0, 5, "wi-fi") == 0 ||
+            name.compare(0, 3, "wlp")   == 0)
 			table.push_back(iface);
 	}
 
@@ -86,17 +81,22 @@ void sendMessage(basic_socket& socket, std::vector<Interface> list) {
 		for (const auto& iface : list) {
 			for (auto i = 0; i < 5; i++) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				VERBOSE("Sending to " << iface.broadcast << ":5001");
-				socket.sendto(&message[0], message.length(), 5001, iface.broadcast);
+				VERBOSE("Sending to " << iface.broadcast << ":25565");
+				socket.sendto(&message[0], message.length(), 25565, iface.broadcast);
 			}
 		}
 	}
-	catch (...) { throw; }
+	catch (io_error e) {
+		VERBOSE(e.what());
+		throw;
+	}
 }
 
 
 void receiveResponse(basic_socket& socket) {
 	try {
+		poll_vector clientPollHandle{ {socket,PollFlags::IN} };
+
 		const int kTimeout = 1000;
 		const int kLength  = 512;
 		const int kRetries = 5;
@@ -108,12 +108,12 @@ void receiveResponse(basic_socket& socket) {
 			int            size;
 
 			// timeout
-			auto status = probe::poll(pollHandle, kTimeout);
+			auto status = probe::poll(clientPollHandle, kTimeout);
 			if (status == 0)
 				size = 0;
 			else {
-				auto flags = pollHandle[0];
-				pollHandle.reset_events();
+				auto flags = clientPollHandle[0];
+				clientPollHandle.reset_events();
 
 				if ((int)(flags & PollFlags::IN))
 					size = socket.recvfrom(buffer, kLength, port, address);
@@ -125,46 +125,13 @@ void receiveResponse(basic_socket& socket) {
 			else if (size > 0) {
 				retries      = 0;
 				buffer[size] = 0;
-				VERBOSE(address << ":" << port << "\t" << buffer);
+				VERBOSE("Received from: " << address << ":" << port << "\t" << buffer);
 			}
 			else retries++;
 		}
 	}
 	catch (...) { throw; }
 }
-
-
-// void runServer() {
-// 	service = std::thread([](){
-// 		try {
-// 			basic_socket socket = make_udp_socket();
-// 			socket.local_address_port(5001, "0.0.0.0");
-// 			socket.broadcast(true);
-//
-// 			VERBOSE("UDP Listening On Port 5001\n");
-//
-// 			const int kTimeout = 1000;
-// 			const int kLength  = 512;
-//
-// 			char           buffer[kLength];
-// 			std::string    address;
-// 			unsigned short port;
-// 			int            size;
-//
-// 			while (!shutdownServer) {
-// 				size = socket.recvFrom(buffer, kLength, port, address, kTimeout);
-// 				if (size == kLength)
-// 					VERBOSE("[ overflow ]");
-// 				else if (size > 0)
-// 					VERBOSE("Received: " << buffer);
-// 				else continue;
-// 			}
-//
-// 			socket.close();
-// 		}
-// 		catch(std::runtime_error e) { VERBOSE(e.what()); }
-// 	});
-// }
 
 
 void runClient() {
@@ -176,32 +143,29 @@ void runClient() {
 
 		basic_socket socket = make_udp_socket();
 		socket.broadcast(true);
+		socket.reuse_address(true);
 		socket.multicast_ttl(2);
-	#if !defined(__WINDOWS__)
-		// Windows automatically listens on the given port
-		// No need to manuall bind to inaddrany:port
-		socket.local_address_port("0.0.0.0", 5001);
-	#endif
-		pollHandle.push_back({ socket, PollFlags::IN });
+		VERBOSE("> Bind");
+		socket.local_address_port("0.0.0.0", 25565);
 
+		VERBOSE("> Sending");
 		sendMessage(socket, list);
+
+		VERBOSE("> Receiving");
 		receiveResponse(socket);
 
-		pollHandle.pop_back();
+		VERBOSE("> Done!");
 		socket.close();
-	} catch (std::runtime_error e) { VERBOSE(e.what()); }
+	}
+	catch (io_error e) { VERBOSE("CLIENT: " << e.what()); }
+	catch (std::runtime_error e) { VERBOSE("CLIENT: " << e.what()); }
+	catch (...) { VERBOSE("CLIENT: Unknown error"); }
 }
 
 int main() {
 	VERBOSE("- BEGINING NETWORK DISCOVERY -");
 
-	// runServer();
-	// give time for server to start
-	// std::this_thread::sleep_for(std::chrono::seconds(1));
 	runClient();
-
-	// shutdownServer = true;
-	// if(service.joinable()) service.join();
 
 	VERBOSE("- END OF LINE -");
 	return 0;

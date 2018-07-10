@@ -5,3 +5,4 @@
 #include "sockets/basic_socket.h"
 #include "sockets/probe.h"
 #include "sockets/poll_vector.h"
+#include "sockets/io_error.h"

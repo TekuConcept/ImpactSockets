@@ -3,7 +3,6 @@
 
 #include <basic_socket>
 #include <socketstream>
-#include <io_error>
 
 using namespace impact;
 

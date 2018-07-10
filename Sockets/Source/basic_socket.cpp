@@ -23,6 +23,7 @@
 	#include <ws2tcpip.h>
  	#include <mstcpip.h>       // struct tcp_keepalive
 	#include <iphlpapi.h>
+	#include <Ws2def.h>        // reuse address
 #else
 	#include <sys/socket.h>		 // For socket(), connect(), send(), and recv()
 	#include <sys/ioctl.h>     // For ioctl()
@@ -79,7 +80,7 @@
  	}
 
 #define WIN_ASSERT(title,cond,error,fin)\
-	if(cond) {\
+	if (cond) {\
 		fin\
 		std::string message( title );\
 		message.append(internal::win_error_message( error ));\
@@ -749,4 +750,35 @@ basic_socket::multicast_ttl(unsigned char __ttl)
 	);
 
 	ASSERT("basic_socket::multicast_ttl()\n", status == SOCKET_ERROR);
+}
+
+
+void
+basic_socket::reuse_address(bool __enabled)
+{
+	int reuse = __enabled ? 1 : 0;
+	auto option = SO_REUSEADDR;
+#ifdef WIN_SECURE_REUSE
+	option = SO_EXCLUSIVEADDRUSE;
+#endif
+
+	auto status = ::setsockopt(
+		*m_descriptor_,
+		SOL_SOCKET,
+		option,
+		(const char*)&reuse,
+		sizeof(reuse)
+	);
+	ASSERT("basic_socket::reuse_address()\n", status == SOCKET_ERROR);
+
+#ifdef SO_REUSEPORT
+	status = ::setsockopt(
+		*m_descriptor_,
+		SOL_SOCKET,
+		SO_REUSEPORT,
+		(const char*)&reuse,
+		sizeof(reuse)
+	);
+	ASSERT("basic_socket::reuse_address()\n", status == SOCKET_ERROR);
+#endif
 }
