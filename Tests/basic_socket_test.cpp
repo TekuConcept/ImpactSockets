@@ -1,10 +1,11 @@
 #include <iostream>
 #include <cassert>
-#include <basic_socket.h>
+
+#include <basic_socket>
 
 #define VERBOSE(x) std::cout << x << std::endl
 
-using namespace Impact;
+using namespace impact;
 
 void test_defaultConstructor() {
   VERBOSE("\nDefault Constructor");

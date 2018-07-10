@@ -2,4 +2,6 @@
  * Created by TekuConcept on July 8, 2018
  */
 
-#include "basic_socket.h"
+#include "sockets/basic_socket.h"
+#include "sockets/probe.h"
+#include "sockets/poll_vector.h"

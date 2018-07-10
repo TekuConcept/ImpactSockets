@@ -2,32 +2,32 @@
  * Created by TekuConcept on July 7, 2018
  */
 
-#include "Environment.h"
-#include "Generic.h"
-#include "Networking.h"
-#include "SocketTypes.h"
-#include "SocketInterface.h"
+#include "sockets/networking.h"
+
 #include <stdexcept>            // runtime_error
 #include <sstream>              // ostringstream
 
+#include "sockets/environment.h"
+#include "sockets/generic.h"
+#include "sockets/types.h"
+
 #if defined(__WINDOWS__)
-    #include <winsock2.h>
+	#include <winsock2.h>
 	#include <iphlpapi.h>
 	#pragma comment (lib, "IPHLPAPI.lib")
 #else /* NIX */
-    #include <ifaddrs.h>        // getifaddrs(), freeifaddrs()
-    #include <sys/ioctl.h>      // ioctl()
-    #include <net/if.h>         // ifconf
+	#include <ifaddrs.h>          // getifaddrs(), freeifaddrs()
+	#include <sys/ioctl.h>        // ioctl()
+	#include <net/if.h>           // ifconf
+	#if defined(__APPLE__)
+		#include <net/if_types.h> // IFT_XXX
+		#include <net/if_dl.h>    // sockaddr_dl
+	#endif /* __APPLE__ */
+	#if defined(__LINUX__)
+		#include <net/if_arp.h>   // ARPHRD_XXX
+	#endif /* __LINUX__ */
 #endif /* __WINDOWS__ */
 
-#if defined(__APPLE__)
-	#include <net/if_types.h>   // IFT_XXX
-	#include <net/if_dl.h>      // sockaddr_dl
-#endif /* __APPLE__ */
-
-#if defined(__LINUX__)
-    #include <net/if_arp.h>     // ARPHRD_XXX
-#endif /* __LINUX__ */
 
 #define CATCH_ASSERT(title,code)\
  	try { code }\
@@ -44,33 +44,35 @@
  		throw std::runtime_error(message);\
  	}
 
-using NetInterface  = Impact::Networking::NetInterface;
-using InterfaceType = Impact::Networking::InterfaceType;
 
-namespace Impact {
-namespace Internal {
+using netinterface   = impact::networking::netinterface;
+using interface_type = impact::networking::interface_type;
+
+
+namespace impact {
+namespace internal {
 #if defined(__WINDOWS__)
-    void traverseAdapters(std::vector<NetInterface>&,
-        PIP_ADAPTER_ADDRESSES);
-	void traverseUnicast(std::vector<NetInterface>&, NetInterface,
-	    PIP_ADAPTER_UNICAST_ADDRESS);
-	InterfaceType getInterfaceType(unsigned int);
+	void traverse_adapters(std::vector<netinterface>&, PIP_ADAPTER_ADDRESSES);
+	void traverse_unicast(std::vector<netinterface>&, netinterface,
+    PIP_ADAPTER_UNICAST_ADDRESS);
+	interface_type get_interface_type(unsigned int);
 #else /* NIX */
-	void traverseLinks(std::vector<NetInterface>&, struct ifaddrs*);
-	InterfaceType getInterfaceType(unsigned short);
+	void traverse_links(std::vector<netinterface>&, struct ifaddrs*);
+	interface_type get_interface_type(unsigned short);
 #if defined(__LINUX__)
-	InterfaceType getInterfaceType(SocketDomain, const std::string&);
+	interface_type get_interface_type(socket_domain, const std::string&);
 #endif /* __LINUX__ */
 #endif /* __WINDOWS__ */
 }}
 
 
-using namespace Impact;
+using namespace impact;
 
 
-Networking::NetInterface::NetInterface() :
-	flags(0), name(""), address(""), netmask(""),
-	broadcast(""), type(InterfaceType::OTHER), ipv4(false) {}
+netinterface::netinterface()
+: flags(0), name(""), address(""), netmask(""),
+  broadcast(""), type(interface_type::OTHER), ipv4(false)
+{}
 
 
 #if defined(__WINDOWS__)
@@ -79,107 +81,127 @@ Networking::NetInterface::NetInterface() :
 |  WINDOWS FUNCTIONS                                                          |
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-    std::vector<NetInterface> Networking::findNetworkInterfaces() {
-    	std::vector<NetInterface> list;
-    	const auto MAX_RETRY = 3;
-    	DWORD status;
-    	DWORD size = 15000;
-    	PIP_ADAPTER_ADDRESSES adapterAddresses;
-    	auto flags = GAA_FLAG_INCLUDE_PREFIX |
-    				 GAA_FLAG_SKIP_ANYCAST   |
-    				 GAA_FLAG_SKIP_MULTICAST |
-    				 GAA_FLAG_SKIP_DNS_SERVER;
+std::vector<netinterface>
+networking::find_network_interfaces()
+{
+	std::vector<netinterface> list;
+	const auto MAX_RETRY = 3;
+	DWORD status;
+	DWORD size = 15000;
+	PIP_ADAPTER_ADDRESSES adapter_addresses;
+	auto flags = GAA_FLAG_INCLUDE_PREFIX |
+                 GAA_FLAG_SKIP_ANYCAST   |
+                 GAA_FLAG_SKIP_MULTICAST |
+                 GAA_FLAG_SKIP_DNS_SERVER;
+	auto retries = 0;
 
-    	auto retries = 0;
-    	do {
-    		adapterAddresses = (PIP_ADAPTER_ADDRESSES)malloc(size);
-    		if (adapterAddresses == NULL) {
-    			throw std::runtime_error(
-    				"Networking::findNetworkInterfaces(1)\n"
-    				"Memory allocation failed.");
-    		}
-    		status = GetAdaptersAddresses(AF_UNSPEC, flags, NULL,
-    		    adapterAddresses, &size);
-    		if (status == ERROR_BUFFER_OVERFLOW) {
-    			free(adapterAddresses);
-    			adapterAddresses = NULL;
-    			retries++;
-    		}
-    		else break;
-    	} while ((status == ERROR_BUFFER_OVERFLOW) && (retries < MAX_RETRY));
+	do {
+		adapter_addresses = (PIP_ADAPTER_ADDRESSES)malloc(size);
+		if (adapter_addresses == NULL) {
+			throw std::runtime_error(
+				"networking::find_network_interfaces(1)\n"
+				"Memory allocation failed."
+			);
+		}
 
-    	if (retries >= MAX_RETRY) {
-    		throw std::runtime_error(
-    			"Networking::findNetworkInterfaces(2)\n"
-    			"Failed to identify buffer size for Adapter Addresses.");
-    	}
+		status = GetAdaptersAddresses(
+			AF_UNSPEC,
+			flags,
+			NULL,
+			adapter_addresses,
+			&size
+		);
 
-    	Internal::traverseAdapters(list, adapterAddresses);
-    	free(adapterAddresses);
-    	return list;
-    }
+		if (status == ERROR_BUFFER_OVERFLOW) {
+			free(adapter_addresses);
+			adapter_addresses = NULL;
+			retries++;
+		}
+		else break;
+	} while ((status == ERROR_BUFFER_OVERFLOW) && (retries < MAX_RETRY));
 
+	if (retries >= MAX_RETRY) {
+		throw std::runtime_error(
+			"networking::find_network_interfaces(2)\n"
+			"Failed to identify buffer size for Adapter Addresses.");
+	}
 
-    void Internal::traverseAdapters(std::vector<NetInterface>& list,
-        PIP_ADAPTER_ADDRESSES adapters) {
-    	for (PIP_ADAPTER_ADDRESSES adapter = adapters;
-    		adapter != NULL; adapter = adapter->Next) {
-    		NetInterface token;
-    		token.name  = toNarrowString(adapter->FriendlyName);
-    		token.flags = (unsigned int)adapter->Flags;
-    		token.type  = getInterfaceType(adapter->IfType);
-    		traverseUnicast(list, token, adapter->FirstUnicastAddress);
-    		list.push_back(token);
-    	}
-    }
+	internal::traverse_adapters(list, adapter_addresses);
+	free(adapter_addresses);
+	return list;
+}
 
 
-    void Internal::traverseUnicast(std::vector<NetInterface>& list,
-    	NetInterface token, PIP_ADAPTER_UNICAST_ADDRESS addresses) {
-    	for (PIP_ADAPTER_UNICAST_ADDRESS address = addresses;
-    		address != NULL; address = address->Next) {
-
-    		auto socketAddress = address->Address.lpSockaddr;
-    		token.address      = sockAddr2String(socketAddress);
-
-    		if (socketAddress->sa_family == AF_INET) {
-    			token.ipv4 = true;
-
-    			struct sockaddr_in mask;
-    			mask.sin_family = socketAddress->sa_family;
-    			ConvertLengthToIpv4Mask(
-    				address->OnLinkPrefixLength,
-    				(PULONG)&mask.sin_addr
-    			);
-
-    			token.netmask        = sockAddr2String((struct sockaddr*)&mask);
-    			struct sockaddr_in broadcast;
-    			broadcast.sin_family = socketAddress->sa_family;
-    			unsigned long A      = *(unsigned long*)&mask.sin_addr;
-    			unsigned long B      = *(unsigned long*)&(
-    				(struct sockaddr_in*)socketAddress)->sin_addr;
-    			unsigned long C      = (A&B | ~A);
-    			broadcast.sin_addr   = *(struct in_addr*)&C;
-    			token.broadcast      =
-    			    sockAddr2String((struct sockaddr*)&broadcast);
-    		}
-    		// TODO: IPv6 mask and broadcast
-
-    		list.push_back(token);
-    	}
-    }
+void
+internal::traverse_adapters(
+	std::vector<netinterface>& __list,
+	PIP_ADAPTER_ADDRESSES      __adapters)
+{
+	for (PIP_ADAPTER_ADDRESSES adapter = __adapters;
+		adapter != NULL;
+		adapter = adapter->Next) {
+		netinterface token;
+		token.name  = to_narrow_string(adapter->FriendlyName);
+		token.flags = (unsigned int)adapter->Flags;
+		token.type  = get_interface_type(adapter->IfType);
+		traverse_unicast(__list, token, adapter->FirstUnicastAddress);
+		__list.push_back(token);
+	}
+}
 
 
-    InterfaceType Internal::getInterfaceType(unsigned int code) {
-    	switch (code) {
-    	case IF_TYPE_ETHERNET_CSMACD: return InterfaceType::ETHERNET;
-    	case IF_TYPE_IEEE80211:       return InterfaceType::WIFI;
-    	case IF_TYPE_IEEE1394:        return InterfaceType::FIREWIRE;
-    	case IF_TYPE_PPP:             return InterfaceType::PPP;
-    	case IF_TYPE_ATM:             return InterfaceType::ATM;
-    	default:                      return InterfaceType::OTHER;
-    	}
-    }
+void
+internal::traverse_unicast(
+	std::vector<netinterface>&  __list,
+	netinterface                __token,
+	PIP_ADAPTER_UNICAST_ADDRESS __addresses)
+{
+	for (PIP_ADAPTER_UNICAST_ADDRESS address = __addresses;
+		address != NULL;
+		address = address->Next) {
+
+		auto socket_address = address->Address.lpSockaddr;
+		__token.address = sock_addr_string(socket_address);
+
+		if (socket_address->sa_family == AF_INET) {
+			__token.ipv4 = true;
+
+			struct sockaddr_in mask;
+			mask.sin_family = socket_address->sa_family;
+			ConvertLengthToIpv4Mask(
+				address->OnLinkPrefixLength,
+				(PULONG)&mask.sin_addr
+			);
+
+			__token.netmask      = sock_addr_string((struct sockaddr*)&mask);
+			struct sockaddr_in broadcast;
+			broadcast.sin_family = socket_address->sa_family;
+			unsigned long A      = *(unsigned long*)&mask.sin_addr;
+			unsigned long B      = *(unsigned long*)&(
+				(struct sockaddr_in*)socket_address)->sin_addr;
+			unsigned long C      = (A&B | ~A);
+			broadcast.sin_addr   = *(struct in_addr*)&C;
+			__token.broadcast    = sock_addr_string((struct sockaddr*)&broadcast);
+		}
+		// TODO: IPv6 mask and broadcast
+
+		__list.push_back(__token);
+	}
+}
+
+
+interface_type
+internal::get_interface_type(unsigned int __code)
+{
+	switch (__code) {
+	case IF_TYPE_ETHERNET_CSMACD: return interface_type::ETHERNET;
+	case IF_TYPE_IEEE80211:       return interface_type::WIFI;
+	case IF_TYPE_IEEE1394:        return interface_type::FIREWIRE;
+	case IF_TYPE_PPP:             return interface_type::PPP;
+	case IF_TYPE_ATM:             return interface_type::ATM;
+	default:                      return interface_type::OTHER;
+	}
+}
 
 #else /* NIX */
 
@@ -187,140 +209,160 @@ Networking::NetInterface::NetInterface() :
 |  LINUX | OSX FUNCTIONS                                                      |
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-    std::vector<NetInterface> Networking::findNetworkInterfaces() {
-    	std::vector<NetInterface> list;
-    	struct ::ifaddrs* addresses;
-    	auto status = ::getifaddrs(&addresses);
+std::vector<netinterface>
+networking::find_network_interfaces()
+{
+	std::vector<netinterface> list;
+	struct ::ifaddrs* addresses;
+	auto status = ::getifaddrs(&addresses);
 
-    	ASSERT("Networking::findNetworkInterfaces(1)\n", status == -1);
+	ASSERT("networking::find_network_interfaces(1)\n", status == -1);
 
-    	CATCH_ASSERT(
-    		"Networking::findNetworkInterfaces(2)\n",
-    		Internal::traverseLinks(list, addresses);
-    	);
-    	freeifaddrs(addresses);
-    	return list;
-    }
+	CATCH_ASSERT(
+		"networking::find_network_interfaces(2)\n",
+		internal::traverse_links(list, addresses);
+	);
+
+	freeifaddrs(addresses);
+	return list;
+}
 
 
-    void Internal::traverseLinks(std::vector<NetInterface>& list,
-        struct ifaddrs* addresses) {
-    	// WARNING: ifa_addr may be NULL
-    	for(auto target = addresses; target != NULL; target = target->ifa_next){
-    		NetInterface token;
+void
+internal::traverse_links(
+	std::vector<netinterface>& __list,
+	struct ifaddrs*            __addresses)
+{
+	// WARNING: ifa_addr may be NULL
+	for (auto target = __addresses; target != NULL; target = target->ifa_next) {
+		interface token;
 
-    		token.flags     = target->ifa_flags;
-    		token.name      = std::string(target->ifa_name);
-    		token.address   = sockAddr2String(target->ifa_addr);
-    		token.netmask   = sockAddr2String(target->ifa_netmask);
-    		token.broadcast = sockAddr2String(target->ifa_broadaddr);
-    		token.ipv4      = (target->ifa_addr!=NULL)?
-    		    (target->ifa_addr->sa_family == AF_INET):false;
+		token.flags     = target->ifa_flags;
+		token.name      = std::string(target->ifa_name);
+		token.address   = sockAddr2String(target->ifa_addr);
+		token.netmask   = sockAddr2String(target->ifa_netmask);
+		token.broadcast = sockAddr2String(target->ifa_broadaddr);
+		token.ipv4      = (target->ifa_addr != NULL) ?
+			(target->ifa_addr->sa_family == AF_INET) : false;
 
-        #if defined(__APPLE__)
-    		if(target->ifa_addr != NULL) {
-				struct sockaddr_dl* sdl = (struct sockaddr_dl*)target->ifa_addr;
-				token.type = getInterfaceType(sdl->sdl_type);
-    		}
-    		else token.type = InterfaceType::OTHER;
-        #else
-    		switch(target->ifa_addr->sa_family) {
-    		case AF_INET: {
-    			CATCH_ASSERT(
-    				"Networking::traverseLinks(1)\n",
-    				token.type = getInterfaceType(SocketDomain::INET, token.name);
-    			);
-    			break;
-    		}
-    		case AF_INET6: {
-    			CATCH_ASSERT(
-    				"Networking::traverseLinks(2)\n",
-    				token.type = getInterfaceType(SocketDomain::INET6, token.name);
-    			);
-    			break;
-    		}
-    		default: token.type = InterfaceType::OTHER;
-	        }
-        #endif
+#if defined(__APPLE__)
+		if (target->ifa_addr != NULL) {
+			struct sockaddr_dl* sdl = (struct sockaddr_dl*)target->ifa_addr;
+			token.type = get_interface_type(sdl->sdl_type);
+		}
+		else token.type = interface_type::OTHER;
+#else
+		switch (target->ifa_addr->sa_family) {
+		case AF_INET: {
+			CATCH_ASSERT(
+				"networking::traverse_links(1)\n",
+				token.type = get_interface_type(socket_domain::INET, token.name);
+			);
+			break;
+		}
 
-		list.push_back(token);
+		case AF_INET6: {
+			CATCH_ASSERT(
+				"networking::traverse_links(2)\n",
+				token.type = get_interface_type(socket_domain::INET6, token.name);
+			);
+			break;
+		}
+
+		default: token.type = interface_type::OTHER;
+		}
+#endif
+
+		__list.push_back(token);
 	}
 }
 
 
 #if defined(__LINUX__)
 
-    InterfaceType Internal::getInterfaceType(SocketDomain domain,
-    	const std::string& interfaceName) {
-    	SocketHandle handle;
-    	InterfaceType type;
-    	CATCH_ASSERT(
-    		"Networking::getInterfaceType(1)\n",
-    		handle = SocketInterface::create(domain, SocketType::DATAGRAM,
-    		    SocketProtocol::DEFAULT);
-    	);
+interface_type
+internal::get_interface_type(
+	socket_domain      __domain,
+	const std::string& __interface_name)
+{
+	interface_type type;
 
-    	struct ifreq request;
-    	std::memcpy(
-    		request.ifr_name,
-    		(void*)&interfaceName[0],
-    		interfaceName.length() + 1
-    	);
-    	auto status = ::ioctl(handle.descriptor, SIOCGIFHWADDR, &request);
+	basic_socket handle;
+	CATCH_ASSERT(
+		"networking::get_interface_type(1)\n",
+		handle = make_socket(
+			__domain,
+			socket_type::DATAGRAM,
+			socket_protocol::DEFAULT
+		);
+	);
 
-    	std::ostringstream os;
-    	if(status == -1) {
-    		os << "Networking::getInterfaceType(2)\n";
-    		os << Internal::getErrorMessage() << " " << interfaceName << std::endl;
-    		try { SocketInterface::close(handle); }
-    		catch(std::runtime_error e) { os << e.what(); }
-    		throw std::runtime_error(os.str());
-    	}
+	struct ifreq request;
+	std::memcpy(
+		request.ifr_name,
+		(void*)&__interface_name[0],
+		__interface_name.length() + 1
+	);
+	auto status = ::ioctl(handle.get(), SIOCGIFHWADDR, &request);
 
-    	type = getInterfaceType(request.ifr_hwaddr.sa_family);
+	std::ostringstream os;
+	if (status == -1) {
+		os << "networking::get_interface_type(2)\n";
+		os << internal::error_message() << " " << __interface_name << std::endl;
+		try { handle.close(); }
+		catch (std::runtime_error e) { os << e.what(); }
+		throw std::runtime_error(os.str());
+	}
 
-    	CATCH_ASSERT(
-    		"Networking::getInterfaceType(3)\n",
-    		SocketInterface::close(handle);
-    	);
-    	return type;
-    }
+	type = get_interface_type(request.ifr_hwaddr.sa_family);
+
+	CATCH_ASSERT(
+		"networking::get_interface_type(3)\n",
+		handle.close();
+	);
+
+	return type;
+}
 
 
-    InterfaceType Internal::getInterfaceType(unsigned short family) {
-    	switch(family) {
-    	case ARPHRD_ETHER:
-    	case ARPHRD_EETHER:             return InterfaceType::ETHERNET;
-    	case ARPHRD_IEEE802:
-    	case ARPHRD_IEEE802_TR:
-    	case ARPHRD_IEEE80211:
-    	case ARPHRD_IEEE80211_PRISM:
-    	case ARPHRD_IEEE80211_RADIOTAP: return InterfaceType::WIFI;
-    	case ARPHRD_IEEE1394:           return InterfaceType::FIREWIRE;
-    	case ARPHRD_PPP:                return InterfaceType::PPP;
-    	case ARPHRD_ATM:                return InterfaceType::ATM;
-    	default:                        return InterfaceType::OTHER;
-    	}
-    }
+interface_type
+internal::get_interface_type(unsigned short __family)
+{
+	switch (__family) {
+	case ARPHRD_ETHER:
+	case ARPHRD_EETHER:             return interface_type::ETHERNET;
+	case ARPHRD_IEEE802:
+	case ARPHRD_IEEE802_TR:
+	case ARPHRD_IEEE80211:
+	case ARPHRD_IEEE80211_PRISM:
+	case ARPHRD_IEEE80211_RADIOTAP: return interface_type::WIFI;
+	case ARPHRD_IEEE1394:           return interface_type::FIREWIRE;
+	case ARPHRD_PPP:                return interface_type::PPP;
+	case ARPHRD_ATM:                return interface_type::ATM;
+	default:                        return interface_type::OTHER;
+	}
+}
 
 #endif /* __LINUX__ */
 
 
 #if defined(__APPLE__)
 
-    InterfaceType Internal::getInterfaceType(unsigned short family) {
-    	switch(family) {
-    	case IFT_ETHER:
-    	case IFT_XETHER:    return InterfaceType::ETHERNET;
-    	// this is actually a Metropolitan Area Network (MAN)
-    	// but it can be used for WiFi interfaces
-    	case IFT_ISO88026:	return InterfaceType::WIFI;
-    	case IFT_IEEE1394:  return InterfaceType::FIREWIRE;
-    	case IFT_PPP:       return InterfaceType::PPP;
-    	case IFT_ATM:       return InterfaceType::ATM;
-    	default:            return InterfaceType::OTHER;
-    	}
-    }
+  interface_type
+  internal::get_interface_type(unsigned short __family)
+  {
+  	switch (__family) {
+  	case IFT_ETHER:
+  	case IFT_XETHER:    return interface_type::ETHERNET;
+  	// this is actually a Metropolitan Area Network (MAN)
+  	// but it can be used for WiFi interfaces
+  	case IFT_ISO88026:	return interface_type::WIFI;
+  	case IFT_IEEE1394:  return interface_type::FIREWIRE;
+  	case IFT_PPP:       return interface_type::PPP;
+  	case IFT_ATM:       return interface_type::ATM;
+  	default:            return interface_type::OTHER;
+  	}
+  }
 
 #endif /* __APPLE__ */
 

@@ -1,0 +1,129 @@
+#FOR DEVELOPERS AND CONTRIBUTORS
+
+##-: Naming Convention :-
+
+Naming conventions based on ISO C++ and GNU GCC.
+
+`MACRO_NAME`  - all caps for macros
+`ENUM_OPTION` - all caps for enum options
+`k_type`      - constant type
+`m_type`      - private member variable types
+`s_type`      - private static variable types
+`_M_function` - private member functions
+`_S_function` - private static functions
+`__type`      - function parameters
+
+Generic naming:
+- Use all lower case alphanumeric characters with underscores '_' separating
+  each word.
+- Use meaningful names proportional in length to their scope.
+
+##-: Generic Rules :-
+Headers:
+- files end in .h
+- file names all lower case with underscores '_' separating each word.
+- safe guarding
+```
+#ifndef _NAMESPACE_SCOPE_HEADER_H_
+#define _NAMESPACE_SCOPE_HEADER_H_
+// code
+#endif
+```
+- no `using namespace name;`
+
+Source:
+- files end in .cpp
+- file names match header names
+- use `using namespace name;` for project scope namespaces only
+  ie no `using namespace std;`
+
+Includes:
+```
+#include "source/header.h"
+
+#include <c_system_files.h>
+#include <cxx_system_files>
+
+#include "other_libraries.h"
+#include "your_project_files.h"
+```
+
+##-: Structure :-
+Namespaces:
+```
+namespace scope_name {
+
+}
+```
+
+Classes, structs, and enums:
+```
+class unique_name {
+  public:
+  protected:
+  private:
+};
+
+typedef struct unique_name {
+
+} unique_name;
+
+typedef class enum unique_name {
+
+} unique_name;
+```
+
+Functions:
+```
+constructor()
+: parameter_initialization(),
+  parameter_initialization_continued()
+{
+  // code
+}
+
+return_type
+function_name(type1 __param1, type2 __param2)
+{
+  // code
+}
+
+void
+function_name(class_type __class, struct struct_type __struct,
+  enum enum_class_type, __enum)
+{
+  // code
+}
+```
+
+Blocks:
+```
+if (condition) {
+  // code
+}
+else if (condition) {
+  // code
+}
+else {
+  // code
+}
+
+for (iteration) {
+  // code
+}
+
+while (condition) {
+  // code
+}
+
+do {
+
+}
+while (condition);
+```
+
+##-: Addition Reading :-
+GNU GCC: https://gcc.gnu.org/codingconventions.html
+ISO C++: https://github.com/isocpp/CppCoreGuidelines
+         https://github.com/cplusplus
+Google C++: https://google.github.io/styleguide/cppguide.html

@@ -5,7 +5,7 @@
 #ifndef _SOCKET_TYPES_H_
 #define _SOCKET_TYPES_H_
 
-#include "Environment.h"
+#include "environment.h"
 
 #if defined(__WINDOWS__)
  	#include <WinSock2.h>
@@ -17,10 +17,9 @@
  	#include <arpa/inet.h>
  	#include <netdb.h>
  	#include <errno.h>
-#endif
-
 #if defined(__LINUX__)
  	#include <linux/version.h>
+#endif
 #endif
 
 #if defined(__WINDOWS__)
@@ -40,23 +39,23 @@ inline T operator O (T lhs, T rhs) {\
 	return static_cast<T>(static_cast<U>(lhs) O static_cast<U>(rhs));\
 }
 
-namespace Impact {
-  typedef struct KeepAliveOptions {
+namespace impact {
+	typedef struct keep_alive_options {
 		int enabled;  /* Enables KEEPALIVE on the target socket connection.  */
-		int idleTime; /* Number of idle seconds before sending a KA probe.   */
+		int idletime; /* Number of idle seconds before sending a KA probe.   */
 		int interval; /* How often in seconds to resend an unacked KA probe. */
 		int retries;  /* How many times to resend a KA probe if previous
 		                 probe was unacked.                                  */
-		KeepAliveOptions();
+		keep_alive_options();
 	} KeepAliveOptions;
 
-	typedef enum class GroupApplication {
+	typedef enum class group_application {
 		JOIN  = IP_ADD_MEMBERSHIP,
 		LEAVE = IP_DROP_MEMBERSHIP
 	} GroupApplication;
 
 
-	typedef enum class SocketChannel {
+	typedef enum class socket_channel {
 	#if defined(__WINDOWS__)
 		BOTH  = SD_BOTH,
 		READ  = SD_RECEIVE,
@@ -69,7 +68,7 @@ namespace Impact {
 	} SocketChannel;
 
 
-	typedef enum class SocketDomain {
+	typedef enum class socket_domain {
 		// !- CROSS-PLATFORM DOMAINS    -!
 		UNSPECIFIED = AF_UNSPEC,   // Address is unspecified
 		INET        = AF_INET,     // IPv4 Internet protocols
@@ -110,7 +109,7 @@ namespace Impact {
 	*/
 
 
-	typedef enum class SocketType {
+	typedef enum class socket_type {
 		STREAM            = SOCK_STREAM,   /* Provides sequenced, reliable, two-way,
 							communication-based byte streams. An out-of-band data
 							transmission mechanism may be supported.*/
@@ -127,7 +126,7 @@ namespace Impact {
 	} SocketType;
 
 
-	typedef enum class SocketProtocol {
+	typedef enum class socket_protocol {
 		// !-- CROSS-PLATFORM PROTOCOL SUPPORT --!
 		DEFAULT = 0,
 
@@ -254,7 +253,7 @@ namespace Impact {
 	} SocketProtocol;
 
 
-	typedef enum class MessageFlags {
+	typedef enum class message_flags {
 		// !- CROSS-PLATFORM FLAGS    -!
 		NONE = 0,
 
@@ -345,7 +344,7 @@ namespace Impact {
 	ENUM_OPERATOR(MessageFlags, int, |)
 
 
-	typedef enum class PollFlags {
+	typedef enum class poll_flags {
 		// !- CROSS-PLATFORM FLAGS    -!
 		IN          = POLLIN,    /* There is data to read. */
 		OUT         = POLLOUT,   /* Writing now will not block. */
@@ -379,7 +378,7 @@ namespace Impact {
 #else
 	#define SERROR(x) x
 #endif
-	typedef enum class SocketError { /* errno | WSAGetLastError */
+	typedef enum class socket_error { /* errno | WSAGetLastError */
 		// !- CROSS-PLATFORM FLAGS    -!
 		OTHER                        = -1,
 		SUCCESS                      = 0,
@@ -443,7 +442,7 @@ namespace Impact {
 	} SocketError;
 
 
-	typedef enum class HostSocketError { /* h_errno | WSAGetLastError */
+	typedef enum class host_socket_error { /* h_errno | WSAGetLastError */
 		// !- CROSS-PLATFORM FLAGS    -!
 		NOTFOUND   = SERROR(HOST_NOT_FOUND),
 		NODATA     = SERROR(NO_DATA),

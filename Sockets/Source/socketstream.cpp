@@ -2,86 +2,107 @@
  * Created by TekuConcept on July 8, 2018
  */
 
-#include "socketstream.h"
-#include "SocketProbe.h"
+#include "sockets/socketstream.h"
+
 #include <stdexcept>
 
-using namespace Impact;
+#include "sockets/probe.h"
+
+using namespace impact;
 
 #define SUCCESS	0
 #define FAIL	-1
+
 #define VERBOSE(x) std::cout << x << std::endl
 
-socketstream::socketstream(basic_socket socket, unsigned int streamBufferSize) :
-  std::iostream(this), _handle_(socket) {
-  if(socket.type() != SocketType::STREAM) {
+socketstream::socketstream(
+  basic_socket& __socket,
+  unsigned int  __stream_buffer_size)
+: std::iostream(this), m_handle_(__socket)
+{
+  if (__socket.type() != socket_type::STREAM) {
     throw std::runtime_error(
       "socketstream::socketstream()\n"
       "Socket is not a streamable"
     );
   }
-	initialize(streamBufferSize);
+
+	_M_initialize(__stream_buffer_size);
 }
 
 
-socketstream::~socketstream() {
-	if(_outputBuffer_ != NULL) {
-		delete[] _outputBuffer_;
-		_outputBuffer_ = NULL;
+socketstream::~socketstream()
+{
+	if (m_output_buffer_ != NULL) {
+		delete[] m_output_buffer_;
+		m_output_buffer_ = NULL;
 	}
-	if(_inputBuffer_ != NULL) {
-		delete[] _inputBuffer_;
-		_inputBuffer_ = NULL;
+
+	if(m_input_buffer_ != NULL) {
+		delete[] m_input_buffer_;
+		m_input_buffer_ = NULL;
 	}
 }
 
 
-void socketstream::initialize(unsigned int bufferSize) {
-	_streamBufferSize_ = bufferSize<256?256:bufferSize;
-	_outputBuffer_     = new char[_streamBufferSize_ + 1];
-  _inputBuffer_      = new char[_streamBufferSize_ + 1];
+void
+socketstream::_M_initialize(unsigned int __buffer_size)
+{
+	m_stream_buffer_size_ = __buffer_size<256?256:__buffer_size;
+	m_output_buffer_      = new char[m_stream_buffer_size_ + 1];
+  m_input_buffer_       = new char[m_stream_buffer_size_ + 1];
 
-  _hangup_  = false;
-  _timeout_ = -1;
+  m_hangup_  = false;
+  m_timeout_ = -1;
 
-	setp(_outputBuffer_, _outputBuffer_ + _streamBufferSize_ - 1);
-  setg(_inputBuffer_, _inputBuffer_ + _streamBufferSize_ - 1,
-  	_inputBuffer_ + _streamBufferSize_ - 1);
+	setp(m_output_buffer_, m_output_buffer_ + m_stream_buffer_size_ - 1);
+  setg(m_input_buffer_, m_input_buffer_ + m_stream_buffer_size_ - 1,
+  	m_input_buffer_ + m_stream_buffer_size_ - 1);
 
-  _pollTable_.push_back({_handle_,PollFlags::IN});
+  m_poll_handle_.push_back({m_handle_, poll_flags::IN});
 }
 
 
-int socketstream::sync() {
-	return write_base(SUCCESS);
+int
+socketstream::sync()
+{
+	return _M_write_base(SUCCESS);
 }
 
 
-int socketstream::underflow() {
-	if(!_handle_) return EOF;
+int
+socketstream::underflow()
+{
+	if (!m_handle_)
+    return EOF;
 
-	if(_hangup_) {
+	if (m_hangup_) {
 		setstate(std::ios_base::badbit);
 		return EOF;
 	}
 
 	try {
-		auto status = SocketProbe::poll(_pollTable_, _timeout_);
-		if(status == 0) return EOF; // timeout
-		auto flags = _pollTable_[0];
-		_pollTable_.resetEvents();
+		auto status = probe::poll(m_poll_handle_, m_timeout_);
 
-		if((int)(flags & PollFlags::HANGUP)) {
-			_hangup_ = true;
+    if (status == 0)
+      return EOF; // timeout
+
+		auto flags = m_poll_handle_[0];
+		m_poll_handle_.reset_events();
+
+		if ((int)(flags & poll_flags::HANGUP)) {
+			m_hangup_ = true;
 			setstate(std::ios_base::badbit);
 			return EOF;
 		}
 
-		if((int)(flags & PollFlags::IN)) {
-			int bytesReceived = _handle_.recv(eback(), _streamBufferSize_);
-			if(bytesReceived == 0) return EOF;
+		if ((int)(flags & poll_flags::IN)) {
+			int bytes_received = m_handle_.recv(eback(), m_stream_buffer_size_);
 
-			setg(eback(), eback(), eback() + bytesReceived);
+      if(bytes_received == 0)
+        return EOF;
+
+			setg(eback(), eback(), eback() + bytes_received);
 			return *eback();
 		}
 	}
@@ -91,37 +112,44 @@ int socketstream::underflow() {
 }
 
 
-int socketstream::overflow(int c) {
-	return write_base(c);
+int
+socketstream::overflow(int __c)
+{
+	return _M_write_base(__c);
 }
 
 
-int socketstream::write_base(int c) {
-	if(!_handle_) return EOF;
+int
+socketstream::_M_write_base(int __c)
+{
+	if (!m_handle_)
+    return EOF;
 
-  if(_hangup_) {
+  if (m_hangup_) {
 		setstate(std::ios_base::badbit);
 		return EOF;
 	}
 
 	try {
 		auto length = int(pptr() - pbase());
-		_handle_.send(pbase(), length);
+		m_handle_.send(pbase(), length);
 		setp(pbase(), epptr());
 	}
-	catch (std::exception e) {
-    return EOF;
-  }
+	catch (std::exception e) { return EOF; }
 
-	return c;
+	return __c;
 }
 
 
-bool socketstream::hup() const noexcept {
-	return _hangup_;
+bool
+socketstream::hup() const noexcept
+{
+	return m_hangup_;
 }
 
 
-void socketstream::set_timeout(int milliseconds) noexcept {
-	_timeout_ = milliseconds<-1?-1:milliseconds;
+void
+socketstream::set_timeout(int __milliseconds) noexcept
+{
+	m_timeout_ = __milliseconds<-1?-1:__milliseconds;
 }
