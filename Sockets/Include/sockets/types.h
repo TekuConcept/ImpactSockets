@@ -2,8 +2,8 @@
  * Created by TekuConcept on June 18, 2018
  */
 
-#ifndef _SOCKET_TYPES_H_
-#define _SOCKET_TYPES_H_
+#ifndef _IMPACT_TYPES_H_
+#define _IMPACT_TYPES_H_
 
 #include "environment.h"
 

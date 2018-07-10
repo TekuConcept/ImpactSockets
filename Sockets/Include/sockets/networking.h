@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 7, 2018
  */
 
-#ifndef _NETWORKING_H_
-#define _NETWORKING_H_
+#ifndef _IMPACT_NETWORKING_H_
+#define _IMPACT_NETWORKING_H_
 
 #include <string>
 #include <vector>
@@ -33,7 +33,7 @@ namespace networking {
 		netinterface();
 	} NetworkInterface;
 
-	
+
 	std::vector<struct netinterface> find_network_interfaces()
 		/* throw(std::runtime_error) */;
 }}
