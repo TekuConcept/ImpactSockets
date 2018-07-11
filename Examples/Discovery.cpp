@@ -146,7 +146,7 @@ void runClient() {
 		socket.reuse_address(true);
 		socket.multicast_ttl(2);
 		VERBOSE("> Bind");
-		socket.local_address_port("0.0.0.0", 25565);
+		socket.bind("0.0.0.0", 25565);
 
 		VERBOSE("> Sending");
 		sendMessage(socket, list);
