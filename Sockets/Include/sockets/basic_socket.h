@@ -5,15 +5,14 @@
 #ifndef _IMPACT_BASIC_SOCKET_H_
 #define _IMPACT_BASIC_SOCKET_H_
 
-#include "sockets/types.h"
 
 #include <string>
+#include <future>
+
+#include "sockets/types.h"
+#include "async_pipeline.h"
 
 namespace impact {
-	namespace internal {
-		class async_pipeline;
-	}
-
 	class basic_socket {
 	public:
 		enum {
@@ -43,7 +42,7 @@ namespace impact {
 		socket_protocol protocol() const noexcept;
 		explicit operator bool() const noexcept;
 
-		// communication
+		// communication / delivery
 		void bind(unsigned short port) /* throw(io_error), throw(runtime_error) */;
 		void bind(const std::string& address, unsigned short port = 0)
 			/* throw(io_error), throw(runtime_error) */;
@@ -73,6 +72,16 @@ namespace impact {
 			std::string& address, message_flags flags = message_flags::NONE)
 			/* throw(io_error), throw(runtime_error) */;
 
+		// async communication
+		// std::future& basic_socket.accept_async();
+		// std::future<buffer_data>& send_async(const void* buffer, int length,
+		// 	message_flags flags = message_flags::NONE);
+		// std::future<async_buffer_data>& sendto_async(const void* buffer, int length,
+		// 	unsigned short port, const std::string& address,
+		// 	message_flags flags = message_flags::NONE);
+		// std::future& basic_socket.recv_async();
+		// std::future& basic_socket.recvfrom_async();
+
 		// miscillaneous
 		std::string local_address() /* throw(io_error), throw(runtime_error) */;
 		unsigned short local_port() /* throw(io_error), throw(runtime_error) */;
@@ -87,7 +96,7 @@ namespace impact {
 		friend basic_socket make_socket(socket_domain, socket_type, socket_protocol);
 		friend basic_socket make_tcp_socket();
 		friend basic_socket make_udp_socket();
-		friend class internal::async_pipeline;
+		// friend class internal::async_pipeline;
 
 	private:
 		struct basic_socket_info {
@@ -97,6 +106,8 @@ namespace impact {
 			socket_domain   domain;
 			socket_type     type;
 			socket_protocol protocol;
+
+			struct internal::async_index index;
 		};
 
 		struct basic_socket_info* m_info_;
