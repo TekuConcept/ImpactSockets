@@ -17,12 +17,12 @@
 
 namespace impact {
 namespace internal {
-	struct async_index {
-		async_index();
-	private:
-		size_t value;
-		friend class async_pipeline;
-	};
+// 	struct async_index {
+// 		async_index();
+// 	private:
+// 		size_t value;
+// 		friend class async_pipeline;
+// 	};
 
   class async_pipeline {
   public:
@@ -36,28 +36,28 @@ namespace internal {
 		// 	const void* buffer, int length, message_flags flags);
 
   private:
-		enum {
-			SEND = 0
-		};
+		// enum {
+		// 	SEND = 0
+		// };
 
-    struct token_info {
-      std::promise<buffer_data> promise;
-			bool                      active;
-      char*                     buffer;
-      int                       length;
-			message_flags             flags;
-			token_info();
-    };
+  //   struct token_info {
+  //     std::promise<buffer_data> promise;
+		// 	bool                      active;
+  //     char*                     buffer;
+  //     int                       length;
+		// 	message_flags             flags;
+		// 	token_info();
+  //   };
 
-		struct handle_info {
-			bool                cancel;  // used to cancel all actions on the descriptor
-			struct async_index* index;   // keep track of existing descriptors
-			struct token_info   info[1]; // async data info
-			handle_info();
-		};
+		// struct handle_info {
+		// 	bool                cancel;  // used to cancel all actions on the descriptor
+		// 	struct async_index* index;   // keep track of existing descriptors
+		// 	struct token_info   info[1]; // async data info
+		// 	handle_info();
+		// };
 
-    std::vector<pollfd>      m_handles_;
-    std::vector<handle_info> m_info_;
+  //   std::vector<pollfd>      m_handles_;
+  //   std::vector<handle_info> m_info_;
 
     async_pipeline();
 		// void _M_create(int descriptor, struct async_index* index);

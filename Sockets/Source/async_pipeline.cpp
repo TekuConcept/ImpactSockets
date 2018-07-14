@@ -13,19 +13,19 @@
 using namespace impact;
 using namespace internal;
 
-async_index::async_index()
-: value((size_t)(-1))
-{}
+// async_index::async_index()
+// : value((size_t)(-1))
+// {}
 
 
-async_pipeline::token_info::token_info()
-: active(false), buffer(NULL), length(0), flags(message_flags::NONE)
-{}
+// async_pipeline::token_info::token_info()
+// : active(false), buffer(NULL), length(0), flags(message_flags::NONE)
+// {}
 
 
-async_pipeline::handle_info::handle_info()
-: cancel(false), index(NULL)
-{}
+// async_pipeline::handle_info::handle_info()
+// : cancel(false), index(NULL)
+// {}
 
 
 async_pipeline&

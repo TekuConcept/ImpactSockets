@@ -106,8 +106,6 @@ namespace impact {
 			socket_domain   domain;
 			socket_type     type;
 			socket_protocol protocol;
-
-			struct internal::async_index index;
 		};
 
 		struct basic_socket_info* m_info_;
