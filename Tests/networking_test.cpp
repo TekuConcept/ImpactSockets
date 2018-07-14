@@ -17,15 +17,15 @@ void print_interfaces(const std::vector<netinterface>& list) {
 		VERBOSE("Flags:     " << iface.flags);
 		
         std::cout << "MAC:       ";
-        std::cout << std::hex;
-		for (size_t i = 0; i < iface.mac.size()-1; i++) {
-		    std::cout << std::setw(2) << std::setfill('0');
-		    std::cout << (unsigned int)iface.mac[i] << ':';
+		std::cout << std::hex;
+		for (size_t i = 0; i < iface.mac.size() - 1; i++) {
+			std::cout << std::setw(2) << std::setfill('0');
+			std::cout << (unsigned int)iface.mac[i] << ':';
 		}
 		std::cout << std::setw(2) << std::setfill('0');
-		std::cout << (unsigned int)iface.mac[iface.mac.size()-1];
+		std::cout << (unsigned int)iface.mac[iface.mac.size() - 1];
 		VERBOSE(std::dec);
-		
+
 		VERBOSE("IPv4:      " << (iface.ipv4?"true":"false"));
 
 		switch (iface.type) {
@@ -52,9 +52,17 @@ void print_interfaces(const std::vector<netinterface>& list) {
 int main() {
     VERBOSE("- BEGIN NETWORKING TEST -");
     
-    std::vector<netinterface> list =
-        networking::find_network_interfaces();
-    print_interfaces(list);
+	try {
+		std::vector<netinterface> list =
+			networking::find_network_interfaces();
+		print_interfaces(list);
+	}
+	catch (std::runtime_error e) {
+		VERBOSE(e.what());
+	}
+	catch (...) {
+		VERBOSE("Unexpected error");
+	}
     
     VERBOSE("- END OF LINE -");
     return 0;

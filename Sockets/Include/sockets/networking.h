@@ -29,7 +29,6 @@ namespace networking {
 		std::string                broadcast;
 		interface_type             type;
 		std::vector<unsigned char> mac;
-		unsigned int               mac_length;
 		bool                       ipv4; // TODO: use union for ipv4,ipv6,other
 		netinterface();
 	} NetworkInterface;

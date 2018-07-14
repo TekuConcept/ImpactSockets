@@ -95,6 +95,9 @@ namespace internal {
 
 using namespace impact;
 
+#include <iostream>
+#define VERBOSE(x) std::cout << x << std::endl
+
 
 netinterface::netinterface()
 : flags(0), name(""), address(""), netmask(""),
@@ -171,8 +174,16 @@ internal::traverse_adapters(
 		token.name  = to_narrow_string(adapter->FriendlyName);
 		token.flags = (unsigned int)adapter->Flags;
 		token.type  = get_interface_type(adapter->IfType);
-		token.mac.resize(adapter->PhysicalAddressLength);
-		std::memcpy(&token.mac[0], adapter->PhysicalAddress, token.mac.size());
+
+		if (adapter->PhysicalAddressLength != 0) {
+			token.mac.resize(adapter->PhysicalAddressLength);
+			std::memcpy(&token.mac[0], adapter->PhysicalAddress, token.mac.size());
+		}
+		else { // be consistent with linux
+			token.mac.resize(6);
+			std::memset(&token.mac[0], 0, token.mac.size());
+		}
+
 		traverse_unicast(__list, token, adapter->FirstUnicastAddress);
 		__list.push_back(token);
 	}
@@ -278,11 +289,20 @@ internal::traverse_links(
 		if (target->ifa_addr != NULL) {
 			struct sockaddr_dl* sdl = (struct sockaddr_dl*)target->ifa_addr;
 			token.type              = get_interface_type(sdl->sdl_type);
-			token.mac.resize(sdl->sdl_alen);
-			memcpy(&token.mac[0], LLADDR(sdl), token.mac.size());
+			
+			if (sdl->sdl_alen != 0) {
+				token.mac.resize(sdl->sdl_alen);
+				memcpy(&token.mac[0], LLADDR(sdl), token.mac.size());
+			}
+			else {
+				token.mac.resize(6);
+				std::memset(&token.mac[0], 0, token.size());
+			}
 		}
 		else {
-			token.mac.resize(0);
+			// be consistent with linux
+			token.mac.resize(6);
+			std::memset(&token.mac[0], 0, token.size());
 			token.type = interface_type::OTHER;
 		}
 #else
