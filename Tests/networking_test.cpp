@@ -16,8 +16,8 @@ void print_interfaces(const std::vector<netinterface>& list) {
 		VERBOSE("Netmask:   " << iface.netmask);
 		VERBOSE("Broadcast: " << iface.broadcast);
 		VERBOSE("Flags:     " << iface.flags);
-		
-        std::cout << "MAC:       ";
+
+    std::cout << "MAC:       ";
 		std::cout << std::hex;
 		for (size_t i = 0; i < iface.mac.size() - 1; i++) {
 			std::cout << std::setw(2) << std::setfill('0');
@@ -52,7 +52,7 @@ void print_interfaces(const std::vector<netinterface>& list) {
 
 int main() {
     VERBOSE("- BEGIN NETWORKING TEST -");
-    
+
 	try {
 		std::vector<netinterface> list =
 			networking::find_network_interfaces();
@@ -64,7 +64,7 @@ int main() {
 	catch (...) {
 		VERBOSE("Unexpected error");
 	}
-    
+
     VERBOSE("- END OF LINE -");
     return 0;
 }

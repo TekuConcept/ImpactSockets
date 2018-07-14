@@ -286,25 +286,20 @@ internal::traverse_links(
 			(target->ifa_addr->sa_family == AF_INET) : false;
 
 #if defined(__APPLE__)
+		// be consistent with linux
+		token.mac.resize(6);
+		std::memset(&token.mac[0], 0, token.mac.size());
+		
 		if (target->ifa_addr != NULL) {
 			struct sockaddr_dl* sdl = (struct sockaddr_dl*)target->ifa_addr;
 			token.type              = get_interface_type(sdl->sdl_type);
-			
+
 			if (sdl->sdl_alen != 0) {
 				token.mac.resize(sdl->sdl_alen);
 				memcpy(&token.mac[0], LLADDR(sdl), token.mac.size());
 			}
-			else {
-				token.mac.resize(6);
-				std::memset(&token.mac[0], 0, token.size());
-			}
 		}
-		else {
-			// be consistent with linux
-			token.mac.resize(6);
-			std::memset(&token.mac[0], 0, token.size());
-			token.type = interface_type::OTHER;
-		}
+		else token.type = interface_type::OTHER;
 #else
 		CATCH_ASSERT(
 			"networking::traverse_links(1)\n",
@@ -339,7 +334,7 @@ internal::set_interface_type_mac(netinterface& __token)
 		__token.name.length() + 1
 	);
 	auto status = ::ioctl(handle.get(), SIOCGIFHWADDR, &request);
-	
+
 	CATCH_ASSERT(
 		"networking::set_interface_type_mac(2)\n",
 		handle.close();
@@ -351,7 +346,7 @@ internal::set_interface_type_mac(netinterface& __token)
 		os << internal::error_message() << " " << __token.name << std::endl;
 		throw std::runtime_error(os.str());
 	}
-	
+
 	__token.type = get_interface_type(request.ifr_hwaddr.sa_family);
 	__token.mac.resize(6); // standard MAC length (64 bits | 6 bytes)
 	std::memcpy(&__token.mac[0],request.ifr_hwaddr.sa_data,__token.mac.size());
