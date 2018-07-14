@@ -36,7 +36,11 @@
 #endif // SOC_DECLSPEC
 
 #ifndef UNUSED
-#define UNUSED(x) (void)x
+  #define UNUSED(x) (void)x
+#endif
+
+#ifndef VALUE
+  #define VALUE(p) (*p)
 #endif
 
 #endif // _ENVIRONMENT_H_

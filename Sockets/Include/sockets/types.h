@@ -2,8 +2,8 @@
  * Created by TekuConcept on June 18, 2018
  */
 
-#ifndef _SOCKET_TYPES_H_
-#define _SOCKET_TYPES_H_
+#ifndef _IMPACT_TYPES_H_
+#define _IMPACT_TYPES_H_
 
 #include "environment.h"
 
@@ -40,6 +40,11 @@ inline T operator O (T lhs, T rhs) {\
 }
 
 namespace impact {
+  typedef struct buffer_data {
+    char*         buffer;
+    int           length;
+  } BufferData;
+
 	typedef struct keep_alive_options {
 		int enabled;  /* Enables KEEPALIVE on the target socket connection.  */
 		int idletime; /* Number of idle seconds before sending a KA probe.   */

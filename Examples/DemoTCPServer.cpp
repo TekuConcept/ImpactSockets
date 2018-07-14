@@ -13,7 +13,7 @@ int main() {
 
   try {
     basic_socket server = make_tcp_socket();
-    server.local_port(25565);
+    server.bind(25565);
     server.listen();
 
     VERBOSE("+ SERVER STARTED");
