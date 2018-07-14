@@ -88,3 +88,7 @@ INSTALL (
 set(BASIC_SOCKET_TEST basic_socket_test)
 add_executable(${BASIC_SOCKET_TEST} "${TESTS_PATH}/${BASIC_SOCKET_TEST}.cpp")
 target_link_libraries(${BASIC_SOCKET_TEST} ${IMPACT_SOCKETS})
+
+set(NETWORKING_TEST networking_test)
+add_executable(${NETWORKING_TEST} "${TESTS_PATH}/${NETWORKING_TEST}.cpp")
+target_link_libraries(${NETWORKING_TEST} ${IMPACT_SOCKETS})

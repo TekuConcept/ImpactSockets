@@ -87,7 +87,7 @@ namespace internal {
 	void traverse_links(std::vector<netinterface>&, struct ifaddrs*);
 	interface_type get_interface_type(unsigned short);
 #if defined(__LINUX__)
-	interface_type get_interface_type(socket_domain, const std::string&);
+	void set_interface_type_mac(netinterface&);
 #endif /* __LINUX__ */
 #endif /* __WINDOWS__ */
 }}
@@ -171,6 +171,8 @@ internal::traverse_adapters(
 		token.name  = to_narrow_string(adapter->FriendlyName);
 		token.flags = (unsigned int)adapter->Flags;
 		token.type  = get_interface_type(adapter->IfType);
+		token.mac.resize(adapter->PhysicalAddressLength);
+		std::memcpy(&token.mac[0], adapter->PhysicalAddress, token.mac.size());
 		traverse_unicast(__list, token, adapter->FirstUnicastAddress);
 		__list.push_back(token);
 	}
@@ -264,40 +266,30 @@ internal::traverse_links(
 	for (auto target = __addresses; target != NULL; target = target->ifa_next) {
 		netinterface token;
 
-		token.flags     = target->ifa_flags;
-		token.name      = std::string(target->ifa_name);
-		token.address   = sock_addr_string(target->ifa_addr);
-		token.netmask   = sock_addr_string(target->ifa_netmask);
-		token.broadcast = sock_addr_string(target->ifa_broadaddr);
-		token.ipv4      = (target->ifa_addr != NULL) ?
+		token.flags      = target->ifa_flags;
+		token.name       = std::string(target->ifa_name);
+		token.address    = sock_addr_string(target->ifa_addr);
+		token.netmask    = sock_addr_string(target->ifa_netmask);
+		token.broadcast  = sock_addr_string(target->ifa_broadaddr);
+		token.ipv4       = (target->ifa_addr != NULL) ?
 			(target->ifa_addr->sa_family == AF_INET) : false;
 
 #if defined(__APPLE__)
 		if (target->ifa_addr != NULL) {
 			struct sockaddr_dl* sdl = (struct sockaddr_dl*)target->ifa_addr;
-			token.type = get_interface_type(sdl->sdl_type);
+			token.type              = get_interface_type(sdl->sdl_type);
+			token.mac.resize(sdl->sdl_alen);
+			memcpy(&token.mac[0], LLADDR(sdl), token.mac.size());
 		}
-		else token.type = interface_type::OTHER;
+		else {
+			token.mac.resize(0);
+			token.type = interface_type::OTHER;
+		}
 #else
-		switch (target->ifa_addr->sa_family) {
-		case AF_INET: {
-			CATCH_ASSERT(
-				"networking::traverse_links(1)\n",
-				token.type = get_interface_type(socket_domain::INET, token.name);
-			);
-			break;
-		}
-
-		case AF_INET6: {
-			CATCH_ASSERT(
-				"networking::traverse_links(2)\n",
-				token.type = get_interface_type(socket_domain::INET6, token.name);
-			);
-			break;
-		}
-
-		default: token.type = interface_type::OTHER;
-		}
+		CATCH_ASSERT(
+			"networking::traverse_links(1)\n",
+			set_interface_type_mac(token);
+		);
 #endif
 
 		__list.push_back(token);
@@ -307,18 +299,14 @@ internal::traverse_links(
 
 #if defined(__LINUX__)
 
-interface_type
-internal::get_interface_type(
-	socket_domain      __domain,
-	const std::string& __interface_name)
+void
+internal::set_interface_type_mac(netinterface& __token)
 {
-	interface_type type;
-
 	basic_socket handle;
 	CATCH_ASSERT(
-		"networking::get_interface_type(1)\n",
+		"networking::set_interface_type_mac(1)\n",
 		handle = make_socket(
-			__domain,
+			socket_domain::INET,
 			socket_type::DATAGRAM,
 			socket_protocol::DEFAULT
 		);
@@ -327,28 +315,26 @@ internal::get_interface_type(
 	struct ifreq request;
 	std::memcpy(
 		request.ifr_name,
-		(void*)&__interface_name[0],
-		__interface_name.length() + 1
+		(void*)&__token.name[0],
+		__token.name.length() + 1
 	);
 	auto status = ::ioctl(handle.get(), SIOCGIFHWADDR, &request);
-
-	std::ostringstream os;
-	if (status == -1) {
-		os << "networking::get_interface_type(2)\n";
-		os << internal::error_message() << " " << __interface_name << std::endl;
-		try { handle.close(); }
-		catch (std::runtime_error e) { os << e.what(); }
-		throw std::runtime_error(os.str());
-	}
-
-	type = get_interface_type(request.ifr_hwaddr.sa_family);
-
+	
 	CATCH_ASSERT(
-		"networking::get_interface_type(3)\n",
+		"networking::set_interface_type_mac(2)\n",
 		handle.close();
 	);
 
-	return type;
+	std::ostringstream os;
+	if (status == -1) {
+		os << "networking::set_interface_type_mac(3)\n";
+		os << internal::error_message() << " " << __token.name << std::endl;
+		throw std::runtime_error(os.str());
+	}
+	
+	__token.type = get_interface_type(request.ifr_hwaddr.sa_family);
+	__token.mac.resize(6); // standard MAC length (64 bits | 6 bytes)
+	std::memcpy(&__token.mac[0],request.ifr_hwaddr.sa_data,__token.mac.size());
 }
 
 
@@ -375,25 +361,25 @@ internal::get_interface_type(unsigned short __family)
 
 #if defined(__APPLE__)
 
-  interface_type
-  internal::get_interface_type(unsigned short __family)
-  {
-  	switch (__family) {
-  	case IFT_ETHER:
-  	case IFT_XETHER:    return interface_type::ETHERNET;
-		case IFT_IEEE80211:
-		// DSL/modem router - tested against wifi network,
-		// but may also be used for ethernet network
-		case IFT_REACHDSL:
-  	// this is actually a Metropolitan Area Network (MAN)
-  	// but it can be used for WiFi interfaces
-  	case IFT_ISO88026:	return interface_type::WIFI;
-  	case IFT_IEEE1394:  return interface_type::FIREWIRE;
-  	case IFT_PPP:       return interface_type::PPP;
-  	case IFT_ATM:       return interface_type::ATM;
-  	default:            return interface_type::OTHER;
-  	}
-  }
+interface_type
+internal::get_interface_type(unsigned short __family)
+{
+	switch (__family) {
+	case IFT_ETHER:
+	case IFT_XETHER:    return interface_type::ETHERNET;
+	case IFT_IEEE80211:
+	// DSL/modem router - tested against wifi network,
+	// but may also be used for ethernet network
+	case IFT_REACHDSL:
+	// this is actually a Metropolitan Area Network (MAN)
+	// but it can be used for WiFi interfaces
+	case IFT_ISO88026:	return interface_type::WIFI;
+	case IFT_IEEE1394:  return interface_type::FIREWIRE;
+	case IFT_PPP:       return interface_type::PPP;
+	case IFT_ATM:       return interface_type::ATM;
+	default:            return interface_type::OTHER;
+	}
+}
 
 #endif /* __APPLE__ */
 
