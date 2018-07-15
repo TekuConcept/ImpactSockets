@@ -10,7 +10,6 @@
 #include <future>
 
 #include "sockets/types.h"
-#include "async_pipeline.h"
 
 namespace impact {
 	class basic_socket {
@@ -58,7 +57,7 @@ namespace impact {
 			/* throw(io_error), throw(runtime_error) */;
 		void keepalive(struct keep_alive_options options)
 			/* throw(io_error), throw(runtime_error) */;
-		void send(const void* buffer, int length,
+		int send(const void* buffer, int length,
 			message_flags flags = message_flags::NONE)
 			/* throw(io_error), throw(runtime_error) */;
 		int sendto(const void* buffer, int length, unsigned short port,
@@ -68,8 +67,8 @@ namespace impact {
 		int recv(void* buffer, int length,
 			message_flags flags = message_flags::NONE)
 			/* throw(io_error), throw(runtime_error) */;
-		int recvfrom(void* buffer, int length, unsigned short& port,
-			std::string& address, message_flags flags = message_flags::NONE)
+		int recvfrom(void* buffer, int length, unsigned short* port,
+			std::string* address, message_flags flags = message_flags::NONE)
 			/* throw(io_error), throw(runtime_error) */;
 
 		// async communication
@@ -96,7 +95,6 @@ namespace impact {
 		friend basic_socket make_socket(socket_domain, socket_type, socket_protocol);
 		friend basic_socket make_tcp_socket();
 		friend basic_socket make_udp_socket();
-		// friend class internal::async_pipeline;
 
 	private:
 		struct basic_socket_info {

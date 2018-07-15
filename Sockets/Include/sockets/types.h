@@ -7,6 +7,9 @@
 
 #include "environment.h"
 
+#include <string>
+#include <memory>
+
 #if defined(__WINDOWS__)
  	#include <WinSock2.h>
  	#include <Ws2def.h>
@@ -40,10 +43,33 @@ inline T operator O (T lhs, T rhs) {\
 }
 
 namespace impact {
-  typedef struct buffer_data {
-    char*         buffer;
-    int           length;
-  } BufferData;
+	typedef struct async_data {
+		int            return_value;
+	} AsyncData;
+	typedef std::shared_ptr<async_data>
+		async_data_ptr, AsyncDataPtr;
+
+	typedef struct async_data_r : async_data {
+		char*          buffer;
+		int            length;
+	} AsyncRecvData;
+	typedef std::shared_ptr<async_data_r>
+		async_data_r_ptr, AsyncRecvDataPtr;
+
+	typedef struct async_data_rf : async_data_r {
+		unsigned short port;
+		std::string    address;
+	} AsyncRecvFromData;
+	typedef std::shared_ptr<async_data_rf>
+		async_data_rf_ptr, AsyncRecvFromDataPtr;
+
+	class basic_socket;
+	typedef struct async_data_a : async_data {
+		std::shared_ptr<basic_socket>   socket;
+	} AsyncAcceptData;
+	typedef std::shared_ptr<async_data_a>
+		async_data_a_ptr, AsyncAcceptDataPtr;
+
 
 	typedef struct keep_alive_options {
 		int enabled;  /* Enables KEEPALIVE on the target socket connection.  */
@@ -53,6 +79,7 @@ namespace impact {
 		                 probe was unacked.                                  */
 		keep_alive_options();
 	} KeepAliveOptions;
+
 
 	typedef enum class group_application {
 		JOIN  = IP_ADD_MEMBERSHIP,

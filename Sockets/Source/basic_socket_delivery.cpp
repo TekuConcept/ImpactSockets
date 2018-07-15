@@ -239,7 +239,7 @@ basic_socket::keepalive(struct keep_alive_options __options)
 }
 
 
-void
+int
 basic_socket::send(
 	const void*        __buffer,
 	int                __length,
@@ -253,6 +253,7 @@ basic_socket::send(
 		(int)__flags
 	);
 	ASSERT("basic_socket::send()\n", status == SOCKET_ERROR);
+	return status;
 }
 
 
@@ -315,8 +316,8 @@ int
 basic_socket::recvfrom(
 	void*              __buffer,
 	int                __length,
-	unsigned short&    __port,
-	std::string&       __address,
+	unsigned short*    __port,
+	std::string*       __address,
 	message_flags      __flags)
 {
 	ASSERT_MOVED("basic_socket::recvfrom()\n");
@@ -334,8 +335,10 @@ basic_socket::recvfrom(
 
 	ASSERT("basic_socket::recvfrom()\n", status == SOCKET_ERROR);
 
-	__address = inet_ntoa(client_address.sin_addr);
-	__port    = ntohs(client_address.sin_port);
+	if (__address)
+		*__address = inet_ntoa(client_address.sin_addr);
+	if (__port)
+		*__port    = ntohs(client_address.sin_port);
 
 	return status;
 }

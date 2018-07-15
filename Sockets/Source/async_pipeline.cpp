@@ -13,19 +13,14 @@
 using namespace impact;
 using namespace internal;
 
-// async_index::async_index()
-// : value((size_t)(-1))
-// {}
+async_pipeline::action_info::action_info()
+: state(action_state::FREE)
+{}
 
 
-// async_pipeline::token_info::token_info()
-// : active(false), buffer(NULL), length(0), flags(message_flags::NONE)
-// {}
-
-
-// async_pipeline::handle_info::handle_info()
-// : cancel(false), index(NULL)
-// {}
+async_pipeline::handle_info::handle_info()
+: pollfd_index((size_t)(-1))
+{}
 
 
 async_pipeline&
@@ -38,107 +33,242 @@ async_pipeline::instance()
 
 async_pipeline::async_pipeline()
 {
-  // lazy startup thread
+	// lazy startup thread
 }
 
 
 async_pipeline::~async_pipeline()
 {
-  // shutdown thread
+	// shutdown thread
 }
 
 
-// void
-// _M_create(
-//   int                 __descriptor,
-//   struct async_index* __index)
-// {
-//   struct pollfd token;
-//   token.fd      = __descriptor;
-// 	token.events  = 0;
-// 	token.revents = 0;
-//   m_handles_.push_back(token);
-//
-//   __index->value = m_handles_.size() - 1;
-//   struct handle_info info;
-//   info.index = __index;
-//   m_info_.push_back(std::move(info));
-// }
+int
+async_pipeline::_M_create_pollfd(int __descriptor)
+{
+	struct pollfd token;
+	token.fd      = __descriptor;
+	token.events  = 0;
+	token.revents = 0;
+	m_handles_.push_back(token);
+	return m_handles_.size() - 1;
+}
 
 
-// std::future<buffer_data>&
-// _M_enqueue(
-//   int                 __descriptor,
-//   struct async_index* __index,
-//   int                 __action,
-//   poll_flags          __flag)
-// {
-//   // assumptions:
-//   // __socket is valid
-//   // __index is not NULL
-//   // __action is a valid action id
-//   // __index.value is within range
-//
-//   struct token_info* info;
-//   if (__index->value == (size_t)(-1))
-//     _M_create(__descriptor, __index);
-//
-//   info = &m_info_.at(__index->value).info[__action];
-//   if (info->active)
-//     throw async_error(
-//       "async_pipeline::_M_enqueue()\n"
-//       "Called before promise resolved"
-//     );
-//
-//   m_handles_.at(__index->value).events |= (short)flag;
-//   info->promise = std::promise<buffer_data>();
-//   info->active  = true;
-//   info->buffer  = __buffer;
-//   info->length  = __length;
-//   info->flags   = __flags;
-//
-//   return info->promise.get_future();
-// }
+std::future<int>
+async_pipeline::_M_enqueue(
+	int                         __descriptor,
+	ioaction                    __ioaction,
+	const std::function<int()>& __iofunction)
+{
+	if (__descriptor < 0) {
+		throw async_error(
+			"async_pipeline::_M_enqueue(1)\n"
+			"Invalid socket descriptor"
+		);
+	}
+
+	// NOTE: map[index] will either find if exists or create otherwise
+	auto& info            = m_info_[__descriptor];
+	if (info.pollfd_index == (size_t)(-1))
+		info.pollfd_index = _M_create_pollfd(__descriptor);
+	auto& token           = m_handles_[info.pollfd_index];
+
+	short event;
+	struct action_info* action;
+	switch (__ioaction) {
+	case SEND:
+	case SENDTO: {
+		action = &info.input;
+		event  = (short)poll_flags::OUT;
+		break;
+	}
+	case RECV:
+	case RECVFROM:
+	case ACCEPT: {
+		action = &info.output;
+		event  = (short)poll_flags::IN;
+		break;
+	}
+	}
+
+	if (action->state != action_state::FREE) {
+		throw async_error(
+			"async_pipeline::_M_enqueue(2)\n"
+			"Action still pending"
+		);
+	}
+
+	action->state      = action_state::PENDING;
+	// action->promise should already be initialized
+	// either via the ctor() or reset-when-resolved
+	action->iofunction = __iofunction;
+	token.events      |= event;
+
+	// NOTE: compile with -pthread in NIX to avoid std::exception
+	return action->promise.get_future();
+}
 
 
-// std::future<buffer_data>&
-// async_pipeline::send(
-//   int descriptor      __socket,
-//   struct async_index* __index,
-//   const void*         __buffer,
-//   int                 __length,
-//   message_flags       __flags);
-// {
-  /*
-  if (handle exists):
-    get handle
-    if (handle is active):
-      throw async_error
-  else:
-    create handle
-  set handle event as POLL::OUT
-  set handle as active
-  return future
-  */
+std::future<int>
+async_pipeline::send(
+	basic_socket* __socket,
+	const void*   __buffer,
+	int           __length,
+	message_flags __flags)
+{
+	if (!__socket) {
+		throw std::invalid_argument(
+			"async_pipeline::send()\n"
+			"Socket argument NULL"
+		);
+	}
 
-  /*
-  struct token_info {
-    std::promise<buffer_data> promise;
-    bool                      active;
-    char*                     buffer;
-    int                       length;
-    token_info();
-  };
-
-  struct handle_info {
-    bool                cancel;  // used to cancel all actions on the descriptor
-    struct async_index* index;   // keep track of existing descriptors
-    struct token_info   info[1]; // async data info
-    handle_info();
-  };
-  */
+	try {
+		auto iofunction = std::bind(
+			&basic_socket::send,
+			__socket,
+			__buffer,
+			__length,
+			__flags
+		);
+		return _M_enqueue(__socket->get(), ioaction::SEND, iofunction);
+	}
+	catch (async_error e) {
+		std::string message("async_pipeline::send()\n");
+		message.append(e.what());
+		throw async_error(message);
+	}
+}
 
 
+std::future<int>
+async_pipeline::sendto(
+	basic_socket*      __socket,
+	const void*        __buffer,
+	int                __length,
+	unsigned short     __port,
+	const std::string& __address,
+	message_flags      __flags)
+{
+	if (!__socket) {
+		throw std::invalid_argument(
+			"async_pipeline::sendto()\n"
+			"Socket argument NULL"
+		);
+	}
 
-//   return token->promise.get_future();
-// }
+	try {
+		auto iofunction = std::bind(
+			&basic_socket::sendto,
+			__socket,
+			__buffer,
+			__length,
+			__port,
+			__address,
+			__flags
+		);
+		return _M_enqueue(__socket->get(), ioaction::SENDTO, iofunction);
+	}
+	catch (async_error e) {
+		std::string message("async_pipeline::sendto()\n");
+		message.append(e.what());
+		throw async_error(message);
+	}
+}
+
+
+std::future<int>
+async_pipeline::recv(
+	basic_socket* __socket,
+	void*         __buffer,
+	int           __length,
+	message_flags __flags)
+{
+	if (!__socket) {
+		throw std::invalid_argument(
+			"async_pipeline::recv()\n"
+			"Socket argument NULL"
+		);
+	}
+
+	try {
+		auto iofunction = std::bind(
+			&basic_socket::recv,
+			__socket,
+			__buffer,
+			__length,
+			__flags
+		);
+		return _M_enqueue(__socket->get(), ioaction::RECV, iofunction);
+	}
+	catch (async_error e) {
+		std::string message("async_pipeline::recv()\n");
+		message.append(e.what());
+		throw async_error(message);
+	}
+}
+
+
+std::future<int>
+async_pipeline::recvfrom(
+	basic_socket*   __socket,
+	void*           __buffer,
+	int             __length,
+	unsigned short* __port,
+	std::string*    __address,
+	message_flags   __flags
+	)
+{
+	if (!__socket) {
+		throw std::invalid_argument(
+			"async_pipeline::recvfrom()\n"
+			"Socket argument NULL"
+		);
+	}
+
+	try {
+		auto iofunction = std::bind(
+			&basic_socket::recvfrom,
+			__socket,
+			__buffer,
+			__length,
+			__port,
+			__address,
+			__flags
+		);
+		return _M_enqueue(__socket->get(), ioaction::RECVFROM, iofunction);
+	}
+	catch (async_error e) {
+		std::string message("async_pipeline::recvfrom()\n");
+		message.append(e.what());
+		throw async_error(message);
+	}
+}
+
+
+std::future<int>
+async_pipeline::accept(
+	basic_socket* __socket,
+	basic_socket* __client)
+{
+	if (!(__socket && __client)) {
+		throw std::invalid_argument(
+			"async_pipeline::accept()\n"
+			"One or more NULL arguments"
+		);
+	}
+
+	try {
+		auto iofunction = [&]() -> int {
+			VALUE(__client) = __socket->accept();
+			return 0;
+		};
+		return _M_enqueue(__socket->get(), ioaction::ACCEPT, iofunction);
+	}
+	catch (async_error e) {
+		std::string message("async_pipeline::accept()\n");
+		message.append(e.what());
+		throw async_error(message);
+	}
+}

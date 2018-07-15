@@ -36,8 +36,6 @@ namespace networking {
 
 	std::vector<struct netinterface> find_network_interfaces()
 		/* throw(std::runtime_error) */;
-	
-	// mac() // get local mac address(es)
 }}
 
 #undef MAC_ADDRESS_LENGTH

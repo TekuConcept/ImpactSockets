@@ -116,7 +116,7 @@ void receiveResponse(basic_socket& socket) {
 				clientPollHandle.reset_events();
 
 				if ((int)(flags & PollFlags::IN))
-					size = socket.recvfrom(buffer, kLength, port, address);
+					size = socket.recvfrom(buffer, kLength, &port, &address);
 				else size = 0;
 			}
 
