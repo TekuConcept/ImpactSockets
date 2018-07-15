@@ -4,7 +4,7 @@
 
 #include "sockets/async_pipeline.h"
 
-#include <cstdint>
+#include <csignal>
 #include <stdexcept>
 
 #include "sockets/environment.h"
@@ -33,6 +33,7 @@ async_pipeline::instance()
 
 async_pipeline::async_pipeline()
 {
+	//std::signal(SIGPIPE, SIG_IGN);
 	// lazy startup thread
 }
 
