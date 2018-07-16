@@ -22,6 +22,7 @@ basic_socket::_M_resolve_service(
 	/* Found port (network byte order) by name */
 }
 
+
 void
 basic_socket::_M_copy(const basic_socket& __rvalue)
 {
@@ -70,6 +71,9 @@ basic_socket::_M_dtor()
 
 basic_socket::basic_socket()
 {
+#if !defined(__WINDOWS__)
+	try { internal::no_sigpipe(); } catch (...) { /* do nothing */ }
+#endif
 	m_info_              = new struct basic_socket_info;
 	m_info_->ref_count   = 0;
 	m_info_->wsa         = false;

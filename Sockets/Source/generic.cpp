@@ -5,11 +5,13 @@
 #include "sockets/generic.h"
 
 #include <sstream>            // ostringstream
-#include <cstring>            // strerror
+#include <cstring>            // strerror, memset
 #include <stdexcept>          // runtime_error
+#include <csignal>            // sigaction
+#include <atomic>             // atomic
 
 #if defined(__LINUX__)
-  #include <netdb.h>        // h_errno
+  #include <netdb.h>          // h_errno
 #elif defined(__WINDOWS__)
 	#pragma pop_macro("IN")     // pushed in SocketTypes.h
 	#pragma pop_macro("OUT")    // pushed in SocketTypes.h
@@ -96,6 +98,30 @@ internal::win_error_message(unsigned long __code)
 		if (status == 0)
       return "[No Error Message Available]";
 		else return data;
+	}
+}
+#else
+namespace impact {
+namespace internal {
+	// only attempt to disable sigpipe once
+	std::atomic<bool> _s_sigpipe_blocked_(false);
+}}
+
+
+void
+internal::no_sigpipe()
+{
+	if (!_s_sigpipe_blocked_) {
+		struct sigaction action;
+	    std::memset(&action, 0, sizeof(action));
+	    action.sa_handler = SIG_IGN;
+	    action.sa_flags   = SA_RESTART;
+	    auto status = ::sigaction(SIGPIPE, &action, NULL);
+	    // EFAULT on 'act' and 'oldact' should never happen
+	    // EINVAL should never happen since SIGPIPE is a valid signal
+	    // however, some systems might not consider the signal as valid
+	    ASSERT("internal::no_sigpipe()\n", status == -1);
+		_s_sigpipe_blocked_ = true;
 	}
 }
 #endif

@@ -25,6 +25,8 @@ namespace internal {
     const std::locale& env = std::locale());
 
 	std::string win_error_message(unsigned long code);
+#else /* Linux | BSD */
+  void no_sigpipe(); /* throw(std::runtime_error) */
 #endif /* __WINDOWS__ */
 
 	std::string error_message();

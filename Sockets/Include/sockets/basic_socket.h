@@ -5,7 +5,7 @@
 #ifndef _IMPACT_BASIC_SOCKET_H_
 #define _IMPACT_BASIC_SOCKET_H_
 
-
+#include <atomic>
 #include <string>
 #include <future>
 
@@ -116,7 +116,8 @@ namespace impact {
 		void _M_dtor();
 	};
 
-	basic_socket make_socket(socket_domain domain, socket_type type, socket_protocol proto) /* throw(io_error) */;
+	basic_socket make_socket(socket_domain domain, socket_type type,
+	  socket_protocol proto) /* throw(io_error) */;
 	basic_socket make_tcp_socket() /* throw(io_error) */;
 	basic_socket make_udp_socket() /* throw(io_error) */;
 }
