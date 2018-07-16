@@ -25,7 +25,7 @@ void test_defaultConstructor() {
   VERBOSE("[5]");
   basic_socket soc5(std::move(socket));
   assert(socket.use_count() == 0);
-  VERBOSE("[6]");
+  VERBOSE("Done!");
 }
 
 void test_createConstructor() {
@@ -52,7 +52,7 @@ void test_createConstructor() {
     assert(socket.use_count() == 0);
     assert(soc4.use_count() == 1);
   }
-  VERBOSE("[6]");
+  VERBOSE("Done!");
 }
 
 void test_close() {
@@ -71,6 +71,34 @@ void test_close() {
   try {
     socket.close();
   } catch (...) { assert(false); }
+  VERBOSE("Done!");
+}
+
+void test_sigpipe() {
+  VERBOSE("\nPipe Error Signal");
+  VERBOSE("[1]");
+  basic_socket socket;
+  try { socket = make_tcp_socket(); } catch (...) { assert(false); }
+  
+  try {
+    const char* buffer = NULL;
+    socket.send(buffer, 0, message_flags::NONE);
+  }
+  catch (io_error e) {
+    VERBOSE("IO Error: " << e.what());
+    assert(true);
+  }
+  catch (std::runtime_error e) {
+    VERBOSE("Runtime Error: " << e.what());
+    assert(false);
+  }
+  catch (...) {
+    VERBOSE("Unknown error");
+    assert(false);
+  }
+  
+  try { socket.close(); } catch (...) { assert(false); }
+  VERBOSE("Done!");
 }
 
 int main() {
@@ -79,6 +107,7 @@ int main() {
   test_defaultConstructor();
   test_createConstructor();
   test_close();
+  test_sigpipe();
 
   VERBOSE("- END OF LINE -");
   return 0;
