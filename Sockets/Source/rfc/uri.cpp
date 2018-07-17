@@ -9,8 +9,10 @@
 
 #include <sstream>
 #include <exception>
-#include <stdexcept>
 #include <algorithm>
+
+#include "sockets/impact_error.h"
+#include "sockets/impact_errno.h"
 
 namespace impact {
     const char k_sp = ' ';
@@ -36,8 +38,8 @@ uri::uri()
 
 uri::uri(const std::string& __uri)
 {
-	if (_S_parse(__uri, *this) != parse_error::NONE)
-		throw std::runtime_error("uri::uri()\n");
+	if (!_S_parse(__uri, *this))
+		throw impact_error(error_string(impact_errno));
 }
 
 
@@ -80,7 +82,7 @@ bool
 uri::valid(const std::string& __uri)
 {
 	uri uri_l;
-	return _S_parse(__uri, uri_l) == parse_error::NONE;
+	return _S_parse(__uri, uri_l);
 }
 
 
@@ -89,8 +91,8 @@ uri::parse(const std::string& __uri)
 {
 	uri uri_l;
 	auto status = _S_parse(__uri, uri_l);
-	if (status != parse_error::NONE)
-		throw std::runtime_error("uri::parse()\n");
+	if (!status)
+		throw impact_error(error_string(impact_errno));
 	return uri_l;
 }
 
@@ -101,37 +103,43 @@ uri::try_parse(
 	bool&              __success)
 {
 	uri uri_l;
-	__success = _S_parse(__uri, uri_l) == parse_error::NONE;
+	__success = _S_parse(__uri, uri_l);
 	return uri_l;
 }
 
 
-uri::parse_error
+bool
 uri::_S_parse(
 	const std::string& __uri,
 	uri&               __result)
 {
-	if (!_S_parse_scheme(__uri, __result))
-		return parse_error::NO_SCHEME_DELIMITER;
+	if (!_S_parse_scheme(__uri, __result)) {
+		impact_errno = URI_SCHEME;
+		return false;
+	}
 
 	unsigned int idx = __result.m_scheme_.length() + 3; /* "://" */
-	if (idx >= __uri.length())
-		return parse_error::NO_SCHEME_DELIMITER;
-	if (!(__uri[idx - 2] == '/' && __uri[idx - 1] == '/'))
-		return parse_error::NO_SCHEME_DELIMITER;
+	if (idx >= __uri.length()) {
+		impact_errno = URI_SCHEME;
+		return false;
+	}
+	if (!(__uri[idx - 2] == '/' && __uri[idx - 1] == '/')) {
+		impact_errno = URI_SCHEME;
+		return false;
+	}
 
-	parse_error status;
+	bool status;
 	if (__uri[idx] == '[')
 		// IPv6 enclosed: "[::]"
 		status = _S_parse_ipv6_host(__uri, idx, __result);
 	else status = _S_parse_host(__uri, idx, __result);
-	if (status != parse_error::NONE)
+	if (!status)
 		return status;
 
 	// idx should either be pointing at ':' for port,
 	// '/' for resource name, or the end of uri
 	status = _S_parse_port(__uri, idx, __result);
-	if (status != parse_error::NONE)
+	if (!status)
 		return status;
 
 	// store what is left into resourceName
@@ -148,7 +156,8 @@ uri::_S_parse(
 	if (__result.m_resource_.length() == 0)
 		__result.m_resource_ = "/";
 
-	return parse_error::NONE;
+	impact_errno = SUCCESS;
+	return true;
 }
 
 
@@ -194,7 +203,7 @@ uri::_S_set_meta_info(uri& __result)
 }
 
 
-uri::parse_error
+bool
 uri::_S_parse_ipv6_host(
 	const std::string& __uri,
 	unsigned int&      __offset,
@@ -203,15 +212,19 @@ uri::_S_parse_ipv6_host(
 	const int k_max_host   = 39; // IPv6 fully exapanded with ':' is 39 chars
 	const int k_max_label  = 4; // labels are only 4 hex chars long
 	const int k_min_length = 4; // "[::]"
-	if ((__uri.length() - __offset) < k_min_length)
-		return parse_error::BAD_IPV6_HOST;
+	if ((__uri.length() - __offset) < k_min_length) {
+		impact_errno = URI_V6HOST;
+		return false;
+	}
 
 	std::ostringstream os;
 	int colon_delimiter_count = 0;
 	unsigned int& idx         = __offset;
 
-	if (__uri[idx] != '[')
-		return parse_error::BAD_IPV6_HOST; // double check
+	if (__uri[idx] != '[') {
+		impact_errno = URI_V6HOST;
+		return false;
+	}
 	os << __uri[idx];
 	idx++;
 
@@ -240,7 +253,8 @@ uri::_S_parse_ipv6_host(
 				os << c;
 				idx++; // align with _S_parse_ipv4_host() return index
 				__result.m_host_ = os.str();
-				return parse_error::NONE;
+				impact_errno = SUCCESS;
+				return true;
 			}
 		}
 		else if ( // only allow legal hex values
@@ -257,11 +271,12 @@ uri::_S_parse_ipv6_host(
 		idx++;
 	}
 
-	return parse_error::BAD_IPV6_HOST;
+	impact_errno = URI_V6HOST;
+	return false;
 }
 
 
-uri::parse_error
+bool
 uri::_S_parse_host(
 	const std::string& __uri,
 	unsigned int&      __offset,
@@ -270,8 +285,10 @@ uri::_S_parse_host(
 	const int k_max_host  = 254; // 253 + '.'
 	const int k_max_label = 63;
 	const int k_min_len   = 1; // "a"
-	if ((__uri.length() - __offset) < k_min_len)
-		return parse_error::BAD_HOST;
+	if ((__uri.length() - __offset) < k_min_len) {
+		impact_errno = URI_HOST_ERR;
+		return false;
+	}
 
 	std::ostringstream os;
 	int
@@ -287,13 +304,17 @@ uri::_S_parse_host(
 		if (first_char) {
 			// RFC 952: non-alphanumeric chars as the first char
 			// are not allowed.
-			if (c == '-')
-				return parse_error::BAD_HOST;
+			if (c == '-') {
+				impact_errno = URI_HOST_ERR;
+				return false;
+			}
 			else first_char = false;
 		}
 		if (c == '/') {
-			if (host_length < 1)
-				return parse_error::BAD_HOST;
+			if (host_length < 1) {
+				impact_errno = URI_HOST_ERR;
+				return false;
+			}
 			break;
 		}
 		else if (c == ':')
@@ -312,19 +333,25 @@ uri::_S_parse_host(
 			label_length = 0;
 			host_length++;
 		}
-		else return parse_error::BAD_HOST;
+		else {
+			impact_errno = URI_HOST_ERR;
+			return false;
+		}
 
-		if (label_length > k_max_label || host_length > k_max_host)
-			return parse_error::BAD_HOST;
+		if (label_length > k_max_label || host_length > k_max_host) {
+			impact_errno = URI_HOST_ERR;
+			return false;
+		}
 		idx++;
 	}
 
 	__result.m_host_ = os.str();
-	return parse_error::NONE;
+	impact_errno = SUCCESS;
+	return true;
 }
 
 
-uri::parse_error
+bool
 uri::_S_parse_port(
 	const std::string& __uri,
 	unsigned int&      __offset,
@@ -345,9 +372,14 @@ uri::_S_parse_port(
 				os << __uri[idx];
 				char_count++;
 			}
-			else return parse_error::BAD_PORT;
-			if (char_count > k_max_chars)
-				return parse_error::PORT_OUT_OF_RANGE;
+			else {
+				impact_errno = URI_PORT_ERR;
+				return false;
+			}
+			if (char_count > k_max_chars) {
+				impact_errno = URI_PORT_RANGE;
+				return false;
+			}
 			idx++;
 		}
 
@@ -355,13 +387,16 @@ uri::_S_parse_port(
 		if (strport.length() >= 1) {
 			// only try to parse if there is something to parse
 			unsigned int port = std::stoi(strport);
-			if (port > 65535)
-				return parse_error::PORT_OUT_OF_RANGE;
+			if (port > 65535) {
+				impact_errno = URI_PORT_RANGE;
+				return false;
+			}
 			else __result.m_port_ = static_cast<unsigned short>(port);
 		}
 	}
 
-	return parse_error::NONE;
+	impact_errno = SUCCESS;
+	return true;
 }
 
 
@@ -381,25 +416,4 @@ uri::register_scheme(
 		[](char c) { return (char) ::tolower(c); }
 	);
 	s_scheme_meta_data_[name] = meta_value(__secure, __port);
-}
-
-
-std::string
-uri::_S_error_message(parse_error code)
-{
-	switch (code) {
-	case parse_error::NONE:
-		return "Success";
-	case parse_error::NO_SCHEME_DELIMITER:
-		return "No '://' delimiter found after url scheme";
-	case parse_error::BAD_IPV6_HOST:
-		return "Bad IPv6 host name";
-	case parse_error::BAD_HOST:
-		return "Bad host name";
-	case parse_error::BAD_PORT:
-		return "Invalid characters used for port number";
-	case parse_error::PORT_OUT_OF_RANGE:
-		return "Port out of range";
-	default: return "Unknown error";
-	}
 }

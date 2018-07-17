@@ -92,3 +92,7 @@ target_link_libraries(${BASIC_SOCKET_TEST} ${IMPACT_SOCKETS})
 set(NETWORKING_TEST networking_test)
 add_executable(${NETWORKING_TEST} "${TESTS_PATH}/${NETWORKING_TEST}.cpp")
 target_link_libraries(${NETWORKING_TEST} ${IMPACT_SOCKETS})
+
+set(IMPACT_ERROR_TEST impact_error_test)
+add_executable(${IMPACT_ERROR_TEST} "${TESTS_PATH}/${IMPACT_ERROR_TEST}.cpp")
+target_link_libraries(${IMPACT_ERROR_TEST} ${IMPACT_SOCKETS})

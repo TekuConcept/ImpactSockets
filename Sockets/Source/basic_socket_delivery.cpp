@@ -10,7 +10,7 @@ using namespace impact;
 void
 basic_socket::bind(unsigned short __port)
 {
-	ASSERT_MOVED("basic_socket::bind()\n");
+	ASSERT_MOVED
 	struct sockaddr_in socket_address;
 
 	::memset(&socket_address, 0, sizeof(socket_address));
@@ -24,7 +24,7 @@ basic_socket::bind(unsigned short __port)
 		sizeof(socket_address)
 	);
 
-	ASSERT("basic_socket::bind()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 }
 
 
@@ -33,11 +33,10 @@ basic_socket::bind(
 	const std::string& __address,
 	unsigned short     __port)
 {
-	ASSERT_MOVED("basic_socket::bind()\n");
+	ASSERT_MOVED
 	struct sockaddr_in socket_address;
 
 	CATCH_ASSERT(
-		"basic_socket::bind(1)\n",
 		internal::fill_address(
 			m_info_->domain,
 			m_info_->type,
@@ -46,7 +45,7 @@ basic_socket::bind(
 			__port,
 			socket_address
 		);
-	);
+	)
 
 	auto status = ::bind(
 		m_info_->descriptor,
@@ -54,7 +53,7 @@ basic_socket::bind(
 		sizeof(socket_address)
 	);
 
-	ASSERT("basic_socket::bind(2)\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 }
 
 
@@ -63,11 +62,10 @@ basic_socket::connect(
 	unsigned short     __port,
 	const std::string& __address)
 {
-	ASSERT_MOVED("basic_socket::connect()\n");
+	ASSERT_MOVED
 	struct sockaddr_in destination_address;
 
 	CATCH_ASSERT(
-		"basic_socket::connect(1)\n",
 		internal::fill_address(
 			m_info_->domain,
 			m_info_->type,
@@ -76,7 +74,7 @@ basic_socket::connect(
 			__port,
 			destination_address
 		);
-	);
+	)
 
 	auto status = ::connect(
 		m_info_->descriptor,
@@ -84,27 +82,26 @@ basic_socket::connect(
 		sizeof(destination_address)
 	);
 
-	ASSERT("basic_socket::connect(2)\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 }
 
 
 void
 basic_socket::listen(int __backlog)
 {
-	ASSERT_MOVED("basic_socket::listen()\n");
+	ASSERT_MOVED
 	auto status = ::listen(m_info_->descriptor, __backlog);
-	ASSERT("basic_socket::listen()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 }
 
 
 basic_socket
 basic_socket::accept()
 {
-	ASSERT_MOVED("basic_socket::accept()\n");
+	ASSERT_MOVED
 	basic_socket peer;
 	peer.m_info_->descriptor = ::accept(m_info_->descriptor, NULL, NULL);
-	ASSERT("basic_socket::accept()\n",
-		peer.m_info_->descriptor == INVALID_SOCKET);
+	ASSERT(peer.m_info_->descriptor != INVALID_SOCKET)
 	peer.m_info_->ref_count  = 1;
 	peer.m_info_->wsa        = false;
 	peer.m_info_->domain     = m_info_->domain;
@@ -117,9 +114,9 @@ basic_socket::accept()
 void
 basic_socket::shutdown(socket_channel __channel)
 {
-	ASSERT_MOVED("basic_socket::shutdown()\n");
+	ASSERT_MOVED
 	auto status = ::shutdown(m_info_->descriptor, (int)__channel);
-	ASSERT("basic_socket::shutdown()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 }
 
 
@@ -128,7 +125,7 @@ basic_socket::group(
 	std::string            __name,
 	group_application      __method)
 {
-	ASSERT_MOVED("basic_socket::group()\n");
+	ASSERT_MOVED
 	struct ip_mreq multicast_request;
 	multicast_request.imr_multiaddr.s_addr = inet_addr(__name.c_str());
 	multicast_request.imr_interface.s_addr = htonl(INADDR_ANY);
@@ -139,16 +136,16 @@ basic_socket::group(
 		(CCHAR_PTR)&multicast_request,
 		sizeof(multicast_request)
 	);
-	ASSERT("basic_socket::group()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 }
 
 
 void
 basic_socket::keepalive(struct keep_alive_options __options)
 {
-	ASSERT_MOVED("basic_socket::keepalive()\n");
+	ASSERT_MOVED
 	// http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
-	std::ostringstream os("basic_socket::keepalive()\n");
+	std::ostringstream os;
 	auto errors = 0;
 	auto status = 0;
 #if defined(__WINDOWS__)
@@ -170,10 +167,7 @@ basic_socket::keepalive(struct keep_alive_options __options)
 		NULL
 	);
 
-	if (status == SOCKET_ERROR) {
-		os << internal::error_message();
-		throw io_error(os.str());
-	}
+	ASSERT(status != SOCKET_ERROR)
 #else /* OSX|LINUX */
 	status = setsockopt(
 		m_info_->descriptor,
@@ -235,7 +229,7 @@ basic_socket::keepalive(struct keep_alive_options __options)
 		errors |= 4;
 	}
 
-	if (errors) throw io_error(os.str());
+	if (errors) throw impact_error(os.str());
 }
 
 
@@ -245,14 +239,14 @@ basic_socket::send(
 	int                __length,
 	message_flags      __flags)
 {
-	ASSERT_MOVED("basic_socket::send()\n");
+	ASSERT_MOVED
 	auto status = ::send(
 		m_info_->descriptor,
 		(CCHAR_PTR)__buffer,
 		__length,
 		(int)__flags
 	);
-	ASSERT("basic_socket::send()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 	return status;
 }
 
@@ -265,11 +259,10 @@ basic_socket::sendto(
 	const std::string& __address,
 	message_flags      __flags)
 {
-	ASSERT_MOVED("basic_socket::sendto()\n");
+	ASSERT_MOVED
 	struct sockaddr_in destination_address;
 
 	CATCH_ASSERT(
-		"basic_socket::sendto(1)\n",
 		internal::fill_address(
 			m_info_->domain,
 			m_info_->type,
@@ -278,7 +271,7 @@ basic_socket::sendto(
 			__port,
 			destination_address
 		);
-	);
+	)
 
 	auto status = ::sendto(
 		m_info_->descriptor,
@@ -289,7 +282,7 @@ basic_socket::sendto(
 		sizeof(destination_address)
 	);
 
-	ASSERT("basic_socket::sendto(2)\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 	return status;
 }
 
@@ -300,14 +293,14 @@ basic_socket::recv(
 	int                __length,
 	message_flags      __flags)
 {
-	ASSERT_MOVED("basic_socket::recv()\n");
+	ASSERT_MOVED
 	int status = ::recv(
 		m_info_->descriptor,
 		(CHAR_PTR)__buffer,
 		__length,
 		(int)__flags
 	);
-	ASSERT("basic_socket::recv()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 	return status; /* number of bytes received or EOF */
 }
 
@@ -320,7 +313,7 @@ basic_socket::recvfrom(
 	std::string*       __address,
 	message_flags      __flags)
 {
-	ASSERT_MOVED("basic_socket::recvfrom()\n");
+	ASSERT_MOVED
 	struct sockaddr_in client_address;
 	socklen_t address_length = sizeof(client_address);
 
@@ -333,7 +326,7 @@ basic_socket::recvfrom(
 		(socklen_t*)&address_length
 	);
 
-	ASSERT("basic_socket::recvfrom()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 
 	if (__address)
 		*__address = inet_ntoa(client_address.sin_addr);

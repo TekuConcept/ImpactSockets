@@ -13,8 +13,9 @@ using namespace impact;
 
 #define VERBOSE(x) std::cout << x << std::endl
 #define CATCH(x) \
-	try { x } catch (std::runtime_error e)\
-	{ VERBOSE(e.what()); exit(1); }
+	try { x }\
+	catch (impact_error e) { VERBOSE(e.what()); exit(1); }\
+	catch (...) { VERBOSE("Unknown internal error"); exit(2); }
 
 using Interface     = networking::netinterface;
 using InterfaceType = networking::InterfaceType;
@@ -86,7 +87,7 @@ void sendMessage(basic_socket& socket, std::vector<Interface> list) {
 			}
 		}
 	}
-	catch (io_error e) {
+	catch (impact_error e) {
 		VERBOSE(e.what());
 		throw;
 	}
@@ -157,8 +158,7 @@ void runClient() {
 		VERBOSE("> Done!");
 		socket.close();
 	}
-	catch (io_error e) { VERBOSE("CLIENT: " << e.what()); }
-	catch (std::runtime_error e) { VERBOSE("CLIENT: " << e.what()); }
+	catch (impact_error e) { VERBOSE("CLIENT: " << e.what()); }
 	catch (...) { VERBOSE("CLIENT: Unknown error"); }
 }
 

@@ -19,22 +19,22 @@
 
 namespace impact {
 namespace internal {
-
-#if defined(__WINDOWS__)
-  std::string to_narrow_string(const wchar_t* original, char unknown = '?',
-    const std::locale& env = std::locale());
-
-	std::string win_error_message(unsigned long code);
-#else /* Linux | BSD */
-  void no_sigpipe(); /* throw(std::runtime_error) */
-#endif /* __WINDOWS__ */
-
 	std::string error_message();
   void fill_address(socket_domain, socket_type, socket_protocol,
 		const std::string& host, const unsigned short port, sockaddr_in& result)
-    /* throw(std::runtime_error) */;
+    /* throw(impact_error) */;
   std::string sock_addr_string(const struct sockaddr* address);
 
+  #if defined(__WINDOWS__)
+    std::string to_narrow_string(const wchar_t* original, char unknown = '?',
+      const std::locale& env = std::locale());
+
+  	std::string win_error_message(unsigned long code);
+
+    int wsa_error_string(unsigned long code, std::string& buffer);
+  #else /* Linux | BSD */
+    void no_sigpipe(); /* throw(impact_error) */
+  #endif /* __WINDOWS__ */
 }}
 
 #endif

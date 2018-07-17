@@ -12,9 +12,8 @@ poll_vector::poll_vector()
 
 poll_vector::poll_vector(poll_initializer __handles)
 {
-	for (auto& handle : __handles) {
+	for (auto& handle : __handles)
 		push_back(handle);
-	}
 }
 
 
@@ -26,9 +25,8 @@ void
 poll_vector::reset_events()
 {
 	std::lock_guard<std::mutex> lock(m_mtx_);
-	for(auto& descriptor : m_descriptors_) {
+	for(auto& descriptor : m_descriptors_)
 		descriptor.revents = 0;
-	}
 }
 
 

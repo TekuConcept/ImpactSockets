@@ -84,13 +84,9 @@ void test_sigpipe() {
     const char* buffer = NULL;
     socket.send(buffer, 0, message_flags::NONE);
   }
-  catch (io_error e) {
-    VERBOSE("IO Error: " << e.what());
+  catch (impact_error e) {
+    VERBOSE("IO Error: " << e.message());
     assert(true);
-  }
-  catch (std::runtime_error e) {
-    VERBOSE("Runtime Error: " << e.what());
-    assert(false);
   }
   catch (...) {
     VERBOSE("Unknown error");

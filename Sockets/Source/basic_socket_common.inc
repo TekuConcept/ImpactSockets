@@ -11,7 +11,7 @@
 
 #include "sockets/environment.h"
 #include "sockets/generic.h"
-#include "sockets/io_error.h"
+#include "sockets/impact_error.h"
 
 #if defined(__WINDOWS__)
 	#pragma pop_macro("IN")    // pushed in SocketTypes.h
@@ -62,28 +62,19 @@
  	#define INVALID_SOCKET -1
 #endif
 
-#define CATCH_ASSERT(title,code)\
+#define ASSERT(cond)\
+ 	if (!(cond)) throw impact_error(internal::error_message());
+
+#define ASSERT_MOVED\
+	if (!m_info_) throw impact_error("Socket moved");
+
+#define CATCH_ASSERT(code)\
  	try { code }\
- 	catch (std::runtime_error e) {\
- 		std::string message( title );\
- 		message.append(e.what());\
- 		throw io_error(message);\
- 	}
+ 	catch (impact_error) { throw; }\
+	catch (...) { throw impact_error("Unknown internal error"); }
 
-#define ASSERT(title,cond)\
- 	if (cond) {\
- 		std::string message( title );\
- 		message.append(internal::error_message());\
- 		throw io_error(message);\
- 	}
-
-#define ASSERT_MOVED(title)\
-	if (!m_info_) throw std::runtime_error(title "Socket moved");
-
-#define WIN_ASSERT(title,cond,error,fin)\
-	if (cond) {\
+#define WIN_ASSERT(cond,error,fin)\
+	if (!(cond)) {\
 		fin\
-		std::string message( title );\
-		message.append(internal::win_error_message( error ));\
-		throw io_error(message);\
+		throw impact_error(internal::win_error_message( error ));\
 	}

@@ -17,10 +17,10 @@ namespace impact {
 			std::vector<basic_socket*> readHandles,
 			std::vector<basic_socket*> writeHandles,
 			int timeout=-1, unsigned int microTimeout=0)
-			/* throw(std::runtime_error) */;
+			/* throw(impact_error) */;
 
 	  static int poll(poll_vector& token, int timeout)
-			/* throw(std::runtime_error) */;
+			/* throw(impact_error) */;
 
 	private:
 		probe();

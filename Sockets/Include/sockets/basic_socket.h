@@ -20,18 +20,18 @@ namespace impact {
 
 		// constructors
 		basic_socket();
-		basic_socket(const basic_socket& r) /* throw(std::runtime_error) */;
-		basic_socket(basic_socket&& r) /* throw(std::runtime_error) */;
+		basic_socket(const basic_socket& r) /* throw(impact_error) */;
+		basic_socket(basic_socket&& r) /* throw(impact_error) */;
 
 		// destructors
 		virtual ~basic_socket();
 
 		// file operators
-		void close() /* throw(io_error), throw(runtime_error) */;
+		void close() /* throw(impact_error) */;
 
 		// assignment
-		basic_socket& operator=(const basic_socket& r) /* throw(io_error) */;
-		basic_socket& operator=(basic_socket&& r) /* throw(io_error) */;
+		basic_socket& operator=(const basic_socket& r) /* throw(impact_error) */;
+		basic_socket& operator=(basic_socket&& r) /* throw(impact_error) */;
 
 		// observers
 		long use_count() const noexcept;
@@ -42,34 +42,34 @@ namespace impact {
 		explicit operator bool() const noexcept;
 
 		// communication / delivery
-		void bind(unsigned short port) /* throw(io_error), throw(runtime_error) */;
+		void bind(unsigned short port) /* throw(impact_error) */;
 		void bind(const std::string& address, unsigned short port = 0)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		void connect(unsigned short port, const std::string& address = "localhost")
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		void listen(int backlog = 5)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		basic_socket accept()
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		void shutdown(socket_channel channel = socket_channel::BOTH)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		void group(std::string multicast_name, group_application method)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		void keepalive(struct keep_alive_options options)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		int send(const void* buffer, int length,
 			message_flags flags = message_flags::NONE)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		int sendto(const void* buffer, int length, unsigned short port,
 			const std::string& address,
 			message_flags flags = message_flags::NONE)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		int recv(void* buffer, int length,
 			message_flags flags = message_flags::NONE)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		int recvfrom(void* buffer, int length, unsigned short* port,
 			std::string* address, message_flags flags = message_flags::NONE)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 
 		// async communication
 		// std::future& basic_socket.accept_async();
@@ -82,15 +82,15 @@ namespace impact {
 		// std::future& basic_socket.recvfrom_async();
 
 		// miscillaneous
-		std::string local_address() /* throw(io_error), throw(runtime_error) */;
-		unsigned short local_port() /* throw(io_error), throw(runtime_error) */;
-		std::string peer_address() /* throw(io_error), throw(runtime_error) */;
-		unsigned short peer_port() /* throw(io_error), throw(runtime_error) */;
-		void broadcast(bool enabled) /* throw(io_error), throw(runtime_error) */;
+		std::string local_address() /* throw(impact_error) */;
+		unsigned short local_port() /* throw(impact_error) */;
+		std::string peer_address() /* throw(impact_error) */;
+		unsigned short peer_port() /* throw(impact_error) */;
+		void broadcast(bool enabled) /* throw(impact_error) */;
 		void multicast_ttl(unsigned char time_to_live = 1)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 		void reuse_address(bool enabled)
-			/* throw(io_error), throw(runtime_error) */;
+			/* throw(impact_error) */;
 
 		friend basic_socket make_socket(socket_domain, socket_type, socket_protocol);
 		friend basic_socket make_tcp_socket();
@@ -117,9 +117,9 @@ namespace impact {
 	};
 
 	basic_socket make_socket(socket_domain domain, socket_type type,
-	  socket_protocol proto) /* throw(io_error) */;
-	basic_socket make_tcp_socket() /* throw(io_error) */;
-	basic_socket make_udp_socket() /* throw(io_error) */;
+	  socket_protocol proto) /* throw(impact_error) */;
+	basic_socket make_tcp_socket() /* throw(impact_error) */;
+	basic_socket make_udp_socket() /* throw(impact_error) */;
 }
 
 #endif

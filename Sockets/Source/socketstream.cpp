@@ -7,6 +7,7 @@
 #include <stdexcept>
 
 #include "sockets/probe.h"
+#include "sockets/impact_error.h"
 
 using namespace impact;
 
@@ -16,16 +17,12 @@ using namespace impact;
 #define VERBOSE(x) std::cout << x << std::endl
 
 socketstream::socketstream(
-  basic_socket& __socket,
-  unsigned int  __stream_buffer_size)
+	basic_socket& __socket,
+	unsigned int  __stream_buffer_size)
 : std::iostream(this), m_handle_(__socket)
 {
-  if (__socket.type() != socket_type::STREAM) {
-    throw std::runtime_error(
-      "socketstream::socketstream()\n"
-      "Socket is not a streamable"
-    );
-  }
+	if (__socket.type() != socket_type::STREAM)
+		throw impact_error("Socket is not streamable");
 
 	_M_initialize(__stream_buffer_size);
 }
@@ -48,18 +45,18 @@ socketstream::~socketstream()
 void
 socketstream::_M_initialize(unsigned int __buffer_size)
 {
-	m_stream_buffer_size_ = __buffer_size<256?256:__buffer_size;
+	m_stream_buffer_size_ = __buffer_size < 256 ? 256 : __buffer_size;
 	m_output_buffer_      = new char[m_stream_buffer_size_ + 1];
-  m_input_buffer_       = new char[m_stream_buffer_size_ + 1];
+	m_input_buffer_       = new char[m_stream_buffer_size_ + 1];
 
-  m_hangup_  = false;
-  m_timeout_ = -1;
+	m_hangup_  = false;
+	m_timeout_ = -1;
 
 	setp(m_output_buffer_, m_output_buffer_ + m_stream_buffer_size_ - 1);
-  setg(m_input_buffer_, m_input_buffer_ + m_stream_buffer_size_ - 1,
-  	m_input_buffer_ + m_stream_buffer_size_ - 1);
+	setg(m_input_buffer_, m_input_buffer_ + m_stream_buffer_size_ - 1,
+		m_input_buffer_ + m_stream_buffer_size_ - 1);
 
-  m_poll_handle_.push_back({m_handle_, poll_flags::IN});
+	m_poll_handle_.push_back({ m_handle_, poll_flags::IN });
 }
 
 
@@ -74,7 +71,7 @@ int
 socketstream::underflow()
 {
 	if (!m_handle_)
-    return EOF;
+		return EOF;
 
 	if (m_hangup_) {
 		setstate(std::ios_base::badbit);
@@ -84,8 +81,8 @@ socketstream::underflow()
 	try {
 		auto status = probe::poll(m_poll_handle_, m_timeout_);
 
-    if (status == 0)
-      return EOF; // timeout
+		if (status == 0)
+			return EOF; // timeout
 
 		auto flags = m_poll_handle_[0];
 		m_poll_handle_.reset_events();
@@ -99,14 +96,14 @@ socketstream::underflow()
 		if ((int)(flags & poll_flags::IN)) {
 			int bytes_received = m_handle_.recv(eback(), m_stream_buffer_size_);
 
-      if(bytes_received == 0)
-        return EOF;
+			if (bytes_received == 0)
+				return EOF;
 
 			setg(eback(), eback(), eback() + bytes_received);
 			return *eback();
 		}
 	}
-	catch (std::exception e) { return EOF; }
+	catch (...) { return EOF; }
 
 	return EOF;
 }
@@ -123,9 +120,9 @@ int
 socketstream::_M_write_base(int __c)
 {
 	if (!m_handle_)
-    return EOF;
+		return EOF;
 
-  if (m_hangup_) {
+	if (m_hangup_) {
 		setstate(std::ios_base::badbit);
 		return EOF;
 	}
@@ -135,7 +132,7 @@ socketstream::_M_write_base(int __c)
 		m_handle_.send(pbase(), length);
 		setp(pbase(), epptr());
 	}
-	catch (std::exception e) { return EOF; }
+	catch (...) { return EOF; }
 
 	return __c;
 }

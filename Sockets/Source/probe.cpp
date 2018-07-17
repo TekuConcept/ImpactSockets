@@ -8,7 +8,7 @@
 
 #include "sockets/environment.h"
 #include "sockets/generic.h"
-#include "sockets/io_error.h"
+#include "sockets/impact_error.h"
 
 #if defined(__APPLE__)
 	#include <unistd.h> // select()
@@ -21,12 +21,8 @@
 	#define SOCKET_ERROR -1
 #endif
 
-#define ASSERT(title,cond)\
- 	if (cond) {\
- 		std::string message( title );\
- 		message.append(internal::error_message());\
- 		throw io_error(message);\
- 	}
+#define ASSERT(cond)\
+ 	if (!(cond)) throw impact_error(internal::error_message());
 
 using namespace impact;
 
@@ -70,7 +66,7 @@ probe::select(
 		((__timeout<0)?NULL:&time_s)
 	);
 
-	ASSERT("probe::select()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 	return status;
 }
 
@@ -85,7 +81,7 @@ probe::poll(
 	auto size            = __token.size();
 	auto status          = POLL(token, size, __timeout);
 
-	ASSERT("probe::poll()\n", status == SOCKET_ERROR);
+	ASSERT(status != SOCKET_ERROR)
 	/* status: -1 error, 0 timeout, 0> success */
 	return status;
 }

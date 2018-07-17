@@ -7,6 +7,9 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "sockets/impact_error.h"
+#include "sockets/impact_errno.h"
+
 using namespace impact;
 
 const std::string base64::k_alphabet =
@@ -66,72 +69,80 @@ base64::encode(const std::string& __data)
     }
 }
 
+
 std::string
 base64::decode(const std::string& __data)
 {
     bool success;
     auto result = decode(__data, success);
-    if (!success)
-      throw std::runtime_error("base64::decode()\n");
+
+	if (!success)
+		throw impact_error(error_string(impact_errno));
+
     return result;
 }
 
 
 std::string
 base64::decode(
-  const std::string& __data,
-  bool&              __status)
+	const std::string& __data,
+	bool&              __status)
 {
-    __status = true;
-    if (__data.length() == 0)
-      return "";
+	impact_errno = SUCCESS;
+	__status     = true;
 
-    std::ostringstream os;
-    const unsigned char
-      k_byte        = 0xFF,
-      k_symbol_size = 6;
-    unsigned short
-      padding       = 0,
-      tally         = 0;
-    unsigned int
-      reg24         = 0;
+	if (__data.length() == 0)
+		return "";
 
-    for (unsigned int i = 0; i < __data.length(); i++) {
-        if (__data[i] == '=') {
-            if ((__data.length() - i) <= 2)
-              padding++;
-            continue;
-        }
-        auto c = reverse_lookup(__data[i]);
-        if (c == '\x40') {
-            __status = false;
-            break;
-        }
-        else {
-            reg24 |= c;
-            tally++;
-            if (tally == 4) {
-                os << (unsigned char)(reg24 >> 16);
-                os << (unsigned char)((reg24 >> 8) & k_byte);
-                os << (unsigned char)(reg24 & k_byte);
-                tally = (unsigned short)0;
-                reg24 = 0;
-            }
-            else reg24 <<= k_symbol_size;
-        }
-    }
+	std::ostringstream os;
+	const unsigned char
+		k_byte        = 0xFF,
+		k_symbol_size = 6;
+	unsigned short
+		padding       = 0,
+		tally         = 0;
+	unsigned int
+		reg24         = 0;
 
-    // take care of padded values
-    if ((padding + tally) == 4) {
-        reg24 <<= (k_symbol_size * (padding - 1));
-        os << (unsigned char)(reg24 >> 16);
-        if (padding != 2)
-          os << (unsigned char)((reg24 >> 8) & k_byte);
-    }
-    else if ((padding + tally) != 0)
-      __status = false;
+	for (unsigned int i = 0; i < __data.length(); i++) {
+		if (__data[i] == '=') {
+			if ((__data.length() - i) <= 2)
+				padding++;
+			continue;
+		}
+		auto c = reverse_lookup(__data[i]);
+		if (c == '\x40') {
+			impact_errno = B64_BADSYM;
+			__status = false;
+			break;
+		}
+		else {
+			reg24 |= c;
+			tally++;
+			if (tally == 4) {
+				os << (unsigned char)(reg24 >> 16);
+				os << (unsigned char)((reg24 >> 8) & k_byte);
+				os << (unsigned char)(reg24 & k_byte);
+				tally = (unsigned short)0;
+				reg24 = 0;
+			}
+			else reg24 <<= k_symbol_size;
+		}
+	}
 
-    return os.str();
+	// take care of padded values
+	if ((padding + tally) == 4) {
+		reg24 <<= (k_symbol_size * (padding - 1));
+		os << (unsigned char)(reg24 >> 16);
+		if (padding != 2)
+			os << (unsigned char)((reg24 >> 8) & k_byte);
+	}
+	else if ((padding + tally) != 0) {
+		impact_errno = B64_BADPAD;
+		__status = false;
+	}
+
+	return os.str();
 }
 
 

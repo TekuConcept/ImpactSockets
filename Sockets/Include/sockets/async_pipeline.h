@@ -31,20 +31,20 @@ namespace internal {
 
 		std::future<int> send(basic_socket* socket, const void* buffer,
 			int length, message_flags flags = message_flags::NONE)
-			/* throw(std::invalid_argument), throw(async_error) */;
+			/* throw(impact_error) */;
 		std::future<int> sendto(basic_socket* socket, const void* buffer,
 			int length, unsigned short port, const std::string& address,
 			message_flags flags = message_flags::NONE)
-			/* throw(std::invalid_argument), throw(async_error) */;
+			/* throw(impact_error) */;
 		std::future<int> recv(basic_socket* socket, void* buffer, int length,
 			message_flags flags = message_flags::NONE)
-			/* throw(std::invalid_argument), throw(async_error) */;
+			/* throw(impact_error) */;
 		std::future<int> recvfrom(basic_socket* socket, void* buffer,
 			int length, unsigned short* port, std::string* address,
 		 	message_flags flags = message_flags::NONE)
-			/* throw(std::invalid_argument), throw(async_error) */;
+			/* throw(impact_error) */;
 		std::future<int> accept(basic_socket* socket, basic_socket* client)
-			/* throw(std::invalid_argument), throw(async_error) */;
+			/* throw(impact_error) */;
 
 	private:
 		enum ioaction {
@@ -81,7 +81,7 @@ namespace internal {
 
 		int _M_create_pollfd(int);
 		std::future<int> _M_enqueue(int, ioaction, const std::function<int()>&)
-			/* throw(async_error) */;
+			/* throw(impact_error) */;
 	};
 	/* socketstream(basic_socket, run_async) */
 }}

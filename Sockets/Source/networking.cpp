@@ -4,13 +4,13 @@
 
 #include "sockets/networking.h"
 
-#include <stdexcept>            // runtime_error
 #include <sstream>              // ostringstream
 #include <cstring>              // memcpy
 
 #include "sockets/environment.h"
 #include "sockets/generic.h"
 #include "sockets/types.h"
+#include "sockets/impact_error.h"
 
 #if defined(__LINUX__)
 	#include "sockets/basic_socket.h"
@@ -54,23 +54,13 @@
 	#endif
 #endif
 
-#define CATCH_ASSERT(title,code)\
+#define CATCH_ASSERT(code)\
  	try { code }\
- 	catch (std::runtime_error e) {\
- 		std::string message( title );\
- 		message.append(e.what());\
- 		throw std::runtime_error(message);\
- 	}
+ 	catch (impact_error e) { throw; }\
+	catch (...) { throw impact_error("Unknown internal error"); }
 
-#define ASSERT(title,cond)\
- 	if (cond) {\
- 		std::string message( title );\
- 		message.append(internal::error_message());\
- 		throw std::runtime_error(message);\
- 	}
-
-#include <iostream>
-#define DEBUG(x) std::cout << x << std::endl
+#define ASSERT(cond)\
+ 	if (!(cond)) throw impact_error(internal::error_message());
 
 using netinterface   = impact::networking::netinterface;
 using interface_type = impact::networking::interface_type;
@@ -94,9 +84,6 @@ namespace internal {
 
 
 using namespace impact;
-
-#include <iostream>
-#define VERBOSE(x) std::cout << x << std::endl
 
 
 netinterface::netinterface()
@@ -127,12 +114,8 @@ networking::find_network_interfaces()
 
 	do {
 		adapter_addresses = (PIP_ADAPTER_ADDRESSES)malloc(size);
-		if (adapter_addresses == NULL) {
-			throw std::runtime_error(
-				"networking::find_network_interfaces(1)\n"
-				"Memory allocation failed."
-			);
-		}
+		if (adapter_addresses == NULL)
+			throw impact_error("Memory allocation failed");
 
 		status = GetAdaptersAddresses(
 			AF_UNSPEC,
@@ -151,9 +134,11 @@ networking::find_network_interfaces()
 	} while ((status == ERROR_BUFFER_OVERFLOW) && (retries < MAX_RETRY));
 
 	if (retries >= MAX_RETRY) {
-		throw std::runtime_error(
-			"networking::find_network_interfaces(2)\n"
-			"Failed to identify buffer size for Adapter Addresses.");
+		if (adapter_addresses) {
+			free(adapter_addresses);
+			adapter_addresses = NULL;
+		}
+		throw impact_error("Inconsistent buffer size for Adapter Addresses");
 	}
 
 	internal::traverse_adapters(list, adapter_addresses);
@@ -217,8 +202,8 @@ internal::traverse_unicast(
 			struct sockaddr_in broadcast;
 			broadcast.sin_family = socket_address->sa_family;
 			unsigned long A      = *(unsigned long*)&mask.sin_addr;
-			unsigned long B      = *(unsigned long*)&(
-				(struct sockaddr_in*)socket_address)->sin_addr;
+			unsigned long B      =
+				*(unsigned long*)&((struct sockaddr_in*)socket_address)->sin_addr;
 			unsigned long C      = (A&B | ~A);
 			broadcast.sin_addr   = *(struct in_addr*)&C;
 			__token.broadcast    = sock_addr_string((struct sockaddr*)&broadcast);
@@ -256,12 +241,17 @@ networking::find_network_interfaces()
 	struct ::ifaddrs* addresses;
 	auto status = ::getifaddrs(&addresses);
 
-	ASSERT("networking::find_network_interfaces(1)\n", status == -1);
+	ASSERT(status != -1)
 
-	CATCH_ASSERT(
-		"networking::find_network_interfaces(2)\n",
-		internal::traverse_links(list, addresses);
-	);
+	try { internal::traverse_links(list, addresses); }
+	catch (impact_error) {
+		freeifaddrs(addresses);
+		throw;
+	}
+	catch (...) {
+		freeifaddrs(addresses);
+		throw impact_error("Unknown internal error");
+	}
 
 	freeifaddrs(addresses);
 	return list;
@@ -302,9 +292,8 @@ internal::traverse_links(
 		else token.type = interface_type::OTHER;
 #else
 		CATCH_ASSERT(
-			"networking::traverse_links(1)\n",
 			set_interface_type_mac(token);
-		);
+		)
 #endif
 
 		__list.push_back(token);
@@ -319,13 +308,12 @@ internal::set_interface_type_mac(netinterface& __token)
 {
 	basic_socket handle;
 	CATCH_ASSERT(
-		"networking::set_interface_type_mac(1)\n",
 		handle = make_socket(
 			socket_domain::INET,
 			socket_type::DATAGRAM,
 			socket_protocol::DEFAULT
 		);
-	);
+	)
 
 	struct ifreq request;
 	std::memcpy(
@@ -335,16 +323,12 @@ internal::set_interface_type_mac(netinterface& __token)
 	);
 	auto status = ::ioctl(handle.get(), SIOCGIFHWADDR, &request);
 
-	CATCH_ASSERT(
-		"networking::set_interface_type_mac(2)\n",
-		handle.close();
-	);
+	CATCH_ASSERT(handle.close();)
 
-	std::ostringstream os;
 	if (status == -1) {
-		os << "networking::set_interface_type_mac(3)\n";
+		std::ostringstream os;
 		os << internal::error_message() << " " << __token.name << std::endl;
-		throw std::runtime_error(os.str());
+		throw impact_error(os.str());
 	}
 
 	__token.type = get_interface_type(request.ifr_hwaddr.sa_family);

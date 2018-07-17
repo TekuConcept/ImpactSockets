@@ -5,13 +5,17 @@
 #include "sockets/async_pipeline.h"
 
 #include <csignal>
-#include <stdexcept>
 
 #include "sockets/environment.h"
-#include "sockets/async_error.h"
+#include "sockets/impact_error.h"
 
 using namespace impact;
 using namespace internal;
+
+#define CATCH_ASSERT(code)\
+	try { code }\
+	catch (impact_error e) { throw; }\
+	catch (...) { throw impact_error("Unknown internal error"); }
 
 async_pipeline::action_info::action_info()
 : state(action_state::FREE)
@@ -62,12 +66,8 @@ async_pipeline::_M_enqueue(
 	ioaction                    __ioaction,
 	const std::function<int()>& __iofunction)
 {
-	if (__descriptor < 0) {
-		throw async_error(
-			"async_pipeline::_M_enqueue(1)\n"
-			"Invalid socket descriptor"
-		);
-	}
+	if (__descriptor < 0)
+		throw impact_error("Invalid socket descriptor");
 
 	// NOTE: map[index] will either find if exists or create otherwise
 	auto& info            = m_info_[__descriptor];
@@ -93,12 +93,8 @@ async_pipeline::_M_enqueue(
 	}
 	}
 
-	if (action->state != action_state::FREE) {
-		throw async_error(
-			"async_pipeline::_M_enqueue(2)\n"
-			"Action still pending"
-		);
-	}
+	if (action->state != action_state::FREE)
+		throw impact_error("Action still pending");
 
 	action->state      = action_state::PENDING;
 	// action->promise should already be initialized
@@ -118,14 +114,10 @@ async_pipeline::send(
 	int           __length,
 	message_flags __flags)
 {
-	if (!__socket) {
-		throw std::invalid_argument(
-			"async_pipeline::send()\n"
-			"Socket argument NULL"
-		);
-	}
+	if (!__socket)
+		throw impact_error("Socket argument NULL");
 
-	try {
+	CATCH_ASSERT(
 		auto iofunction = std::bind(
 			&basic_socket::send,
 			__socket,
@@ -134,12 +126,7 @@ async_pipeline::send(
 			__flags
 		);
 		return _M_enqueue(__socket->get(), ioaction::SEND, iofunction);
-	}
-	catch (async_error e) {
-		std::string message("async_pipeline::send()\n");
-		message.append(e.what());
-		throw async_error(message);
-	}
+	);
 }
 
 
@@ -152,14 +139,10 @@ async_pipeline::sendto(
 	const std::string& __address,
 	message_flags      __flags)
 {
-	if (!__socket) {
-		throw std::invalid_argument(
-			"async_pipeline::sendto()\n"
-			"Socket argument NULL"
-		);
-	}
+	if (!__socket)
+		throw impact_error("Socket argument NULL");
 
-	try {
+	CATCH_ASSERT(
 		auto iofunction = std::bind(
 			&basic_socket::sendto,
 			__socket,
@@ -170,12 +153,7 @@ async_pipeline::sendto(
 			__flags
 		);
 		return _M_enqueue(__socket->get(), ioaction::SENDTO, iofunction);
-	}
-	catch (async_error e) {
-		std::string message("async_pipeline::sendto()\n");
-		message.append(e.what());
-		throw async_error(message);
-	}
+	)
 }
 
 
@@ -186,14 +164,10 @@ async_pipeline::recv(
 	int           __length,
 	message_flags __flags)
 {
-	if (!__socket) {
-		throw std::invalid_argument(
-			"async_pipeline::recv()\n"
-			"Socket argument NULL"
-		);
-	}
+	if (!__socket)
+		throw impact_error("Socket argument NULL");
 
-	try {
+	CATCH_ASSERT(
 		auto iofunction = std::bind(
 			&basic_socket::recv,
 			__socket,
@@ -202,12 +176,7 @@ async_pipeline::recv(
 			__flags
 		);
 		return _M_enqueue(__socket->get(), ioaction::RECV, iofunction);
-	}
-	catch (async_error e) {
-		std::string message("async_pipeline::recv()\n");
-		message.append(e.what());
-		throw async_error(message);
-	}
+	)
 }
 
 
@@ -221,14 +190,10 @@ async_pipeline::recvfrom(
 	message_flags   __flags
 	)
 {
-	if (!__socket) {
-		throw std::invalid_argument(
-			"async_pipeline::recvfrom()\n"
-			"Socket argument NULL"
-		);
-	}
+	if (!__socket)
+		throw impact_error("Socket argument NULL");
 
-	try {
+	CATCH_ASSERT(
 		auto iofunction = std::bind(
 			&basic_socket::recvfrom,
 			__socket,
@@ -239,12 +204,7 @@ async_pipeline::recvfrom(
 			__flags
 		);
 		return _M_enqueue(__socket->get(), ioaction::RECVFROM, iofunction);
-	}
-	catch (async_error e) {
-		std::string message("async_pipeline::recvfrom()\n");
-		message.append(e.what());
-		throw async_error(message);
-	}
+	)
 }
 
 
@@ -253,23 +213,14 @@ async_pipeline::accept(
 	basic_socket* __socket,
 	basic_socket* __client)
 {
-	if (!(__socket && __client)) {
-		throw std::invalid_argument(
-			"async_pipeline::accept()\n"
-			"One or more NULL arguments"
-		);
-	}
+	if (!(__socket && __client))
+		throw impact_error("One or more NULL arguments");
 
-	try {
+	CATCH_ASSERT(
 		auto iofunction = [&]() -> int {
-			VALUE(__client) = __socket->accept();
+			DEREF(__client) = __socket->accept();
 			return 0;
 		};
 		return _M_enqueue(__socket->get(), ioaction::ACCEPT, iofunction);
-	}
-	catch (async_error e) {
-		std::string message("async_pipeline::accept()\n");
-		message.append(e.what());
-		throw async_error(message);
-	}
+	)
 }
