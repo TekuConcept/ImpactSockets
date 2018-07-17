@@ -135,7 +135,7 @@ impact_error::_M_trace() const throw()
 			return "No Symbols";
 
 		out << "Trace: " << std::endl;
-		for (size_t i = 0; i < size; i++) {
+		for (size_t i = 2; i < size; i++) {
 			std::string token(symbols[i]);
 			out << _M_demangle(token) << std::endl;
 		}
@@ -167,7 +167,7 @@ impact_error::_M_demangle(std::string __token) const throw()
 		}
 
 		int status = 0;
-		unsigned int size = end - start;
+		size_t size = end - start;
 		auto token_name = __token.substr(start, size);
 		auto fname = (char*)malloc(size);
 		std::memset(fname, '\0', size);
