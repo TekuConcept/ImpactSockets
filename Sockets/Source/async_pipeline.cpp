@@ -8,9 +8,23 @@
 
 #include "sockets/environment.h"
 #include "sockets/impact_error.h"
+#include "sockets/generic.h"
 
 using namespace impact;
 using namespace internal;
+
+#if defined(__WINDOWS__)
+	#define CCHAR_PTR const char*
+	#define CHAR_PTR char*
+#else
+	#define CCHAR_PTR void*
+	#define CHAR_PTR void*
+	#define SOCKET_ERROR -1
+	#define INVALID_SOCKET -1
+#endif
+
+#define ASSERT(cond)\
+ 	if (!(cond)) throw impact_error(internal::error_message());
 
 #define CATCH_ASSERT(code)\
 	try { code }\
@@ -116,43 +130,64 @@ async_pipeline::send(
 {
 	if (!__socket)
 		throw impact_error("Socket argument NULL");
+	auto descriptor = __socket->get(); // force copy
 
 	CATCH_ASSERT(
-		auto iofunction = std::bind(
-			&basic_socket::send,
-			__socket,
-			__buffer,
-			__length,
-			__flags
-		);
-		return _M_enqueue(__socket->get(), ioaction::SEND, iofunction);
+		auto iofunction = [&]() -> int {
+			auto status = ::send(
+				descriptor,
+				(CCHAR_PTR)__buffer,
+				__length,
+				(int)__flags
+			);
+			ASSERT(status != SOCKET_ERROR);
+			return status;
+		};
+		return _M_enqueue(descriptor, ioaction::SEND, iofunction);
 	);
 }
 
 
 std::future<int>
 async_pipeline::sendto(
-	basic_socket*      __socket,
-	const void*        __buffer,
-	int                __length,
-	unsigned short     __port,
-	const std::string& __address,
-	message_flags      __flags)
+	basic_socket*  __socket,
+	const void*    __buffer,
+	int            __length,
+	unsigned short __port,
+	std::string    __address,
+	message_flags  __flags)
 {
 	if (!__socket)
 		throw impact_error("Socket argument NULL");
+	// force copy details
+	auto descriptor = __socket->get();
+	auto domain     = __socket->domain();
+	auto type       = __socket->type();
+	auto protocol   = __socket->protocol();
 
 	CATCH_ASSERT(
-		auto iofunction = std::bind(
-			&basic_socket::sendto,
-			__socket,
-			__buffer,
-			__length,
-			__port,
-			__address,
-			__flags
-		);
-		return _M_enqueue(__socket->get(), ioaction::SENDTO, iofunction);
+		auto iofunction = [&]() -> int {
+			struct sockaddr_in destination_address;
+			CATCH_ASSERT(
+				internal::fill_address(
+					domain, type, protocol,
+					__address,
+					__port,
+					destination_address
+				);
+			)
+			auto status = ::sendto(
+				descriptor,
+				(CCHAR_PTR)__buffer,
+				__length,
+				(int)__flags,
+				(struct sockaddr*)&destination_address,
+				sizeof(destination_address)
+			);
+			ASSERT(status != SOCKET_ERROR)
+			return status;
+		};
+		return _M_enqueue(descriptor, ioaction::SENDTO, iofunction);
 	)
 }
 
@@ -166,44 +201,59 @@ async_pipeline::recv(
 {
 	if (!__socket)
 		throw impact_error("Socket argument NULL");
+	auto descriptor = __socket->get(); // force copy
 
 	CATCH_ASSERT(
-		auto iofunction = std::bind(
-			&basic_socket::recv,
-			__socket,
-			__buffer,
-			__length,
-			__flags
-		);
-		return _M_enqueue(__socket->get(), ioaction::RECV, iofunction);
+		auto iofunction = [&]() -> int {
+			int status = ::recv(
+				descriptor,
+				(CHAR_PTR)__buffer,
+				__length,
+				(int)__flags
+			);
+			ASSERT(status != SOCKET_ERROR)
+			return status; /* number of bytes received or EOF */
+		};
+		return _M_enqueue(descriptor, ioaction::RECV, iofunction);
 	)
 }
 
 
+// NOTE: shared_ptr used to prevent writing to freed memory (SIGSEGV)
 std::future<int>
 async_pipeline::recvfrom(
-	basic_socket*   __socket,
-	void*           __buffer,
-	int             __length,
-	unsigned short* __port,
-	std::string*    __address,
-	message_flags   __flags
+	basic_socket*                   __socket,
+	void*                           __buffer,
+	int                             __length,
+	std::shared_ptr<unsigned short> __port,
+	std::shared_ptr<std::string>    __address,
+	message_flags                   __flags
 	)
 {
 	if (!__socket)
 		throw impact_error("Socket argument NULL");
+	auto descriptor = __socket->get(); // force copy
 
 	CATCH_ASSERT(
-		auto iofunction = std::bind(
-			&basic_socket::recvfrom,
-			__socket,
-			__buffer,
-			__length,
-			__port,
-			__address,
-			__flags
-		);
-		return _M_enqueue(__socket->get(), ioaction::RECVFROM, iofunction);
+		auto iofunction = [&]() -> int {
+			struct sockaddr_in client_address;
+			socklen_t address_length = sizeof(client_address);
+			auto status = ::recvfrom(
+				descriptor,
+				(CHAR_PTR)__buffer,
+				__length,
+				(int)__flags,
+				(struct sockaddr*)&client_address,
+				(socklen_t*)&address_length
+			);
+			ASSERT(status != SOCKET_ERROR)
+			if (__address)
+				*__address = inet_ntoa(client_address.sin_addr);
+			if (__port)
+				*__port    = ntohs(client_address.sin_port);
+			return status;
+		};
+		return _M_enqueue(descriptor, ioaction::RECVFROM, iofunction);
 	)
 }
 
@@ -215,10 +265,23 @@ async_pipeline::accept(
 {
 	if (!(__socket && __client))
 		throw impact_error("One or more NULL arguments");
+	// force copy details
+	auto descriptor = __socket->get();
+	auto domain     = __socket->domain();
+	auto type       = __socket->type();
+	auto protocol   = __socket->protocol();
 
 	CATCH_ASSERT(
 		auto iofunction = [&]() -> int {
-			DEREF(__client) = __socket->accept();
+			basic_socket peer;
+			peer.m_info_->descriptor = ::accept(descriptor, NULL, NULL);
+			ASSERT(peer.m_info_->descriptor != INVALID_SOCKET)
+			peer.m_info_->ref_count  = 1;
+			peer.m_info_->wsa        = false;
+			peer.m_info_->domain     = domain;
+			peer.m_info_->type       = type;
+			peer.m_info_->protocol   = protocol;
+			DEREF(__client) = std::move(peer);
 			return 0;
 		};
 		return _M_enqueue(__socket->get(), ioaction::ACCEPT, iofunction);

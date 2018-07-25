@@ -33,14 +33,15 @@ namespace internal {
 			int length, message_flags flags = message_flags::NONE)
 			/* throw(impact_error) */;
 		std::future<int> sendto(basic_socket* socket, const void* buffer,
-			int length, unsigned short port, const std::string& address,
+			int length, unsigned short port, std::string address,
 			message_flags flags = message_flags::NONE)
 			/* throw(impact_error) */;
 		std::future<int> recv(basic_socket* socket, void* buffer, int length,
 			message_flags flags = message_flags::NONE)
 			/* throw(impact_error) */;
 		std::future<int> recvfrom(basic_socket* socket, void* buffer,
-			int length, unsigned short* port, std::string* address,
+			int length, std::shared_ptr<unsigned short> port,
+			std::shared_ptr<std::string> address,
 		 	message_flags flags = message_flags::NONE)
 			/* throw(impact_error) */;
 		std::future<int> accept(basic_socket* socket, basic_socket* client)

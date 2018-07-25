@@ -12,6 +12,8 @@
 #include "sockets/types.h"
 
 namespace impact {
+	namespace internal { class async_pipeline; }
+	
 	class basic_socket {
 	public:
 		enum {
@@ -30,8 +32,10 @@ namespace impact {
 		void close() /* throw(impact_error) */;
 
 		// assignment
-		basic_socket& operator=(const basic_socket& r) /* throw(impact_error) */;
-		basic_socket& operator=(basic_socket&& r) /* throw(impact_error) */;
+		basic_socket& operator=(const basic_socket& r)
+			/* throw(impact_error) */;
+		basic_socket& operator=(basic_socket&& r)
+			/* throw(impact_error) */;
 
 		// observers
 		long use_count() const noexcept;
@@ -45,7 +49,8 @@ namespace impact {
 		void bind(unsigned short port) /* throw(impact_error) */;
 		void bind(const std::string& address, unsigned short port = 0)
 			/* throw(impact_error) */;
-		void connect(unsigned short port, const std::string& address = "localhost")
+		void connect(unsigned short port,
+			const std::string& address = "localhost")
 			/* throw(impact_error) */;
 		void listen(int backlog = 5)
 			/* throw(impact_error) */;
@@ -72,14 +77,23 @@ namespace impact {
 			/* throw(impact_error) */;
 
 		// async communication
-		// std::future& basic_socket.accept_async();
-		// std::future<buffer_data>& send_async(const void* buffer, int length,
-		// 	message_flags flags = message_flags::NONE);
-		// std::future<async_buffer_data>& sendto_async(const void* buffer, int length,
-		// 	unsigned short port, const std::string& address,
-		// 	message_flags flags = message_flags::NONE);
-		// std::future& basic_socket.recv_async();
-		// std::future& basic_socket.recvfrom_async();
+		std::future<int> send_async(const void* buffer, int length,
+			message_flags flags = message_flags::NONE)
+			/* throw(impact_error) */;
+		std::future<int> sendto_async(const void* buffer, int length,
+			unsigned short port, std::string address,
+			message_flags flags = message_flags::NONE)
+			/* throw(impact_error) */;
+		std::future<int> recv_async(void* buffer, int length,
+			message_flags flags = message_flags::NONE)
+			/* throw(impact_error) */;
+		std::future<int> recvfrom_async(void* buffer, int length,
+			std::shared_ptr<unsigned short> port,
+			std::shared_ptr<std::string> address,
+			message_flags flags = message_flags::NONE)
+			/* throw(impact_error) */;
+		std::future<int> accept_async(basic_socket* client)
+			/* throw(impact_error) */;
 
 		// miscillaneous
 		std::string local_address() /* throw(impact_error) */;
@@ -92,9 +106,11 @@ namespace impact {
 		void reuse_address(bool enabled)
 			/* throw(impact_error) */;
 
-		friend basic_socket make_socket(socket_domain, socket_type, socket_protocol);
+		friend basic_socket make_socket(
+			socket_domain, socket_type, socket_protocol);
 		friend basic_socket make_tcp_socket();
 		friend basic_socket make_udp_socket();
+		friend class internal::async_pipeline;
 
 	private:
 		struct basic_socket_info {
