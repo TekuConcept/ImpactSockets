@@ -51,14 +51,30 @@ async_pipeline::instance()
 
 async_pipeline::async_pipeline()
 {
-	//std::signal(SIGPIPE, SIG_IGN);
-	// lazy startup thread
+#if !defined(__WINDOWS__)
+	// this should already be done by basic_socket()
+	// but run it just in case
+	no_sigpipe();
+#endif
 }
 
 
 async_pipeline::~async_pipeline()
+{}
+
+
+bool
+async_pipeline::_M_has_work()
 {
-	// shutdown thread
+	// TODO
+	return false;
+}
+
+
+void
+async_pipeline::_M_dowork()
+{
+	// TODO
 }
 
 

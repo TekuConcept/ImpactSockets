@@ -18,10 +18,11 @@
 
 #include "sockets/types.h"
 #include "sockets/basic_socket.h"
+#include "utils/worker_thread.h"
 
 namespace impact {
 namespace internal {
-	class async_pipeline {
+	class async_pipeline : worker_thread {
 	public:
 		async_pipeline(const async_pipeline&) = delete;
 		async_pipeline& operator=(const async_pipeline&) = delete;
@@ -46,6 +47,10 @@ namespace internal {
 			/* throw(impact_error) */;
 		std::future<int> accept(basic_socket* socket, basic_socket* client)
 			/* throw(impact_error) */;
+
+	protected:
+		virtual bool _M_has_work();
+        virtual void _M_dowork();
 
 	private:
 		enum ioaction {
