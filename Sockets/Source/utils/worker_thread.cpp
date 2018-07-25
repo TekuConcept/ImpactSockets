@@ -54,3 +54,15 @@ worker_thread::_M_end()
     if (m_thread_.joinable())
         m_thread_.join();
 }
+
+
+bool
+worker_thread::_M_has_work()
+{
+    return false;
+}
+
+
+void
+worker_thread::_M_dowork()
+{ /* do nothing */ }
