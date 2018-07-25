@@ -96,3 +96,7 @@ target_link_libraries(${NETWORKING_TEST} ${IMPACT_SOCKETS})
 set(IMPACT_ERROR_TEST impact_error_test)
 add_executable(${IMPACT_ERROR_TEST} "${TESTS_PATH}/${IMPACT_ERROR_TEST}.cpp")
 target_link_libraries(${IMPACT_ERROR_TEST} ${IMPACT_SOCKETS})
+
+set(WORKER_THREAD_TEST worker_thread_test)
+add_executable(${WORKER_THREAD_TEST} "${TESTS_PATH}/${WORKER_THREAD_TEST}.cpp")
+target_link_libraries(${WORKER_THREAD_TEST} ${IMPACT_SOCKETS})
