@@ -66,75 +66,124 @@ async_pipeline::~async_pipeline()
 bool
 async_pipeline::_M_has_work()
 {
-	// TODO
-	return false;
+	std::lock_guard<std::mutex> lock(m_var_mtx_);
+	return m_pending_.size() > 0 || m_handles_.size() > 0;
 }
 
 
 void
 async_pipeline::_M_dowork()
 {
-	// TODO
+	/* TODO
+	// LOOP:
+	_M_copy_pending_to_queue();
+	if (m_handles_.size() == 0)
+		return;
+	
+	auto status = POLL(&m_handles_[0], m_handles_.size(), 0);
+	if (status > 0) {
+		// iterate through handles and process
+		for (const auto& handle : m_handles_) {
+			auto info = m_info_[handle.fd];
+			if (handle.revents & (int)poll_flags::IN) {
+				try {
+					auto status = info.input.callback();
+					info.input.promise.set_value(status);
+				}
+				catch (...) {
+					info.input.promise.set_exception(std::current_exception());
+				}
+			}
+			if (handle.revents & (int)poll_flags::OUT) {
+				try {
+					auto status = info.output.callback();
+					info.output.promise.set_value(status);
+				}
+				catch (...) {
+					info.output.promise.set_exception(std::current_exception());
+				}
+			}
+			// handle POLLERR, POLLHUP, & POLLNVAL
+		}
+	}
+	else if (status == 0) {
+		// no handles to update - continue
+	}
+	else {
+		// poll error - try recovering
+		// 1. set_exception on all handles
+		// 2. clear handles and handle info
+	}
+	*/
 }
 
 
-int
-async_pipeline::_M_create_pollfd(int __descriptor)
+void
+async_pipeline::_M_enqueue(pending_handle* __handle)
 {
-	struct pollfd token;
-	token.fd      = __descriptor;
-	token.events  = 0;
-	token.revents = 0;
-	m_handles_.push_back(token);
-	return m_handles_.size() - 1;
+	std::lock_guard<std::mutex> lock(m_var_mtx_);
+	m_pending_.push_back(std::move(*__handle));
+	m_thread_cv_.notify_one();
 }
 
 
-std::future<int>
-async_pipeline::_M_enqueue(
-	int                         __descriptor,
-	ioaction                    __ioaction,
-	const std::function<int()>& __iofunction)
-{
-	if (__descriptor < 0)
-		throw impact_error("Invalid socket descriptor");
+// int
+// async_pipeline::_M_create_pollfd(int __descriptor)
+// {
+// 	struct pollfd token;
+// 	token.fd      = __descriptor;
+// 	token.events  = 0;
+// 	token.revents = 0;
+// 	m_handles_.push_back(token);
+// 	return m_handles_.size() - 1;
+// }
 
-	// NOTE: map[index] will either find if exists or create otherwise
-	auto& info            = m_info_[__descriptor];
-	if (info.pollfd_index == (size_t)(-1))
-		info.pollfd_index = _M_create_pollfd(__descriptor);
-	auto& token           = m_handles_[info.pollfd_index];
 
-	short event;
-	struct action_info* action;
-	switch (__ioaction) {
-	case SEND:
-	case SENDTO: {
-		action = &info.input;
-		event  = (short)poll_flags::OUT;
-		break;
-	}
-	case RECV:
-	case RECVFROM:
-	case ACCEPT: {
-		action = &info.output;
-		event  = (short)poll_flags::IN;
-		break;
-	}
-	}
+// std::future<int>
+// async_pipeline::_M_enqueue(
+// 	int                         __descriptor,
+// 	ioaction                    __ioaction,
+// 	const std::function<int()>& __iofunction)
+// {
+// 	if (__descriptor < 0)
+// 		throw impact_error("Invalid socket descriptor");
 
-	if (action->state != action_state::FREE)
-		throw impact_error("Action still pending");
+// 	// NOTE: map[index] will either find if exists or create otherwise
+// 	auto& info            = m_info_[__descriptor];
+// 	if (info.pollfd_index == (size_t)(-1))
+// 		info.pollfd_index = _M_create_pollfd(__descriptor);
+// 	auto& pollfd_handle   = m_handles_[info.pollfd_index];
 
-	action->state      = action_state::PENDING;
-	// action->promise should already be initialized
-	// either via the ctor() or reset-when-resolved
-	action->iofunction = __iofunction;
-	token.events      |= event;
+// 	short event;
+// 	struct action_info* action;
+// 	switch (__ioaction) {
+// 	case SEND:
+// 	case SENDTO: {
+// 		action = &info.input;
+// 		event  = (short)poll_flags::OUT;
+// 		break;
+// 	}
+// 	case RECV:
+// 	case RECVFROM:
+// 	case ACCEPT: {
+// 		action = &info.output;
+// 		event  = (short)poll_flags::IN;
+// 		break;
+// 	}
+// 	}
 
-	// NOTE: compile with -pthread in NIX to avoid std::exception
-	return action->promise.get_future();
-}
+// 	if (action->state != action_state::FREE)
+// 		throw impact_error("Action still pending");
+
+// 	action->state         = action_state::PENDING;
+// 	// action->promise should already be initialized
+// 	// either via the ctor() or reset-when-resolved
+// 	action->iofunction    = __iofunction;
+// 	pollfd_handle.events |= event;
+
+// 	// NOTE: compile with -pthread in NIX to avoid std::exception
+// 	return action->promise.get_future();
+// }
 
 
 std::future<int>
@@ -146,21 +195,25 @@ async_pipeline::send(
 {
 	if (!__socket)
 		throw impact_error("Socket argument NULL");
-	auto descriptor = __socket->get(); // force copy
+	auto descriptor   = __socket->get(); // force copy
 
-	CATCH_ASSERT(
-		auto iofunction = [&]() -> int {
-			auto status = ::send(
-				descriptor,
-				(CCHAR_PTR)__buffer,
-				__length,
-				(int)__flags
-			);
-			ASSERT(status != SOCKET_ERROR);
-			return status;
-		};
-		return _M_enqueue(descriptor, ioaction::SEND, iofunction);
-	);
+	struct pending_handle handle;
+	handle.descriptor = descriptor;
+	handle.action     = ioaction::SEND;
+	handle.callback   = [&]() -> int {
+		auto status   = ::send(
+			descriptor,
+			(CCHAR_PTR)__buffer,
+			__length,
+			(int)__flags
+		);
+		ASSERT(status != SOCKET_ERROR);
+		return status;
+	};
+	auto future = handle.promise.get_future();
+	
+	_M_enqueue(&handle);
+	return future;
 }
 
 
@@ -176,35 +229,39 @@ async_pipeline::sendto(
 	if (!__socket)
 		throw impact_error("Socket argument NULL");
 	// force copy details
-	auto descriptor = __socket->get();
-	auto domain     = __socket->domain();
-	auto type       = __socket->type();
-	auto protocol   = __socket->protocol();
-
-	CATCH_ASSERT(
-		auto iofunction = [&]() -> int {
-			struct sockaddr_in destination_address;
-			CATCH_ASSERT(
-				internal::fill_address(
-					domain, type, protocol,
-					__address,
-					__port,
-					destination_address
-				);
-			)
-			auto status = ::sendto(
-				descriptor,
-				(CCHAR_PTR)__buffer,
-				__length,
-				(int)__flags,
-				(struct sockaddr*)&destination_address,
-				sizeof(destination_address)
+	auto descriptor   = __socket->get();
+	auto domain       = __socket->domain();
+	auto type         = __socket->type();
+	auto protocol     = __socket->protocol();
+	
+	struct pending_handle handle;
+	handle.descriptor = descriptor;
+	handle.action     = ioaction::SENDTO;
+	handle.callback   = [&]() -> int {
+		struct sockaddr_in destination_address;
+		CATCH_ASSERT(
+			internal::fill_address(
+				domain, type, protocol,
+				__address,
+				__port,
+				destination_address
 			);
-			ASSERT(status != SOCKET_ERROR)
-			return status;
-		};
-		return _M_enqueue(descriptor, ioaction::SENDTO, iofunction);
-	)
+		)
+		auto status = ::sendto(
+			descriptor,
+			(CCHAR_PTR)__buffer,
+			__length,
+			(int)__flags,
+			(struct sockaddr*)&destination_address,
+			sizeof(destination_address)
+		);
+		ASSERT(status != SOCKET_ERROR)
+		return status;
+	};
+	auto future = handle.promise.get_future();
+	
+	_M_enqueue(&handle);
+	return future;
 }
 
 
@@ -217,21 +274,25 @@ async_pipeline::recv(
 {
 	if (!__socket)
 		throw impact_error("Socket argument NULL");
-	auto descriptor = __socket->get(); // force copy
-
-	CATCH_ASSERT(
-		auto iofunction = [&]() -> int {
-			int status = ::recv(
-				descriptor,
-				(CHAR_PTR)__buffer,
-				__length,
-				(int)__flags
-			);
-			ASSERT(status != SOCKET_ERROR)
-			return status; /* number of bytes received or EOF */
-		};
-		return _M_enqueue(descriptor, ioaction::RECV, iofunction);
-	)
+	auto descriptor   = __socket->get(); // force copy
+	
+	struct pending_handle handle;
+	handle.descriptor = descriptor;
+	handle.action     = ioaction::RECV;
+	handle.callback   = [&]() -> int {
+		int status = ::recv(
+			descriptor,
+			(CHAR_PTR)__buffer,
+			__length,
+			(int)__flags
+		);
+		ASSERT(status != SOCKET_ERROR)
+		return status; /* number of bytes received or EOF */
+	};
+	auto future = handle.promise.get_future();
+	
+	_M_enqueue(&handle);
+	return future;
 }
 
 
@@ -248,29 +309,33 @@ async_pipeline::recvfrom(
 {
 	if (!__socket)
 		throw impact_error("Socket argument NULL");
-	auto descriptor = __socket->get(); // force copy
-
-	CATCH_ASSERT(
-		auto iofunction = [&]() -> int {
-			struct sockaddr_in client_address;
-			socklen_t address_length = sizeof(client_address);
-			auto status = ::recvfrom(
-				descriptor,
-				(CHAR_PTR)__buffer,
-				__length,
-				(int)__flags,
-				(struct sockaddr*)&client_address,
-				(socklen_t*)&address_length
-			);
-			ASSERT(status != SOCKET_ERROR)
-			if (__address)
-				*__address = inet_ntoa(client_address.sin_addr);
-			if (__port)
-				*__port    = ntohs(client_address.sin_port);
-			return status;
-		};
-		return _M_enqueue(descriptor, ioaction::RECVFROM, iofunction);
-	)
+	auto descriptor   = __socket->get(); // force copy
+	
+	struct pending_handle handle;
+	handle.descriptor = descriptor;
+	handle.action     = ioaction::RECVFROM;
+	handle.callback   = [&]() -> int {
+		struct sockaddr_in client_address;
+		socklen_t address_length = sizeof(client_address);
+		auto status = ::recvfrom(
+			descriptor,
+			(CHAR_PTR)__buffer,
+			__length,
+			(int)__flags,
+			(struct sockaddr*)&client_address,
+			(socklen_t*)&address_length
+		);
+		ASSERT(status != SOCKET_ERROR)
+		if (__address)
+			*__address = inet_ntoa(client_address.sin_addr);
+		if (__port)
+			*__port    = ntohs(client_address.sin_port);
+		return status;
+	};
+	auto future = handle.promise.get_future();
+	
+	_M_enqueue(&handle);
+	return future;
 }
 
 
@@ -282,24 +347,28 @@ async_pipeline::accept(
 	if (!(__socket && __client))
 		throw impact_error("One or more NULL arguments");
 	// force copy details
-	auto descriptor = __socket->get();
-	auto domain     = __socket->domain();
-	auto type       = __socket->type();
-	auto protocol   = __socket->protocol();
-
-	CATCH_ASSERT(
-		auto iofunction = [&]() -> int {
-			basic_socket peer;
-			peer.m_info_->descriptor = ::accept(descriptor, NULL, NULL);
-			ASSERT(peer.m_info_->descriptor != INVALID_SOCKET)
-			peer.m_info_->ref_count  = 1;
-			peer.m_info_->wsa        = false;
-			peer.m_info_->domain     = domain;
-			peer.m_info_->type       = type;
-			peer.m_info_->protocol   = protocol;
-			DEREF(__client) = std::move(peer);
-			return 0;
-		};
-		return _M_enqueue(__socket->get(), ioaction::ACCEPT, iofunction);
-	)
+	auto descriptor   = __socket->get();
+	auto domain       = __socket->domain();
+	auto type         = __socket->type();
+	auto protocol     = __socket->protocol();
+	
+	struct pending_handle handle;
+	handle.descriptor = descriptor;
+	handle.action     = ioaction::ACCEPT;
+	handle.callback   = [&]() -> int {
+		basic_socket peer;
+		peer.m_info_->descriptor = ::accept(descriptor, NULL, NULL);
+		ASSERT(peer.m_info_->descriptor != INVALID_SOCKET)
+		peer.m_info_->ref_count  = 1;
+		peer.m_info_->wsa        = false;
+		peer.m_info_->domain     = domain;
+		peer.m_info_->type       = type;
+		peer.m_info_->protocol   = protocol;
+		DEREF(__client) = std::move(peer);
+		return 0;
+	};
+	auto future = handle.promise.get_future();
+	
+	_M_enqueue(&handle);
+	return future;
 }
