@@ -29,6 +29,7 @@ namespace internal {
 		static async_pipeline& instance();
 
 		~async_pipeline();
+		void granularity(int milliseconds);
 
 		std::future<int> send(basic_socket* socket, const void* buffer,
 			int length, message_flags flags = message_flags::NONE);
@@ -82,15 +83,15 @@ namespace internal {
 		std::vector<pollfd>         m_handles_;
 		std::map<int, handle_info>  m_info_;
 		std::vector<pending_handle> m_pending_;
+		std::atomic<int>            m_granularity_;
 
 		async_pipeline();
 		
-		void _M_enqueue(pending_handle* handle);
+		void _M_enqueue(pending_handle*);
 		void _M_copy_pending_to_queue();
 		int _M_create_pollfd(int);
-		
-		// std::future<int> _M_enqueue(int, ioaction, const std::function<int()>&)
-		//	/* throw(impact_error) */;
+		void _M_recover_fetal(const std::string&);
+		void _M_process_events();
 	};
 	/* socketstream(basic_socket, run_async) */
 }}

@@ -52,6 +52,7 @@ async_pipeline::instance()
 
 
 async_pipeline::async_pipeline()
+: m_granularity_(50)
 {
 #if !defined(__WINDOWS__)
 	// this should already be done by basic_socket()
@@ -65,6 +66,13 @@ async_pipeline::~async_pipeline()
 {}
 
 
+void
+async_pipeline::granularity(int __milliseconds)
+{
+	m_granularity_ = __milliseconds;
+}
+
+
 bool
 async_pipeline::_M_has_work()
 {
@@ -76,47 +84,18 @@ async_pipeline::_M_has_work()
 void
 async_pipeline::_M_dowork()
 {
-	/* TODO
-	// LOOP:
-	_M_copy_pending_to_queue();
-	if (m_handles_.size() == 0)
-		return;
-	
-	auto status = POLL(&m_handles_[0], m_handles_.size(), 0);
-	if (status > 0) {
-		// iterate through handles and process
-		for (const auto& handle : m_handles_) {
-			auto info = m_info_[handle.fd];
-			if (handle.revents & (int)poll_flags::IN) {
-				try {
-					auto status = info.input.callback();
-					info.input.promise.set_value(status);
-				}
-				catch (...) {
-					info.input.promise.set_exception(std::current_exception());
-				}
-			}
-			if (handle.revents & (int)poll_flags::OUT) {
-				try {
-					auto status = info.output.callback();
-					info.output.promise.set_value(status);
-				}
-				catch (...) {
-					info.output.promise.set_exception(std::current_exception());
-				}
-			}
-			// handle POLLERR, POLLHUP, & POLLNVAL
-		}
-	}
-	else if (status == 0) {
-		// no handles to update - continue
-	}
-	else {
-		// poll error - try recovering
-		// 1. set_exception on all handles
-		// 2. clear handles and handle info
-	}
-	*/
+	do {
+		_M_copy_pending_to_queue();
+		
+		auto status = POLL(
+			&m_handles_[0],
+			m_handles_.size(),
+			(int)m_granularity_
+		);
+		
+		if (status > 0) _M_process_events();
+		else if (status < 0) _M_recover_fetal(error_message());
+	} while(_M_has_work());
 }
 
 
@@ -188,6 +167,56 @@ async_pipeline::_M_create_pollfd(int __descriptor)
 	token.revents = 0;
 	m_handles_.push_back(token);
 	return m_handles_.size() - 1;
+}
+
+
+void
+async_pipeline::_M_recover_fetal(const std::string& __error_message)
+{
+	std::string message("Request canceled (pipeline error)\n");
+	message.append(__error_message);
+	for (auto& info : m_info_) {
+		try { throw impact_error(message); }
+		catch (...) {
+			try {
+				if (info.second.input.state == action_state::PENDING)
+					info.second.input.promise.set_exception(
+						std::current_exception());
+			}
+			catch (...) { /* future error - do nothing */ }
+			try {
+				if (info.second.output.state == action_state::PENDING)
+					info.second.output.promise.set_exception(
+						std::current_exception());
+			}
+			catch (...) { /* future error - do nothing */ }
+		}
+	}
+	m_info_.clear();
+	m_handles_.clear();
+}
+
+
+void
+async_pipeline::_M_process_events()
+{
+	// m_handles_ have return event information
+	/*
+	info = m_info_[handle.fd];
+	handle.revents & (int)poll_flags::IN:
+		auto status = info.input.callback()
+		info.input.promise.set_value(status)
+	handle.revents & (int)poll_flags::OUT:
+		auto status = info.output.callback()
+		info.output.promise.set_value(status)
+	handle.revents & (int)poll_flags::HANGUP:
+		set input/output promise values as needed
+		schedule handle removal
+	handle.revents & (int)poll_flags::INVALID ||
+	handle.revents & (int)poll_flags::ERROR:
+		set input/output promise exceptions as needed
+		schedule handle removal
+	*/
 }
 
 
