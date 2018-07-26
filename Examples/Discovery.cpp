@@ -57,10 +57,10 @@ std::vector<Interface> filter(std::vector<Interface> list) {
 
 	// collect interfaces with the following characteristics
 	for (const auto& iface : list) {
-		if (!iface.ipv4)                              continue;
+		if (!iface.ipv4)                            continue;
 		if (!(iface.type == InterfaceType::WIFI ||
-			    iface.type == InterfaceType::ETHERNET)) continue;
-		if (iface.broadcast.size() == 0)              continue;
+            iface.type == InterfaceType::ETHERNET)) continue;
+		if (iface.broadcast.size() == 0)            continue;
 
 		std::string name = iface.name;
 		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -96,7 +96,10 @@ void sendMessage(basic_socket& socket, std::vector<Interface> list) {
 
 void receiveResponse(basic_socket& socket) {
 	try {
-		poll_vector clientPollHandle{ {socket,PollFlags::IN} };
+		struct poll_handle handle;
+		handle.socket = socket.get();
+		handle.events = (int)PollFlags::IN;
+		std::vector<poll_handle> handles{ handle };
 
 		const int kTimeout = 1000;
 		const int kLength  = 512;
@@ -109,14 +112,14 @@ void receiveResponse(basic_socket& socket) {
 			int            size;
 
 			// timeout
-			auto status = probe::poll(clientPollHandle, kTimeout);
+			auto status = impact::poll(&handles, kTimeout);
 			if (status == 0)
 				size = 0;
 			else {
-				auto flags = clientPollHandle[0];
-				clientPollHandle.reset_events();
+				auto flags = handles[0].return_events;
+				handles[0].return_events = 0;
 
-				if ((int)(flags & PollFlags::IN))
+				if ((int)(flags & (int)PollFlags::IN))
 					size = socket.recvfrom(buffer, kLength, &port, &address);
 				else size = 0;
 			}

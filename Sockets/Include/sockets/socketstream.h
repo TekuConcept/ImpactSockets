@@ -10,7 +10,7 @@
 #include <iostream>
 
 #include "sockets/basic_socket.h"
-#include "sockets/poll_vector.h"
+#include "sockets/probe.h"
 
 namespace impact {
 	class socketstream : private std::streambuf, public std::iostream {
@@ -29,16 +29,16 @@ namespace impact {
 		void set_timeout(int milliseconds) noexcept;
 
 	private:
-		basic_socket    m_handle_;
-		poll_vector     m_poll_handle_;
+		basic_socket             m_handle_;
+		std::vector<poll_handle> m_poll_handle_;
 
-		unsigned int    m_stream_buffer_size_;
-		char*           m_output_buffer_;
-		char*           m_input_buffer_;
+		unsigned int             m_stream_buffer_size_;
+		char*                    m_output_buffer_;
+		char*                    m_input_buffer_;
 
-		bool            m_hangup_;
-		bool            m_again_;
-		int             m_timeout_;
+		bool                     m_hangup_;
+		bool                     m_again_;
+		int                      m_timeout_;
 
 		void _M_initialize(unsigned int);
 		void _M_check_hangup();

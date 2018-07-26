@@ -31,63 +31,20 @@ namespace internal {
 		~async_pipeline();
 		void granularity(int milliseconds);
 
-		std::future<int> send(basic_socket* socket, const void* buffer,
-			int length, message_flags flags = message_flags::NONE);
-		std::future<int> sendto(basic_socket* socket, const void* buffer,
-			int length, unsigned short port, std::string address,
-			message_flags flags = message_flags::NONE);
-		std::future<int> recv(basic_socket* socket, void* buffer, int length,
-			message_flags flags = message_flags::NONE);
-		std::future<int> recvfrom(basic_socket* socket, void* buffer,
-			int length, std::shared_ptr<unsigned short> port,
-			std::shared_ptr<std::string> address,
-		 	message_flags flags = message_flags::NONE);
-		std::future<int> accept(basic_socket* socket, basic_socket* client);
-
 	protected:
 		virtual bool _M_has_work();
         virtual void _M_dowork();
 
 	private:
-		enum ioaction {
-			SEND     = 0,
-			SENDTO   = 1,
-			RECV     = 2,
-			RECVFROM = 3,
-			ACCEPT   = 4
-		};
-		enum class action_state {
-			PENDING,
-			FREE
-		};
-		struct action_info {
-			action_state         state;
-			std::promise<int>    promise;
-			std::function<int()> callback;
-			action_info();
-		};
-		struct handle_info {
-			size_t             pollfd_index;
-			struct action_info input;
-			struct action_info output;
-			handle_info();
-		};
-		struct pending_handle {
-			int                  descriptor;
-			ioaction             action;
-			std::function<int()> callback;
-			std::promise<int>    promise;
-		};
-
 		std::mutex                  m_var_mtx_;
 		std::vector<pollfd>         m_handles_;
-		std::map<int, handle_info>  m_info_;
-		std::vector<pending_handle> m_pending_;
+		// std::map<int, handle_info>  m_info_;
+		std::vector<int>            m_pending_;
 		std::atomic<int>            m_granularity_;
 
 		async_pipeline();
 		
-		void _M_enqueue(pending_handle*);
+		// void _M_enqueue(pending_handle*);
 		void _M_copy_pending_to_queue();
 		int _M_create_pollfd(int);
 		void _M_recover_fetal(const std::string&);

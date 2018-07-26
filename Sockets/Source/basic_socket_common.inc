@@ -2,12 +2,12 @@
  * Created by TekuConcept on July 11, 2018
  */
 
-#include <sys/types.h>			 // For data types
-#include <stdlib.h>				   // For atoi
-#include <errno.h>				   // For errno
-#include <cstring>				   // For strerror and memset
+#include <sys/types.h>         // For data types
+#include <stdlib.h>            // For atoi
+#include <errno.h>             // For errno
+#include <cstring>             // For strerror and memset
 #include <sstream>
-#include <stdexcept>         // For runtime_error
+#include <stdexcept>           // For runtime_error
 
 #include "sockets/environment.h"
 #include "sockets/generic.h"
@@ -23,17 +23,17 @@
 	#include <iphlpapi.h>
 	#include <Ws2def.h>        // reuse address
 #else
-	#include <sys/socket.h>		 // For socket(), connect(), send(), and recv()
+	#include <sys/socket.h>    // For socket(), connect(), send(), and recv()
 	#include <sys/ioctl.h>     // For ioctl()
-  #include <sys/poll.h>      // For struct pollfd, poll()
+	#include <sys/poll.h>      // For struct pollfd, poll()
 	#include <net/if.h>        // For ifconf
-	#include <netdb.h>			   // For gethostbyname()
-  #include <netinet/in.h>    // For sockaddr_in
- 	#include <netinet/tcp.h>	 // For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
- 								             // TCP_KEEPIDLE
-	#include <arpa/inet.h>		 // For inet_addr(), ntohs()
-	#include <unistd.h>			   // For close()
-  #include <ifaddrs.h>       // getifaddrs(), freeifaddrs()
+	#include <netdb.h>         // For gethostbyname()
+	#include <netinet/in.h>    // For sockaddr_in
+ 	#include <netinet/tcp.h>   // For IPPROTO_TCP, TCP_KEEPCNT, TCP_KEEPINTVL,
+                               // TCP_KEEPIDLE
+	#include <arpa/inet.h>     // For inet_addr(), ntohs()
+	#include <unistd.h>        // For close()
+  #include <ifaddrs.h>         // getifaddrs(), freeifaddrs()
 #if defined(__APPLE__)
 	#include <net/if_types.h>  // For IFT_XXX types
 	#include <net/if_dl.h>     // For sockaddr_dl

@@ -6,8 +6,8 @@
 
 #include <stdexcept>
 
-#include "sockets/probe.h"
 #include "sockets/impact_error.h"
+#include "sockets/generic.h"
 
 using namespace impact;
 
@@ -56,7 +56,10 @@ socketstream::_M_initialize(unsigned int __buffer_size)
 	setg(m_input_buffer_, m_input_buffer_ + m_stream_buffer_size_ - 1,
 		m_input_buffer_ + m_stream_buffer_size_ - 1);
 
-	m_poll_handle_.push_back({ m_handle_, poll_flags::IN });
+	struct poll_handle handle;
+	handle.socket = m_handle_.get();
+	handle.events = (int)poll_flags::IN;
+	m_poll_handle_.push_back(handle);
 }
 
 
@@ -79,21 +82,21 @@ socketstream::underflow()
 	}
 
 	try {
-		auto status = probe::poll(m_poll_handle_, m_timeout_);
+		auto status = impact::poll(&m_poll_handle_, m_timeout_);
 
 		if (status == 0)
 			return EOF; // timeout
 
-		auto flags = m_poll_handle_[0];
-		m_poll_handle_.reset_events();
+		short flags = m_poll_handle_[0].return_events;
+		m_poll_handle_[0].return_events = 0;
 
-		if ((int)(flags & poll_flags::HANGUP)) {
+		if ((int)(flags & (int)poll_flags::HANGUP)) {
 			m_hangup_ = true;
 			setstate(std::ios_base::badbit);
 			return EOF;
 		}
 
-		if ((int)(flags & poll_flags::IN)) {
+		if ((int)(flags & (int)poll_flags::IN)) {
 			int bytes_received = m_handle_.recv(eback(), m_stream_buffer_size_);
 
 			if (bytes_received == 0)

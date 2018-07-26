@@ -76,25 +76,6 @@ namespace impact {
 			std::string* address, message_flags flags = message_flags::NONE)
 			/* throw(impact_error) */;
 
-		// async communication
-		std::future<int> send_async(const void* buffer, int length,
-			message_flags flags = message_flags::NONE)
-			/* throw(impact_error) */;
-		std::future<int> sendto_async(const void* buffer, int length,
-			unsigned short port, std::string address,
-			message_flags flags = message_flags::NONE)
-			/* throw(impact_error) */;
-		std::future<int> recv_async(void* buffer, int length,
-			message_flags flags = message_flags::NONE)
-			/* throw(impact_error) */;
-		std::future<int> recvfrom_async(void* buffer, int length,
-			std::shared_ptr<unsigned short> port,
-			std::shared_ptr<std::string> address,
-			message_flags flags = message_flags::NONE)
-			/* throw(impact_error) */;
-		std::future<int> accept_async(basic_socket* client)
-			/* throw(impact_error) */;
-
 		// miscillaneous
 		std::string local_address() /* throw(impact_error) */;
 		unsigned short local_port() /* throw(impact_error) */;
@@ -110,7 +91,6 @@ namespace impact {
 			socket_domain, socket_type, socket_protocol);
 		friend basic_socket make_tcp_socket();
 		friend basic_socket make_udp_socket();
-		friend class internal::async_pipeline;
 
 	private:
 		struct basic_socket_info {
