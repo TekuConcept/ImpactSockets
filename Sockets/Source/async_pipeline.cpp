@@ -16,11 +16,13 @@ using namespace internal;
 #if defined(__WINDOWS__)
 	#define CCHAR_PTR const char*
 	#define CHAR_PTR char*
+	#define POLL WSAPoll
 #else
 	#define CCHAR_PTR void*
 	#define CHAR_PTR void*
 	#define SOCKET_ERROR -1
 	#define INVALID_SOCKET -1
+	#define POLL ::poll
 #endif
 
 #define ASSERT(cond)\
@@ -127,63 +129,64 @@ async_pipeline::_M_enqueue(pending_handle* __handle)
 }
 
 
-// int
-// async_pipeline::_M_create_pollfd(int __descriptor)
-// {
-// 	struct pollfd token;
-// 	token.fd      = __descriptor;
-// 	token.events  = 0;
-// 	token.revents = 0;
-// 	m_handles_.push_back(token);
-// 	return m_handles_.size() - 1;
-// }
+void
+async_pipeline::_M_copy_pending_to_queue()
+{
+	std::lock_guard<std::mutex> lock(m_var_mtx_);
+	if (m_pending_.size() == 0)
+		return;
+	
+	for (auto& handle : m_pending_) {
+		// NOTE: map[index] will either find if exists or create otherwise
+		auto& info            = m_info_[handle.descriptor];
+		if (info.pollfd_index == (size_t)(-1))
+			info.pollfd_index = _M_create_pollfd(handle.descriptor);
+		auto& pollfd_handle   = m_handles_[info.pollfd_index];
+		
+		short event;
+		struct action_info* action;
+		switch (handle.action) {
+		case SEND:
+		case SENDTO: {
+			action = &info.input;
+			event  = (short)poll_flags::OUT;
+			break;
+		}
+		case RECV:
+		case RECVFROM:
+		case ACCEPT: {
+			action = &info.output;
+			event  = (short)poll_flags::IN;
+			break;
+		}}
+	
+		if (action->state != action_state::FREE) {
+			try {
+				throw impact_error("Action still pending");
+			} catch (...) {
+				handle.promise.set_exception(std::current_exception());
+			}
+			continue;
+		}
+	
+		action->state         = action_state::PENDING;
+		action->callback      = handle.callback;
+		std::swap(handle.promise, action->promise);
+		pollfd_handle.events |= event;
+	}
+}
 
 
-// std::future<int>
-// async_pipeline::_M_enqueue(
-// 	int                         __descriptor,
-// 	ioaction                    __ioaction,
-// 	const std::function<int()>& __iofunction)
-// {
-// 	if (__descriptor < 0)
-// 		throw impact_error("Invalid socket descriptor");
-
-// 	// NOTE: map[index] will either find if exists or create otherwise
-// 	auto& info            = m_info_[__descriptor];
-// 	if (info.pollfd_index == (size_t)(-1))
-// 		info.pollfd_index = _M_create_pollfd(__descriptor);
-// 	auto& pollfd_handle   = m_handles_[info.pollfd_index];
-
-// 	short event;
-// 	struct action_info* action;
-// 	switch (__ioaction) {
-// 	case SEND:
-// 	case SENDTO: {
-// 		action = &info.input;
-// 		event  = (short)poll_flags::OUT;
-// 		break;
-// 	}
-// 	case RECV:
-// 	case RECVFROM:
-// 	case ACCEPT: {
-// 		action = &info.output;
-// 		event  = (short)poll_flags::IN;
-// 		break;
-// 	}
-// 	}
-
-// 	if (action->state != action_state::FREE)
-// 		throw impact_error("Action still pending");
-
-// 	action->state         = action_state::PENDING;
-// 	// action->promise should already be initialized
-// 	// either via the ctor() or reset-when-resolved
-// 	action->iofunction    = __iofunction;
-// 	pollfd_handle.events |= event;
-
-// 	// NOTE: compile with -pthread in NIX to avoid std::exception
-// 	return action->promise.get_future();
-// }
+int
+async_pipeline::_M_create_pollfd(int __descriptor)
+{
+	struct pollfd token;
+	token.fd      = __descriptor;
+	token.events  = 0;
+	token.revents = 0;
+	m_handles_.push_back(token);
+	return m_handles_.size() - 1;
+}
 
 
 std::future<int>

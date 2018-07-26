@@ -86,8 +86,9 @@ namespace internal {
 		async_pipeline();
 		
 		void _M_enqueue(pending_handle* handle);
-
-		// int _M_create_pollfd(int);
+		void _M_copy_pending_to_queue();
+		int _M_create_pollfd(int);
+		
 		// std::future<int> _M_enqueue(int, ioaction, const std::function<int()>&)
 		//	/* throw(impact_error) */;
 	};
