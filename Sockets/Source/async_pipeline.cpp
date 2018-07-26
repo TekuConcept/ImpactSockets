@@ -135,31 +135,31 @@ async_pipeline::_M_copy_pending_to_queue()
 	std::lock_guard<std::mutex> lock(m_var_mtx_);
 	if (m_pending_.size() == 0)
 		return;
-	
+
 	for (auto& handle : m_pending_) {
-		// NOTE: map[index] will either find if exists or create otherwise
+		// NOTE: map[index] will either find or create
 		auto& info            = m_info_[handle.descriptor];
 		if (info.pollfd_index == (size_t)(-1))
 			info.pollfd_index = _M_create_pollfd(handle.descriptor);
 		auto& pollfd_handle   = m_handles_[info.pollfd_index];
-		
+
 		short event;
 		struct action_info* action;
 		switch (handle.action) {
 		case SEND:
 		case SENDTO: {
-			action = &info.input;
+			action = &info.output;
 			event  = (short)poll_flags::OUT;
 			break;
 		}
 		case RECV:
 		case RECVFROM:
 		case ACCEPT: {
-			action = &info.output;
+			action = &info.input;
 			event  = (short)poll_flags::IN;
 			break;
 		}}
-	
+
 		if (action->state != action_state::FREE) {
 			try {
 				throw impact_error("Action still pending");
@@ -168,12 +168,14 @@ async_pipeline::_M_copy_pending_to_queue()
 			}
 			continue;
 		}
-	
+
 		action->state         = action_state::PENDING;
 		action->callback      = handle.callback;
 		std::swap(handle.promise, action->promise);
 		pollfd_handle.events |= event;
 	}
+	
+	m_pending_.clear();
 }
 
 
