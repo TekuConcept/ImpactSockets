@@ -18,9 +18,7 @@ worker_thread::worker_thread()
 
 worker_thread::~worker_thread()
 {
-    // VERBOSE("~worker_thread() begin");
     _M_end();
-    // VERBOSE("~worker_thread() end");
 }
 
 
@@ -56,7 +54,6 @@ worker_thread::_M_end()
 {
     m_shutting_down_ = true;
     m_thread_cv_.notify_one();
-    VERBOSE("_M_end()");
     if (m_thread_.joinable())
         m_thread_.join();
 }

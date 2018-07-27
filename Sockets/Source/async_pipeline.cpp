@@ -52,7 +52,12 @@ async_pipeline::async_pipeline()
 
 async_pipeline::~async_pipeline()
 {
-	VERBOSE("~async_pipeline()");
+	/* prevent shutdown segfaults */
+	std::lock_guard<std::mutex> lock();
+	m_pending_add_.clear();
+	m_pending_remove_.clear();
+	m_handles_.clear();
+	m_info_.clear();
 }
 
 

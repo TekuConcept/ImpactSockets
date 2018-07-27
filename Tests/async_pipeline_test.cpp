@@ -24,29 +24,31 @@ using socket_error     = impact::socket_error;
 int main() {
     VERBOSE("- BEGIN -");
     
-    // VERBOSE("> 1. Creating pipeline instance");
-    // auto& pipeline = async_pipeline::instance();
+    VERBOSE("> 1. Creating pipeline instance");
+    auto& pipeline = async_pipeline::instance();
     
     VERBOSE("> 2. Starting socket server");
     impact::basic_socket server = impact::make_tcp_socket();
-    // server.bind(25565);
-    // server.listen();
-    // VERBOSE("> 3. Server running");
+    server.bind(25565);
+    server.listen();
+    VERBOSE("> 3. Server running");
     
-    // VERBOSE("> 4. Creating client");
-    // impact::basic_socket client = impact::make_tcp_socket();
+    VERBOSE("> 4. Creating client");
+    impact::basic_socket client = impact::make_tcp_socket();
     
-    // VERBOSE("> 5. Connecting...");
-    // auto client_future = std::async(std::launch::async,[&](){
-    //     client.connect(25565);
-    // });
-    // UNUSED(client_future);
-    // impact::basic_socket server_peer = server.accept();
-    // VERBOSE("> 6. Done!");
+    VERBOSE("> 5. Connecting...");
+    auto client_future = std::async(std::launch::async,[&](){
+        client.connect(25565);
+    });
+    UNUSED(client_future);
+    impact::basic_socket server_peer = server.accept();
+    VERBOSE("> 6. Done!");
     
-    // VERBOSE("> 7. Setting up pipeline");
-    // async_object_ptr client_func = std::make_shared<async_functor>(
-    // [&](poll_handle* handle, socket_error error) {
+    VERBOSE("> 7. Setting up pipeline");
+    async_object_ptr client_func = std::make_shared<async_functor>(
+    [&](poll_handle* handle, socket_error error) {
+        (void)handle;
+        (void)error;
     //     if (error != socket_error::SUCCESS) {
     //         VERBOSE(">> [Client] error: " << impact::internal::error_message());
     //     }
@@ -68,21 +70,21 @@ int main() {
     //         handle->return_events & (int)poll_flags::ERROR  ||
     //         handle->return_events & (int)poll_flags::INVALID
     //     ) pipeline.remove_object(&client);
-    // });
-    // pipeline.add_object(&client, client_func);
-    // VERBOSE("> 8. Done!");
+    });
+    pipeline.add_object(&client, client_func);
+    VERBOSE("> 8. Done!");
     
-    // VERBOSE("-: Beging async test :-");
+    VERBOSE("-: Beging async test :-");
     
     // server_peer.send("Hello World!", 12);
     // std::this_thread::sleep_for(std::chrono::seconds(1));
     // pipeline.remove_object(&client);
     
-    // VERBOSE("-:  End async test   :-");
+    VERBOSE("-:  End async test   :-");
     
-    // VERBOSE("> 9. Shutting down");
-    // try { client.close();      } catch (...) { VERBOSE("ECLOSE 1"); }
-    // try { server_peer.close(); } catch (...) { VERBOSE("ECLOSE 2"); }
+    VERBOSE("> 9. Shutting down");
+    try { client.close();      } catch (...) { VERBOSE("ECLOSE 1"); }
+    try { server_peer.close(); } catch (...) { VERBOSE("ECLOSE 2"); }
     try { server.close();      } catch (...) { VERBOSE("ECLOSE 3"); }
     
     VERBOSE("- END OF LINE -");
