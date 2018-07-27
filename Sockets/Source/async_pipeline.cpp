@@ -4,34 +4,34 @@
 
 #include "sockets/async_pipeline.h"
 
-#include <csignal>
+#include <algorithm>
 
 #include "sockets/environment.h"
 #include "sockets/impact_error.h"
+#include "sockets/types.h"
 #include "sockets/generic.h"
 
 using namespace impact;
 using namespace internal;
 
-#if defined(__WINDOWS__)
-	#define CCHAR_PTR const char*
-	#define CHAR_PTR char*
-	#define POLL WSAPoll
-#else
-	#define CCHAR_PTR void*
-	#define CHAR_PTR void*
-	#define SOCKET_ERROR -1
-	#define INVALID_SOCKET -1
-	#define POLL ::poll
-#endif
+async_functor::async_functor(
+	std::function<void(poll_handle*,socket_error)> __callback)
+: m_callback_(__callback)
+{}
 
-#define ASSERT(cond)\
- 	if (!(cond)) throw impact_error(internal::error_message());
 
-#define CATCH_ASSERT(code)\
-	try { code }\
-	catch (impact_error e) { throw; }\
-	catch (...) { throw impact_error("Unknown internal error"); }
+async_functor::~async_functor()
+{}
+
+
+void
+async_functor::async_callback(
+	poll_handle* __handle,
+	socket_error __error)
+{
+	if (m_callback_)
+		m_callback_(__handle, __error);
+}
 
 
 async_pipeline&
@@ -44,13 +44,7 @@ async_pipeline::instance()
 
 async_pipeline::async_pipeline()
 : m_granularity_(50)
-{
-#if !defined(__WINDOWS__)
-	// this should already be done by basic_socket()
-	// but run it just in case
-	no_sigpipe();
-#endif
-}
+{}
 
 
 async_pipeline::~async_pipeline()
@@ -64,11 +58,40 @@ async_pipeline::granularity(int __milliseconds)
 }
 
 
+void
+async_pipeline::add_object(
+	const basic_socket* __socket,
+	async_object_ptr    __object)
+{
+	if (!__socket)
+		throw impact_error("Invalid socket");
+	
+	std::lock_guard<std::mutex> lock(m_var_mtx_);
+	m_pending_add_.push_back(handle_info(__socket->get(),__object));
+	_M_notify_one();
+}
+
+
+void
+async_pipeline::remove_object(const basic_socket* __socket)
+{
+	if (!__socket)
+		throw impact_error("Invalid socket");
+	
+	std::lock_guard<std::mutex> lock(m_var_mtx_);
+	m_pending_remove_.push_back(__socket->get());
+	_M_notify_one();
+}
+
+
 bool
 async_pipeline::_M_has_work()
 {
 	std::lock_guard<std::mutex> lock(m_var_mtx_);
-	return m_pending_.size() > 0 || m_handles_.size() > 0;
+	return (m_handles_.size() > 0) || (
+		(m_pending_add_.size() > 0) ||
+		(m_pending_remove_.size() > 0)
+	);
 }
 
 
@@ -76,118 +99,59 @@ void
 async_pipeline::_M_dowork()
 {
 	do {
-		_M_copy_pending_to_queue();
+		{ /* locked scope */
+			std::lock_guard<std::mutex> lock(m_var_mtx_);
+			_M_copy_pending_to_queue();
+			_M_remove_pending_from_queue();
+		} /* end locked scope */
 		
-		auto status = POLL(
-			&m_handles_[0],
-			m_handles_.size(),
-			(int)m_granularity_
-		);
+		auto status = poll(&m_handles_, (int)m_granularity_);
+		UNUSED(status);
 		
-		if (status > 0) _M_process_events();
-		else if (status < 0) _M_recover_fetal(error_message());
+		auto error = (socket_error)error_code();
+		for (auto& handle : m_handles_) {
+			m_info_[handle.socket]->async_callback(&handle,error);
+			handle.return_events = 0;
+		}
 	} while(_M_has_work());
 }
-
-
-// void
-// async_pipeline::_M_enqueue(pending_handle* __handle)
-// {
-// 	std::lock_guard<std::mutex> lock(m_var_mtx_);
-// 	m_pending_.push_back(std::move(*__handle));
-// 	m_thread_cv_.notify_one();
-// }
 
 
 void
 async_pipeline::_M_copy_pending_to_queue()
 {
-	std::lock_guard<std::mutex> lock(m_var_mtx_);
-	// if (m_pending_.size() == 0)
-	// 	return;
-
-	// for (auto& handle : m_pending_) {
-	// 	// NOTE: map[index] will either find or create
-	// 	auto& info            = m_info_[handle.descriptor];
-	// 	if (info.pollfd_index == (size_t)(-1))
-	// 		info.pollfd_index = _M_create_pollfd(handle.descriptor);
-	// 	auto& pollfd_handle   = m_handles_[info.pollfd_index];
-
-	// 	short event;
-	// 	struct action_info* action;
-	// 	switch (handle.action) {
-	// 	case SEND:
-	// 	case SENDTO: {
-	// 		action = &info.output;
-	// 		event  = (short)poll_flags::OUT;
-	// 		break;
-	// 	}
-	// 	case RECV:
-	// 	case RECVFROM:
-	// 	case ACCEPT: {
-	// 		action = &info.input;
-	// 		event  = (short)poll_flags::IN;
-	// 		break;
-	// 	}}
-
-	// 	if (action->state != action_state::FREE) {
-	// 		try {
-	// 			throw impact_error("Action still pending");
-	// 		} catch (...) {
-	// 			handle.promise.set_exception(std::current_exception());
-	// 		}
-	// 		continue;
-	// 	}
-
-	// 	action->state         = action_state::PENDING;
-	// 	action->callback      = handle.callback;
-	// 	std::swap(handle.promise, action->promise);
-	// 	pollfd_handle.events |= event;
-	// }
-	
-	// m_pending_.clear();
-}
-
-
-int
-async_pipeline::_M_create_pollfd(int __descriptor)
-{
-	struct pollfd token;
-	token.fd      = __descriptor;
-	token.events  = 0;
-	token.revents = 0;
-	m_handles_.push_back(token);
-	return m_handles_.size() - 1;
+	for (auto& token : m_pending_add_) {
+		auto target_info = m_info_.find(token.first);
+		if (target_info == m_info_.end()) {
+			m_info_[token.first] = token.second;
+			struct poll_handle handle;
+			handle.socket = token.first;
+			handle.events = (short)poll_flags::IN;
+			m_handles_.push_back(handle);
+		}
+		else
+			target_info->second = token.second;
+	}
+	m_pending_add_.clear();
 }
 
 
 void
-async_pipeline::_M_recover_fetal(const std::string& __error_message)
+async_pipeline::_M_remove_pending_from_queue()
 {
-	std::string message("Request canceled (pipeline error)\n");
-	message.append(__error_message);
-	m_handles_.clear();
-}
-
-
-void
-async_pipeline::_M_process_events()
-{
-	// m_handles_ have return event information
-	/*
-	info = m_info_[handle.fd];
-	handle.revents & (int)poll_flags::IN:
-		auto status = info.input.callback()
-		info.input.promise.set_value(status)
-	handle.revents & (int)poll_flags::OUT:
-		auto status = info.output.callback()
-		info.output.promise.set_value(status)
-	handle.revents & (int)poll_flags::HANGUP:
-		set input/output promise values as needed
-		schedule handle removal
-	handle.revents & (int)poll_flags::INVALID ||
-	handle.revents & (int)poll_flags::ERROR:
-		set input/output promise exceptions as needed
-		schedule handle removal
-	*/
+	for (auto& token : m_pending_remove_) {
+		auto handle = std::find_if(
+			m_handles_.begin(),
+			m_handles_.end(),
+			[&](const poll_handle& __handle) -> bool {
+				return __handle.socket == token;
+			}
+		);
+		if (handle != m_handles_.end()) {
+			// for every handle there is associated info - remove both
+			m_info_.erase(m_info_.find(handle->socket));
+			m_handles_.erase(handle);
+		}
+	}
+	m_pending_remove_.clear();
 }

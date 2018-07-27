@@ -28,6 +28,16 @@
 
 using namespace impact;
 
+int
+internal::error_code()
+{
+#if defined(__WINDOWS__)
+	return WSAGetLastError();
+#else
+	return errno;
+#endif
+}
+
 
 std::string
 internal::error_message()

@@ -19,6 +19,7 @@
 
 namespace impact {
 namespace internal {
+  int error_code();
 	std::string error_message();
   void fill_address(socket_domain, socket_type, socket_protocol,
 		const std::string& host, const unsigned short port, sockaddr_in& result)

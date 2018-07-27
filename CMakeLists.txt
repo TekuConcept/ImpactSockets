@@ -100,3 +100,7 @@ target_link_libraries(${IMPACT_ERROR_TEST} ${IMPACT_SOCKETS})
 set(WORKER_THREAD_TEST worker_thread_test)
 add_executable(${WORKER_THREAD_TEST} "${TESTS_PATH}/${WORKER_THREAD_TEST}.cpp")
 target_link_libraries(${WORKER_THREAD_TEST} ${IMPACT_SOCKETS})
+
+set(ASYNC_PIPELINE_TEST async_pipeline_test)
+add_executable(${ASYNC_PIPELINE_TEST} "${TESTS_PATH}/${ASYNC_PIPELINE_TEST}.cpp")
+target_link_libraries(${ASYNC_PIPELINE_TEST} ${IMPACT_SOCKETS})

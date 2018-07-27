@@ -107,7 +107,14 @@ printer<T>::_M_dowork()
         for (const auto& token : m_queue_)
             std::cout << " " << token;
         std::cout << std::endl;
+        
         m_queue_.pop_back();
+        /* be sure we can pop one more */
+        if (m_queue_.size() > 0)
+            m_queue_.pop_back();
+            
+        if (m_queue_.size() > 1)
+            dowork(-1); /* test deadlock */
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 }
@@ -119,5 +126,5 @@ printer<T>::dowork(T __data)
 {
     std::lock_guard<std::mutex> lock(m_var_mtx_);
     m_pending_.push_back(__data);
-    m_thread_cv_.notify_one();
+    _M_notify_one();
 }
