@@ -26,8 +26,6 @@
     #include <cstring>
 #endif
 
-#define VERBOSE(x) std::cout << x << std::endl
-
 using namespace impact;
 
 impact_error::impact_error(const std::string& __arg)
@@ -176,7 +174,6 @@ impact_error::_M_demangle(std::string __token) const throw()
 		auto token_name = __token.substr(start, fname_size);
 		
 		char* fname = (char*)malloc(fname_size); // has to be malloc'd
-		VERBOSE("malloc " << fname_size);
 		if (fname == NULL)
 			return __token;
 		

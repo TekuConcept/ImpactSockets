@@ -4,9 +4,6 @@
 
 #include "utils/worker_thread.h"
 
-#include <iostream>
-#define VERBOSE(x) std::cout << x << std::endl
-
 using namespace impact;
 using namespace internal;
 

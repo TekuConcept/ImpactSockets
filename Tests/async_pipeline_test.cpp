@@ -12,6 +12,13 @@
 #include "sockets/impact_error.h"
 #include "sockets/generic.h"
 
+// valgrind
+// --leak-check=full
+// --show-leak-kinds=all
+// --track-origins=yes
+// --log-file=run.log
+// ./program
+
 #define VERBOSE(x) std::cout << x << std::endl
 
 using async_pipeline   = impact::internal::async_pipeline;
@@ -48,37 +55,36 @@ int main() {
     async_object_ptr client_func = std::make_shared<async_functor>(
     [&](poll_handle* handle, socket_error error) {
         (void)handle;
-        (void)error;
-    //     if (error != socket_error::SUCCESS) {
-    //         VERBOSE(">> [Client] error: " << impact::internal::error_message());
-    //     }
-    //     else if (handle->return_events & (int)poll_flags::IN) {
-    //         std::string buffer(100, '\0');
-    //         try {
-    //             auto status = client.recv(&buffer[0], buffer.size());
-    //             if (status) VERBOSE(">> [Client] " << buffer);
-    //             else {
-    //                 VERBOSE(">> [Client] EOF");
-    //                 pipeline.remove_object(&client);
-    //             }
-    //         } catch (impact::impact_error e) {
-    //             VERBOSE(">> [Client] " << e.message());
-    //         }
-    //     }
-    //     else if (
-    //         handle->return_events & (int)poll_flags::HANGUP ||
-    //         handle->return_events & (int)poll_flags::ERROR  ||
-    //         handle->return_events & (int)poll_flags::INVALID
-    //     ) pipeline.remove_object(&client);
+        if (error != socket_error::SUCCESS) {
+            VERBOSE(">> [Client] error: " << impact::internal::error_message());
+        }
+        else if (handle->return_events & (int)poll_flags::IN) {
+            std::string buffer(100, '\0');
+            try {
+                auto status = client.recv(&buffer[0], buffer.size());
+                if (status) VERBOSE(">> [Client] " << buffer);
+                else {
+                    VERBOSE(">> [Client] EOF");
+                    pipeline.remove_object(&client);
+                }
+            } catch (impact::impact_error e) {
+                VERBOSE(">> [Client] " << e.message());
+            }
+        }
+        else if (
+            handle->return_events & (int)poll_flags::HANGUP ||
+            handle->return_events & (int)poll_flags::ERROR  ||
+            handle->return_events & (int)poll_flags::INVALID
+        ) pipeline.remove_object(&client);
     });
     pipeline.add_object(&client, client_func);
     VERBOSE("> 8. Done!");
     
     VERBOSE("-: Beging async test :-");
     
-    // server_peer.send("Hello World!", 12);
-    // std::this_thread::sleep_for(std::chrono::seconds(1));
-    // pipeline.remove_object(&client);
+    server_peer.send("Hello World!", 12);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    pipeline.remove_object(&client);
     
     VERBOSE("-:  End async test   :-");
     
