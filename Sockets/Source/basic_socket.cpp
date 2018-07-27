@@ -141,6 +141,7 @@ basic_socket::close()
 {
 	ASSERT_MOVED
 	auto status = CLOSE_SOCKET(m_info_->descriptor);
+	m_info_->descriptor = INVALID_SOCKET;
 	ASSERT(status != SOCKET_ERROR)
 #if defined(__WINDOWS__)
 	if (m_info_->wsa)

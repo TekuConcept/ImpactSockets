@@ -18,6 +18,7 @@ public:
 	void helper_stack_A() { try { helper_stack_B(); } catch (...) { throw; } }
 };
 
+
 void test_message() {
 	VERBOSE("\nTest Error Message");
 	try {
@@ -30,6 +31,7 @@ void test_message() {
 	}
 	VERBOSE("Done!");
 }
+
 
 void test_trace() {
 	VERBOSE("\nTest Stack Trace");
@@ -45,6 +47,7 @@ void test_trace() {
 	VERBOSE("Done!");
 }
 
+
 void test_what() {
 	VERBOSE("\nTest what() Message");
 	try {
@@ -58,6 +61,7 @@ void test_what() {
 	}
 	VERBOSE("Done!");
 }
+
 
 int main() {
 	VERBOSE("- BEGIN NETWORKING TEST -");

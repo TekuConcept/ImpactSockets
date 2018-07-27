@@ -8,6 +8,7 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <memory>
 
 #include "sockets/environment.h"
 
@@ -75,16 +76,18 @@ impact_error::_M_trace() const throw()
 
 #if !defined(IMPACT_WIN_NODEBUG)
 		HANDLE process = GetCurrentProcess();
+		if (process == NULL)
+			return "No Symbols";
 
-		SYMBOL_INFO* symbol;
-		symbol = (SYMBOL_INFO *)calloc(sizeof(SYMBOL_INFO) + 256 * sizeof(TCHAR), 1);
+		std::shared_ptr<SYMBOL_INFO> symbol(
+			(SYMBOL_INFO *)calloc(sizeof(SYMBOL_INFO) + 256 * sizeof(TCHAR), 1);
+			[](SYMBOL_INFO* ptr) {
+				free(ptr);
+			}
+		);
 		symbol->MaxNameLen = 255;
 		symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
 
-		if (process == NULL) {
-			free(symbol);
-			return "No Symbols";
-		}
 
 		SymInitialize(process, NULL, TRUE);
 #endif /* IMPACT_WIN_NODEBUG */
@@ -107,10 +110,6 @@ impact_error::_M_trace() const throw()
 #endif /* IMPACT_WIN_NODEBUG */
 		}
 
-#if !defined(IMPACT_WIN_NODEBUG)
-		free(symbol);
-#endif /* IMPACT_WIN_NODEBUG */
-
 		return out.str();
 	}
 	catch (...) {
@@ -127,20 +126,24 @@ impact_error::_M_trace() const throw()
 		std::ostringstream out;
 		void* stack[STACK_DEPTH];
 
-		/* WARNING: backtrace is async-signal-unsafe */
+		// /* WARNING: backtrace is async-signal-unsafe */
 		size_t size = backtrace(stack, STACK_DEPTH);
-		char** symbols = backtrace_symbols(stack, size);
+		std::shared_ptr<char*> symbols(
+			backtrace_symbols(stack, size),
+			[](char** ptr) {
+				free(ptr);
+			}
+		);
 
-		if (symbols == NULL)
+		if (symbols == nullptr)
 			return "No Symbols";
 
 		out << "Trace: " << std::endl;
 		for (size_t i = 2; i < size; i++) {
-			std::string token(symbols[i]);
+			std::string token(symbols.get()[i]);
 			out << _M_demangle(token) << std::endl;
 		}
 
-		free(symbols);
 		return out.str();
 	}
 	catch (...) {
@@ -157,7 +160,7 @@ impact_error::_M_demangle(std::string __token) const throw()
 #if !defined(__WINDOWS__)
 	try {
 		auto start = __token.find_first_of('(') + 1;
-		auto end = __token.find_first_of('+', start);
+		auto end   = __token.find_first_of('+', start);
 
 		if (start == std::string::npos ||
 			end == std::string::npos ||
@@ -169,18 +172,19 @@ impact_error::_M_demangle(std::string __token) const throw()
 		int status = 0;
 		size_t size = end - start;
 		auto token_name = __token.substr(start, size);
-		auto fname = (char*)malloc(size);
-		std::memset(fname, '\0', size);
+		char* raw_fname = (char*)malloc(size);
+		std::memset(raw_fname, '\0', size);
+		std::shared_ptr<char> fname(raw_fname, [](char* ptr) { free(ptr); });
+		
 		auto mc_str = abi::__cxa_demangle(
 			&token_name[0],
-			fname,
+			raw_fname,
 			&size,
 			&status
-		);
+		); // mc_str = raw_fname
 
 		if (status == 0) {
 			std::string dname(mc_str);
-			free(mc_str); /* mc_str = fname */
 			return "(" + dname + __token.substr(end);
 		}
 	}
