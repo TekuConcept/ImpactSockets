@@ -43,18 +43,14 @@ async_pipeline::instance()
 
 
 async_pipeline::async_pipeline()
-: m_granularity_(50)
+: m_granularity_(50), m_shutting_down_(false)
 {}
 
 
 async_pipeline::~async_pipeline()
 {
-	/* prevent shutdown segfaults */
-	std::lock_guard<std::mutex> lock();
-	m_pending_add_.clear();
-	m_pending_remove_.clear();
-	m_handles_.clear();
-	m_info_.clear();
+	/* HACK: try to prevent shutdown segfaults */
+	m_shutting_down_ = true;
 }
 
 
@@ -67,26 +63,26 @@ async_pipeline::granularity(int __milliseconds)
 
 void
 async_pipeline::add_object(
-	const basic_socket* __socket,
-	async_object_ptr    __object)
+	int              __socket,
+	async_object_ptr __object)
 {
-	if (!__socket && !(*__socket))
+	if (!__socket)
 		throw impact_error("Invalid socket");
 	
 	std::lock_guard<std::mutex> lock(m_var_mtx_);
-	m_pending_add_.push_back(handle_info(__socket->get(),__object));
+	m_pending_add_.push_back(handle_info(__socket,__object));
 	_M_notify_one();
 }
 
 
 void
-async_pipeline::remove_object(const basic_socket* __socket)
+async_pipeline::remove_object(int __socket)
 {
-	if (!__socket && !(*__socket))
+	if (!__socket)
 		throw impact_error("Invalid socket");
 	
 	std::lock_guard<std::mutex> lock(m_var_mtx_);
-	m_pending_remove_.push_back(__socket->get());
+	m_pending_remove_.push_back(__socket);
 	_M_notify_one();
 }
 
@@ -108,6 +104,15 @@ async_pipeline::_M_dowork()
 	do {
 		{ /* locked scope */
 			std::lock_guard<std::mutex> lock(m_var_mtx_);
+			
+			if (m_shutting_down_) {
+				m_pending_add_.clear();
+				m_pending_remove_.clear();
+				m_handles_.clear();
+				m_info_.clear();
+				break;
+			}
+			
 			_M_copy_pending_to_queue();
 			_M_remove_pending_from_queue();
 		} /* end locked scope */

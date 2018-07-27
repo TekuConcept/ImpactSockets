@@ -6,7 +6,9 @@
 #include <cassert>
 #include <sockets/impact_error.h>
 
-#define VERBOSE(x) std::cout << x << std::endl
+// #define VERBOSE(x) std::cout << x << std::endl
+#define VERBOSE(x)
+#define TEST(x) std::cout << x << std::flush;
 
 using namespace impact;
 
@@ -69,6 +71,7 @@ int main() {
 	test_message();
 	test_trace();
 	test_what();
+	TEST('.');
 
 	VERBOSE("- END OF LINE -");
 	return 0;

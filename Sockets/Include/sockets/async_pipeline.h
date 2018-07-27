@@ -6,9 +6,11 @@
 #define _IMPACT_ASYNC_PIPELINE_H_
 
 #include <memory>
+#include <atomic>
 #include <functional>
 #include <vector>
 #include <map>
+#include <future>
 
 #include "utils/worker_thread.h"
 #include "sockets/probe.h"
@@ -17,8 +19,7 @@
 namespace impact {
 namespace internal {
 	class async_object {
-		friend class async_pipeline;
-	protected:
+	public:
 		virtual void async_callback(poll_handle* handle,
 			socket_error error) = 0;
 	};
@@ -29,9 +30,9 @@ namespace internal {
 	public:
 		async_functor(std::function<void(poll_handle*,socket_error)> callback);
 		virtual ~async_functor();
+		virtual void async_callback(poll_handle*,socket_error);
 	protected:
 		std::function<void(poll_handle*,socket_error)> m_callback_;
-		virtual void async_callback(poll_handle*,socket_error);
 	};
 	
 	
@@ -43,14 +44,14 @@ namespace internal {
 
 		~async_pipeline();
 		void granularity(int milliseconds);
-		void add_object(const basic_socket* socket, async_object_ptr object)
+		void add_object(int socket, async_object_ptr object)
 			/* throw(impact_error) */;
-		void remove_object(const basic_socket* socket)
+		void remove_object(int socket)
 			/* throw(impact_error) */;
 
 	protected:
 		virtual bool _M_has_work();
-        virtual void _M_dowork();
+		virtual void _M_dowork();
 
 	private:
 		typedef std::pair<int, async_object_ptr> handle_info;
@@ -61,6 +62,7 @@ namespace internal {
 		std::vector<handle_info>        m_pending_add_;
 		std::vector<int>                m_pending_remove_;
 		std::atomic<int>                m_granularity_;
+		std::atomic<bool>               m_shutting_down_;
 
 		async_pipeline();
 		void _M_copy_pending_to_queue();
