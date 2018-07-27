@@ -8,20 +8,20 @@
 using namespace impact;
 
 void test_defaultConstructor() {
-  VERBOSE("\nDefault Constructor");
+  VERBOSE("\nTest Default Constructor");
   VERBOSE("[1]");
   basic_socket socket;
-  assert(socket.use_count() == 0);
+  assert(socket.use_count() == 1);
   VERBOSE("[2]");
   basic_socket soc2 = socket;
-  assert(socket.use_count() == 0);
+  assert(socket.use_count() == 2);
   VERBOSE("[3]");
   basic_socket soc3 = std::move(socket);
   assert(socket.use_count() == 0);
   socket = std::move(soc3); // move back
   VERBOSE("[4]");
   basic_socket soc4(socket);
-  assert(socket.use_count() == 0);
+  assert(socket.use_count() == 3);
   VERBOSE("[5]");
   basic_socket soc5(std::move(socket));
   assert(socket.use_count() == 0);
@@ -29,10 +29,10 @@ void test_defaultConstructor() {
 }
 
 void test_createConstructor() {
-  VERBOSE("\nCreate Constructor");
+  VERBOSE("\nTest Create Constructor");
   VERBOSE("[1]");
   basic_socket socket;
-  assert(socket.use_count() == 0);
+  assert(socket.use_count() == 1);
   VERBOSE("[2]");
   socket = make_tcp_socket();
   assert(socket.use_count() == 1);
@@ -56,7 +56,7 @@ void test_createConstructor() {
 }
 
 void test_close() {
-  VERBOSE("\nClose");
+  VERBOSE("\nTest Close");
   basic_socket socket;
 
   VERBOSE("[1]");
@@ -75,7 +75,7 @@ void test_close() {
 }
 
 void test_sigpipe() {
-  VERBOSE("\nPipe Error Signal");
+  VERBOSE("\nTest Pipe Error Signal");
   VERBOSE("[1]");
   basic_socket socket;
   try { socket = make_tcp_socket(); } catch (...) { assert(false); }

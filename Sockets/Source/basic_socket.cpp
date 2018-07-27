@@ -26,36 +26,30 @@ basic_socket::_M_resolve_service(
 void
 basic_socket::_M_copy(const basic_socket& __rvalue)
 {
-	if (__rvalue.m_info_ == NULL)
+	if (__rvalue.m_info_ == nullptr)
 		throw impact_error("Copying moved socket");
 	m_info_ = __rvalue.m_info_;
-
-	if (m_info_->ref_count > 0)
-		m_info_->ref_count++; // only increment if valid
 }
 
 
 void
 basic_socket::_M_move(basic_socket&& __rvalue)
 {
-	if (__rvalue.m_info_ == NULL)
+	if (__rvalue.m_info_ == nullptr)
 		throw impact_error("Moving already moved object");
 	m_info_          = __rvalue.m_info_;
-	__rvalue.m_info_ = NULL;
+	__rvalue.m_info_ = nullptr;
 }
 
 
 void
 basic_socket::_M_dtor()
 {
-	if (m_info_ != NULL) {
-		if (m_info_->ref_count == 1) {
+	if (m_info_ != nullptr && m_info_.use_count() == 1) {
+		if (m_info_->descriptor != INVALID_SOCKET)
 			CATCH_ASSERT(close();)
-			delete m_info_;
-			m_info_ = NULL;
-		}
-		else if (m_info_->ref_count > 1)
-			m_info_->ref_count--;
+		m_info_->descriptor = INVALID_SOCKET;
+		m_info_ = nullptr;
 	}
 	// else moved
 }
@@ -66,8 +60,7 @@ basic_socket::basic_socket()
 #if !defined(__WINDOWS__)
 	try { internal::no_sigpipe(); } catch (...) { /* do nothing */ }
 #endif
-	m_info_              = new struct basic_socket_info;
-	m_info_->ref_count   = 0;
+	m_info_              = std::make_shared<basic_socket_info>();
 	m_info_->wsa         = false;
 	m_info_->descriptor  = INVALID_SOCKET;
 	m_info_->domain      = socket_domain::UNSPECIFIED;
@@ -99,14 +92,13 @@ impact::make_socket(
 		static WSADATA wsa_data;
 		auto status = WSAStartup(MAKEWORD(2, 2), &wsa_data);
 		WIN_ASSERT(status == 0, status, (void)0;)
-		result.m_info_->wsa        = true;
+		result.m_info_->wsa    = true;
 	#endif
-		result.m_info_->descriptor = ::socket((int)__domain, (int)__type, (int)__proto);
-		ASSERT(result.m_info_->descriptor != INVALID_SOCKET);
-		result.m_info_->ref_count  = 1;
-		result.m_info_->domain     = __domain;
-		result.m_info_->type       = __type;
-		result.m_info_->protocol   = __proto;
+	result.m_info_->descriptor = ::socket((int)__domain, (int)__type, (int)__proto);
+	ASSERT(result.m_info_->descriptor != INVALID_SOCKET);
+	result.m_info_->domain     = __domain;
+	result.m_info_->type       = __type;
+	result.m_info_->protocol   = __proto;
 	return result;
 }
 
@@ -150,8 +142,6 @@ basic_socket::close()
 	ASSERT_MOVED
 	auto status = CLOSE_SOCKET(m_info_->descriptor);
 	ASSERT(status != SOCKET_ERROR)
-	m_info_->ref_count  = 0;
-	m_info_->descriptor = INVALID_SOCKET;
 #if defined(__WINDOWS__)
 	if (m_info_->wsa)
 		WSACleanup();
@@ -163,8 +153,8 @@ basic_socket::close()
 basic_socket&
 basic_socket::operator=(const basic_socket& __rvalue)
 {
-	if (m_info_ && m_info_->ref_count > 0)
-		_M_dtor();
+	if (m_info_ && m_info_.use_count() > 0)
+		CATCH_ASSERT(_M_dtor();)
 	CATCH_ASSERT(_M_copy(__rvalue);)
 	return *this;
 }
@@ -173,8 +163,8 @@ basic_socket::operator=(const basic_socket& __rvalue)
 basic_socket&
 basic_socket::operator=(basic_socket&& __rvalue)
 {
-	if (m_info_ && m_info_->ref_count > 0)
-		_M_dtor();
+	if (m_info_ && m_info_.use_count() > 0)
+		CATCH_ASSERT(_M_dtor();)
 	CATCH_ASSERT(_M_move(std::move(__rvalue));)
 	return *this;
 }
@@ -183,17 +173,14 @@ basic_socket::operator=(basic_socket&& __rvalue)
 long
 basic_socket::use_count() const noexcept
 {
-	if (m_info_)
-		return m_info_->ref_count;
-	else return 0;
+	return m_info_.use_count();
 }
 
 
 int
 basic_socket::get() const noexcept
 {
-	if (m_info_)
-		return m_info_->descriptor;
+	if (m_info_) return m_info_->descriptor;
 	else return INVALID_SOCKET;
 }
 

@@ -8,12 +8,11 @@
 #include <atomic>
 #include <string>
 #include <future>
+#include <memory>
 
 #include "sockets/types.h"
 
 namespace impact {
-	namespace internal { class async_pipeline; }
-	
 	class basic_socket {
 	public:
 		enum {
@@ -94,7 +93,6 @@ namespace impact {
 
 	private:
 		struct basic_socket_info {
-			long            ref_count;
 			bool            wsa;
 			int             descriptor;
 			socket_domain   domain;
@@ -102,7 +100,7 @@ namespace impact {
 			socket_protocol protocol;
 		};
 
-		struct basic_socket_info* m_info_;
+		std::shared_ptr<basic_socket_info> m_info_;
 
 		unsigned short _M_resolve_service(const std::string& __service,
 			const std::string& __protocol = "tcp");

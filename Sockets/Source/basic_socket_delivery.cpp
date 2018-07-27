@@ -102,7 +102,6 @@ basic_socket::accept()
 	basic_socket peer;
 	peer.m_info_->descriptor = ::accept(m_info_->descriptor, NULL, NULL);
 	ASSERT(peer.m_info_->descriptor != INVALID_SOCKET)
-	peer.m_info_->ref_count  = 1;
 	peer.m_info_->wsa        = false;
 	peer.m_info_->domain     = m_info_->domain;
 	peer.m_info_->type       = m_info_->type;

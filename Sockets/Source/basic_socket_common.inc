@@ -68,6 +68,10 @@
 #define ASSERT_MOVED\
 	if (!m_info_) throw impact_error("Socket moved");
 
+#define ASSERT_INVALID\
+	if (m_info_->descriptor == INVALID_SOCKET)\
+		throw impact_error("Invalid socket");
+
 #define CATCH_ASSERT(code)\
  	try { code }\
  	catch (impact_error) { throw; }\

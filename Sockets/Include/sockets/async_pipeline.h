@@ -24,6 +24,7 @@ namespace internal {
 	};
 	typedef std::shared_ptr<async_object> async_object_ptr;
 	
+	
 	class async_functor : public async_object {
 	public:
 		async_functor(std::function<void(poll_handle*,socket_error)> callback);
@@ -32,6 +33,7 @@ namespace internal {
 		std::function<void(poll_handle*,socket_error)> m_callback_;
 		virtual void async_callback(poll_handle*,socket_error);
 	};
+	
 	
 	class async_pipeline : worker_thread {
 	public:

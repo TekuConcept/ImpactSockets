@@ -11,6 +11,9 @@
 #include "sockets/types.h"
 #include "sockets/generic.h"
 
+#include <iostream>
+#define VERBOSE(x) std::cout << x << std::endl
+
 using namespace impact;
 using namespace internal;
 
@@ -48,7 +51,9 @@ async_pipeline::async_pipeline()
 
 
 async_pipeline::~async_pipeline()
-{}
+{
+	VERBOSE("~async_pipeline()");
+}
 
 
 void
@@ -63,7 +68,7 @@ async_pipeline::add_object(
 	const basic_socket* __socket,
 	async_object_ptr    __object)
 {
-	if (!__socket)
+	if (!__socket && !(*__socket))
 		throw impact_error("Invalid socket");
 	
 	std::lock_guard<std::mutex> lock(m_var_mtx_);
@@ -75,7 +80,7 @@ async_pipeline::add_object(
 void
 async_pipeline::remove_object(const basic_socket* __socket)
 {
-	if (!__socket)
+	if (!__socket && !(*__socket))
 		throw impact_error("Invalid socket");
 	
 	std::lock_guard<std::mutex> lock(m_var_mtx_);
