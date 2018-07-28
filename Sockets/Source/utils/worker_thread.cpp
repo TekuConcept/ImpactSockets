@@ -66,3 +66,10 @@ worker_thread::_M_has_work()
 void
 worker_thread::_M_dowork()
 { /* do nothing */ }
+
+
+void
+worker_thread::_M_register_obj(object_ptr __obj)
+{
+    m_objects_.push_back(__obj);
+}
