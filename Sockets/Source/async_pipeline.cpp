@@ -67,14 +67,14 @@ async_pipeline::async_pipeline()
 	
 	m_granularity_->type   = 50;
 	m_shutting_down_->type = false;
-	m_has_work_            = 0;
+	m_has_work_            = false;
 }
 
 
 async_pipeline::~async_pipeline()
 {
 	m_shutting_down_->type = true;
-	m_has_work_            = 0;
+	m_has_work_            = false;
 }
 
 
@@ -95,7 +95,7 @@ async_pipeline::add_object(
 	
 	std::lock_guard<std::mutex> lock(m_var_mtx_->type);
 	m_pending_add_->type.push_back(handle_info(__socket,__object));
-	m_has_work_ += 1;
+	m_has_work_ = true;
 	_M_notify_one();
 }
 
@@ -108,7 +108,15 @@ async_pipeline::remove_object(int __socket)
 	
 	std::lock_guard<std::mutex> lock(m_var_mtx_->type);
 	m_pending_remove_->type.push_back(__socket);
-	m_has_work_ += 1;
+	m_has_work_ = true;
+	_M_notify_one();
+}
+
+
+void
+async_pipeline::notify()
+{
+	m_has_work_ = true;
 	_M_notify_one();
 }
 
@@ -128,7 +136,7 @@ async_pipeline::_M_dowork()
 			if (m_var_mtx_->type.try_lock()) {
 				_M_copy_pending_to_queue(&m_handles_->type, &m_info_->type);
 				_M_remove_pending_from_queue(&m_handles_->type, &m_info_->type);
-				m_has_work_ = 0;
+				m_has_work_ = false;
 				m_var_mtx_->type.unlock();
 			}
 			else continue;
@@ -137,28 +145,9 @@ async_pipeline::_M_dowork()
 		auto status = poll(&m_handles_->type, (int)m_granularity_->type);
 		UNUSED(status);
 		
-		auto error = (socket_error)error_code();
-		for (size_t i = 0; i < m_handles_->type.size(); i++) {
-			auto& key   = m_handles_->type[i];
-			auto socket = key.socket;
-			auto value  = m_info_->type.find(std::abs(socket));
-			auto option = value->second->async_callback(&key,error);
-			
-			switch (option) {
-			case async_option::TOGGLE:
-				socket            = -socket;
-			case async_option::CONTINUE:
-				key.return_events = 0;
-				key.socket        = socket;
-				break;
-			default: /* async_option::QUIT */
-				m_handles_->type.erase(m_handles_->type.begin()+i);
-				m_info_->type.erase(value);
-				i--;
-				break;
-			}
-		}
-	} while(!m_shutting_down_->type && m_handles_->type.size() > 0);
+		bool sleep = _M_update_handles();
+		if (sleep) return;
+	} while(!m_shutting_down_->type);
 }
 
 
@@ -203,4 +192,37 @@ async_pipeline::_M_remove_pending_from_queue(
 		}
 	}
 	m_pending_remove_->type.clear();
+}
+
+
+bool
+async_pipeline::_M_update_handles()
+{
+	size_t ignored = 0;
+	auto error = (socket_error)error_code();
+	for (size_t i = 0; /* (!m_shutting_down_->type) && */
+		(i < m_handles_->type.size()); i++) {
+		auto& key   = m_handles_->type[i];
+		auto socket = std::abs(key.socket);
+		auto value  = m_info_->type.find(socket);
+		auto option = value->second->async_callback(&key,error);
+		
+		switch (option) {
+		case async_option::IGNORE:
+			socket            = -socket;
+			/* special 0-fd case */
+			if (socket == 0) ignored++;
+		case async_option::CONTINUE:
+			key.return_events = 0;
+			key.socket        = socket;
+			if (socket < 0) ignored++;
+			break;
+		default: /* async_option::QUIT */
+			m_handles_->type.erase(m_handles_->type.begin()+i);
+			m_info_->type.erase(value);
+			i--;
+			break;
+		}
+	}
+	return ignored == m_handles_->type.size();
 }

@@ -39,6 +39,7 @@ namespace internal {
 			/* throw(impact_error) */;
 		void remove_object(int socket)
 			/* throw(impact_error) */;
+		void notify();
 
 	protected:
 		virtual bool _M_has_work();
@@ -55,19 +56,20 @@ namespace internal {
 		type_object_ptr<std::atomic<bool>>              m_shutting_down_;
 		type_object_ptr<std::atomic<int>>               m_granularity_;
 
-		std::atomic<int>                                m_has_work_;
+		std::atomic<bool>                               m_has_work_;
 
 		async_pipeline();
 		void _M_copy_pending_to_queue(std::vector<poll_handle>*,
 			std::map<int, async_object_ptr>*);
 		void _M_remove_pending_from_queue(std::vector<poll_handle>*,
 			std::map<int, async_object_ptr>*);
+		bool _M_update_handles();
 	};
 	
 	
 	typedef enum class async_option {
 		CONTINUE,
-		TOGGLE,
+		IGNORE,
 		QUIT
 	} AsyncOption;
 	
