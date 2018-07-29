@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <algorithm>
+#include <chrono>
 
 #include "sockets/environment.h"
 #include "sockets/impact_error.h"
@@ -17,6 +18,236 @@ using namespace internal;
 
 #include <iostream>
 #define VERB(x) std::cout << x << std::endl
+
+
+async_pipeline&
+async_pipeline::instance()
+{
+  static async_pipeline unit;
+  return unit;
+}
+
+
+async_pipeline::async_pipeline()
+{
+	m_poll_granularity_ = k_default_granularity_;
+    m_thread_ready_     = false;
+	m_thread_closing_   = false;
+	m_thread_has_work_  = false;
+	m_main_ready_       = false;
+
+	_M_begin();
+}
+
+
+async_pipeline::~async_pipeline()
+{
+	_M_end();
+}
+
+
+void
+async_pipeline::granularity(int __milliseconds)
+{
+	if (__milliseconds < 0)
+		m_poll_granularity_ = k_default_granularity_;
+	else m_poll_granularity_ = __milliseconds;
+}
+
+
+void
+async_pipeline::add_object(
+	int              __socket,
+	async_object_ptr __object)
+{
+	if (__socket < 0)
+		throw impact_error("Invalid socket");
+	
+	{
+		std::lock_guard<std::mutex> lock(m_work_mtx_);
+		m_work_pending_.push_back(handle_info(__socket,__object));
+	}
+	notify();
+}
+
+
+void
+async_pipeline::remove_object(int __socket)
+{
+	if (__socket < 0)
+		throw impact_error("Invalid socket");
+	
+	{
+		std::lock_guard<std::mutex> lock(m_work_mtx_);
+		m_work_removed_.push_back(__socket);
+	}
+	notify();
+}
+
+
+void
+async_pipeline::notify()
+{
+	{
+		std::lock_guard<std::mutex> lock(m_thread_mtx_);
+		m_thread_has_work_ = true;
+	}
+	m_thread_cv_.notify_one();
+}
+
+
+void
+async_pipeline::_M_copy_pending_to_queue()
+{
+	for (auto& token : m_work_pending_) {
+		auto target_info = m_work_info_.find(token.first);
+		if (target_info == m_work_info_.end()) {
+			m_work_info_[token.first] = token.second;
+			struct poll_handle handle;
+			handle.socket = token.first;
+			handle.events = (short)poll_flags::IN;
+			m_work_handles_.push_back(handle);
+		}
+		else
+			target_info->second = token.second;
+	}
+	m_work_pending_.clear();
+}
+
+
+void
+async_pipeline::_M_remove_pending_from_queue()
+{
+	for (auto& token : m_work_removed_) {
+		auto handle = std::find_if(
+			m_work_handles_.begin(),
+			m_work_handles_.end(),
+			[&](const poll_handle& __handle) -> bool {
+				return std::abs(__handle.socket) == token;
+			}
+		);
+		if (handle != m_work_handles_.end()) {
+			// for every handle there is associated info - remove both
+			m_work_info_.erase(m_work_info_.find(std::abs(handle->socket)));
+			m_work_handles_.erase(handle);
+		}
+	}
+	m_work_removed_.clear();
+}
+
+
+bool
+async_pipeline::_M_update_handles()
+{
+	size_t ignored = 0;
+	auto error = (socket_error)error_code();
+	for (size_t i = 0; /* (!m_thread_closing_) && */
+		(i < m_work_handles_.size()); i++) {
+		auto& key   = m_work_handles_[i];
+		auto socket = std::abs(key.socket);
+		auto value  = m_work_info_.find(socket);
+		
+		auto option = value->second->async_callback(&key,error);
+		
+		switch (option) {
+		case async_option::IGNORE:
+			socket            = -socket;
+			/* special 0-fd case */
+			if (socket == 0) ignored++;
+		case async_option::CONTINUE:
+			key.return_events = 0;
+			key.socket        = socket;
+			if (socket < 0) ignored++;
+			break;
+		default: /* async_option::QUIT */
+			m_work_handles_.erase(m_work_handles_.begin()+i);
+			m_work_info_.erase(value);
+			i--;
+			break;
+		}
+	}
+	return ignored == m_work_handles_.size();
+}
+
+
+void
+async_pipeline::_M_dowork()
+{
+	{ /* worker locked scope */
+		std::lock_guard<std::mutex> lock(m_work_mtx_);
+		_M_copy_pending_to_queue();
+		_M_remove_pending_from_queue();
+	} /* end locked scope */
+
+	auto status = poll(&m_work_handles_, (int)m_poll_granularity_);
+	UNUSED(status);
+	
+	auto has_work = !_M_update_handles();
+	
+	{ /* thread locked scope */
+		std::lock_guard<std::mutex> lock(m_thread_mtx_);
+		m_thread_has_work_ = has_work; // <- FLAW: ignores new poorly timed pendinding data
+	} /* end locked scope */
+}
+
+
+void
+async_pipeline::_M_begin()
+{   
+    m_thread_ = std::thread([&](){
+    	{ /* SND */
+    		std::lock_guard<std::mutex> lock(m_thread_mtx_);
+	        m_thread_ready_ = true;
+    	}
+	    m_thread_cv_.notify_one();
+    	
+    	{ /* RCV */
+	        std::unique_lock<std::mutex> lock(m_thread_mtx_);
+	        m_thread_cv_.wait(lock, [&]()->bool{return m_main_ready_;});
+    	}
+        
+        do {
+        	std::unique_lock<std::mutex> lock(m_thread_mtx_);
+            m_thread_cv_.wait(lock, [&]() -> bool {
+                return m_thread_closing_ || m_thread_has_work_;
+            });
+            if (m_thread_closing_) break;
+            lock.unlock(); // release the lock
+            
+            _M_dowork();
+        } while (true);
+    });
+    
+    { /* ACK */
+	    std::unique_lock<std::mutex> lock(m_thread_mtx_);
+	    // wait for thread strartup signal
+	    m_thread_cv_.wait(lock, [&]() -> bool {
+	        return m_thread_ready_;
+	    });
+	    m_main_ready_ = true;
+	    lock.unlock();
+	    m_thread_cv_.notify_one();
+    }
+}
+
+
+void
+async_pipeline::_M_end()
+{
+	{
+		std::lock_guard<std::mutex> lock(m_thread_mtx_);
+		m_thread_closing_ = true;
+	}
+	m_thread_cv_.notify_all();
+    if (m_thread_.joinable())
+        m_thread_.join();
+}
+
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
+|  Async Object Function Implementations                                      |
+\* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 
 async_functor::async_functor(
 	std::function<async_option(poll_handle*,socket_error)> __callback)
@@ -36,193 +267,4 @@ async_functor::async_callback(
 	if (m_callback_)
 		return m_callback_(__handle, __error);
 	return async_option::QUIT;
-}
-
-
-async_pipeline&
-async_pipeline::instance()
-{
-  static async_pipeline unit;
-  return unit;
-}
-
-
-async_pipeline::async_pipeline()
-{
-	m_var_mtx_        = std::make_shared<type_object<std::mutex>>();
-	m_handles_        = std::make_shared<type_object<std::vector<poll_handle>>>();
-	m_info_           = std::make_shared<type_object<std::map<int, async_object_ptr>>>();
-	m_pending_add_    = std::make_shared<type_object<std::vector<handle_info>>>();
-	m_pending_remove_ = std::make_shared<type_object<std::vector<int>>>();
-	m_shutting_down_  = std::make_shared<type_object<std::atomic<bool>>>();
-	m_granularity_    = std::make_shared<type_object<std::atomic<int>>>();
-
-	_M_register_obj(m_var_mtx_);
-	_M_register_obj(m_handles_);
-	_M_register_obj(m_info_);
-	_M_register_obj(m_pending_add_);
-	_M_register_obj(m_pending_remove_);
-	_M_register_obj(m_shutting_down_);
-	_M_register_obj(m_granularity_);
-	
-	m_granularity_->type   = 50;
-	m_shutting_down_->type = false;
-	m_has_work_            = false;
-}
-
-
-async_pipeline::~async_pipeline()
-{
-	m_shutting_down_->type = true;
-	m_has_work_            = false;
-}
-
-
-void
-async_pipeline::granularity(int __milliseconds)
-{
-	m_granularity_->type = __milliseconds;
-}
-
-
-void
-async_pipeline::add_object(
-	int              __socket,
-	async_object_ptr __object)
-{
-	if (__socket < 0)
-		throw impact_error("Invalid socket");
-	
-	std::lock_guard<std::mutex> lock(m_var_mtx_->type);
-	m_pending_add_->type.push_back(handle_info(__socket,__object));
-	m_has_work_ = true;
-	_M_notify_one();
-}
-
-
-void
-async_pipeline::remove_object(int __socket)
-{
-	if (__socket < 0)
-		throw impact_error("Invalid socket");
-	
-	std::lock_guard<std::mutex> lock(m_var_mtx_->type);
-	m_pending_remove_->type.push_back(__socket);
-	m_has_work_ = true;
-	_M_notify_one();
-}
-
-
-void
-async_pipeline::notify()
-{
-	m_has_work_ = true;
-	_M_notify_one();
-}
-
-
-bool
-async_pipeline::_M_has_work()
-{
-	return m_has_work_ > 0;
-}
-
-
-void
-async_pipeline::_M_dowork()
-{
-	do {
-		{ /* locked scope */
-			if (m_var_mtx_->type.try_lock()) {
-				_M_copy_pending_to_queue(&m_handles_->type, &m_info_->type);
-				_M_remove_pending_from_queue(&m_handles_->type, &m_info_->type);
-				m_has_work_ = false;
-				m_var_mtx_->type.unlock();
-			}
-			else continue;
-		} /* end locked scope */
-		
-		auto status = poll(&m_handles_->type, (int)m_granularity_->type);
-		UNUSED(status);
-		
-		bool sleep = _M_update_handles();
-		if (sleep) return;
-	} while(!m_shutting_down_->type);
-}
-
-
-void
-async_pipeline::_M_copy_pending_to_queue(
-	std::vector<poll_handle>*        __handles,
-	std::map<int, async_object_ptr>* __info)
-{
-	for (auto& token : m_pending_add_->type) {
-		auto target_info = __info->find(token.first);
-		if (target_info == __info->end()) {
-			(*__info)[token.first] = token.second;
-			struct poll_handle handle;
-			handle.socket = token.first;
-			handle.events = (short)poll_flags::IN;
-			__handles->push_back(handle);
-		}
-		else
-			target_info->second = token.second;
-	}
-	m_pending_add_->type.clear();
-}
-
-
-void
-async_pipeline::_M_remove_pending_from_queue(
-	std::vector<poll_handle>*        __handles,
-	std::map<int, async_object_ptr>* __info)
-{
-	for (auto& token : m_pending_remove_->type) {
-		auto handle = std::find_if(
-			__handles->begin(),
-			__handles->end(),
-			[&](const poll_handle& __handle) -> bool {
-				return __handle.socket == token;
-			}
-		);
-		if (handle != __handles->end()) {
-			// for every handle there is associated info - remove both
-			__info->erase(__info->find(handle->socket));
-			__handles->erase(handle);
-		}
-	}
-	m_pending_remove_->type.clear();
-}
-
-
-bool
-async_pipeline::_M_update_handles()
-{
-	size_t ignored = 0;
-	auto error = (socket_error)error_code();
-	for (size_t i = 0; /* (!m_shutting_down_->type) && */
-		(i < m_handles_->type.size()); i++) {
-		auto& key   = m_handles_->type[i];
-		auto socket = std::abs(key.socket);
-		auto value  = m_info_->type.find(socket);
-		auto option = value->second->async_callback(&key,error);
-		
-		switch (option) {
-		case async_option::IGNORE:
-			socket            = -socket;
-			/* special 0-fd case */
-			if (socket == 0) ignored++;
-		case async_option::CONTINUE:
-			key.return_events = 0;
-			key.socket        = socket;
-			if (socket < 0) ignored++;
-			break;
-		default: /* async_option::QUIT */
-			m_handles_->type.erase(m_handles_->type.begin()+i);
-			m_info_->type.erase(value);
-			i--;
-			break;
-		}
-	}
-	return ignored == m_handles_->type.size();
 }

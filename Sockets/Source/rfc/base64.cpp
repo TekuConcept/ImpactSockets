@@ -4,7 +4,6 @@
 
 #include "rfc/base64.h"
 
-#include <sstream>
 #include <stdexcept>
 
 #include "sockets/impact_error.h"
@@ -15,44 +14,69 @@ using namespace impact;
 const std::string base64::k_alphabet =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-const char base64::k_pad = '=';
+const char          base64::k_pad         = '=';
+const unsigned char base64::k_symbol_size = 6;
+const unsigned char base64::k_symbol      = 0x3F;
+const unsigned char base64::k_byte        = 0xFF;
 
 
 base64::base64()
 {}
 
 
-std::string
-base64::encode(const std::string& __data)
+bool
+base64::encode(
+	const std::string& __data,
+	std::string*       __result)
 {
+	impact_errno = SUCCESS;
     if (__data.length() == 0)
       return "";
 
     std::ostringstream os;
-    const unsigned char k_symbol      = 0x3F;
-    const unsigned char k_symbol_size = 6;
 
-    // encode
-    unsigned int   reg24;
+    _S_run_encode(__data, &os);
+    _S_pad_stream(__data, &os);
+    
+    if (__result)
+        *__result = os.str();
+    return true;
+}
+
+
+void
+base64::_S_run_encode(
+	const std::string&  __data,
+	std::ostringstream* __stream)
+{
+	unsigned int   reg24;
     unsigned short reg16[4];
-    for (unsigned int i = 0; (i + 2) < __data.length(); i += 3) {
+    
+    for (size_t i = 0; (i + 2) < __data.length(); i += 3) {
         reg24 = ((0xFF & __data[i    ]) << 16) |
                 ((0xFF & __data[i + 1]) <<  8) |
                 ((0xFF & __data[i + 2]));
-        for (short j = 3; j >= 0; j--) {
+        for (int j = 3; j >= 0; j--) {
             reg16[j] = reg24 & k_symbol;
             reg24 >>= k_symbol_size;
         }
-        for (unsigned char j = 0; j < 4; j++)
-            os << k_alphabet[reg16[j]];
+        for (int j = 0; j < 4; j++)
+            *__stream << k_alphabet[reg16[j]];
     }
+}
 
-    // determine padding
-    unsigned char pad_count =
-      (__data.length() % 3 + (__data.length() + 1) % 3) - 1;
-    if (pad_count == 0)
-      return os.str();
-    else {
+
+void
+base64::_S_pad_stream(
+	const std::string&  __data,
+	std::ostringstream* __stream)
+{
+	unsigned int reg24;
+	unsigned short reg16[4];
+	unsigned char pad_count =
+        (__data.length() % 3 + (__data.length() + 1) % 3) - 1;
+    
+    if (pad_count != 0)  {
         std::string padding(pad_count, k_pad);
         reg24 = ((0xFF & __data[__data.length() - 3 + pad_count]) << 16);
         if (pad_count == 1)
@@ -63,91 +87,107 @@ base64::encode(const std::string& __data)
             reg16[i] = reg24 & k_symbol;
         }
         for (short i = 0; i <= (3 - pad_count); i++)
-            os << k_alphabet[reg16[i]];
-        os << padding;
-        return os.str();
+            *__stream << k_alphabet[reg16[i]];
+        *__stream << padding;
     }
 }
 
 
-std::string
-base64::decode(const std::string& __data)
-{
-    bool success;
-    auto result = decode(__data, success);
-
-	if (!success)
-		throw impact_error(error_string(impact_errno));
-
-    return result;
-}
-
-
-std::string
+bool
 base64::decode(
 	const std::string& __data,
-	bool&              __status)
+	std::string*       __result)
 {
 	impact_errno = SUCCESS;
-	__status     = true;
-
 	if (__data.length() == 0)
 		return "";
 
-	std::ostringstream os;
-	const unsigned char
-		k_byte        = 0xFF,
-		k_symbol_size = 6;
-	unsigned short
-		padding       = 0,
-		tally         = 0;
-	unsigned int
-		reg24         = 0;
+	std::ostringstream stream;
+    unsigned short     padding = 0;
+    unsigned short     tally   = 0;
+    unsigned int       reg24   = 0;
+	
+	if (!_S_run_decode(
+		__data,
+		&stream,
+		&padding,
+		&tally,
+		&reg24
+	)) return false;
+	
+	if (!_S_unpad_stream(
+		&stream,
+		&padding,
+		&tally,
+		&reg24
+	)) return false;
 
+	if (__result)
+		*__result = stream.str();
+	
+	return true;
+}
+
+
+bool
+base64::_S_run_decode(
+	const std::string&  __data,
+    std::ostringstream* __stream,
+    unsigned short*     __padding,
+    unsigned short*     __tally,
+    unsigned int*       __reg24)
+{
 	for (unsigned int i = 0; i < __data.length(); i++) {
 		if (__data[i] == '=') {
 			if ((__data.length() - i) <= 2)
-				padding++;
+				(*__padding)++;
 			continue;
 		}
-		auto c = reverse_lookup(__data[i]);
+		auto c = _S_reverse_lookup(__data[i]);
 		if (c == '\x40') {
 			impact_errno = B64_BADSYM;
-			__status = false;
-			break;
+			return false;
 		}
 		else {
-			reg24 |= c;
-			tally++;
-			if (tally == 4) {
-				os << (unsigned char)(reg24 >> 16);
-				os << (unsigned char)((reg24 >> 8) & k_byte);
-				os << (unsigned char)(reg24 & k_byte);
-				tally = (unsigned short)0;
-				reg24 = 0;
+			(*__reg24) |= c;
+			(*__tally)++;
+			if ((*__tally) == 4) {
+				(*__stream) << (unsigned char)((*__reg24) >> 16);
+				(*__stream) << (unsigned char)(((*__reg24) >> 8) & k_byte);
+				(*__stream) << (unsigned char)((*__reg24) & k_byte);
+				(*__tally) = (unsigned short)0;
+				(*__reg24) = 0;
 			}
-			else reg24 <<= k_symbol_size;
+			else (*__reg24) <<= k_symbol_size;
 		}
 	}
+	return true;
+}
 
-	// take care of padded values
-	if ((padding + tally) == 4) {
-		reg24 <<= (k_symbol_size * (padding - 1));
-		os << (unsigned char)(reg24 >> 16);
-		if (padding != 2)
-			os << (unsigned char)((reg24 >> 8) & k_byte);
+
+bool
+base64::_S_unpad_stream(
+    std::ostringstream* __stream,
+    unsigned short*     __padding,
+    unsigned short*     __tally,
+    unsigned int*       __reg24)
+{
+	if ((*__padding + *__tally) == 4) {
+		*__reg24 <<= (k_symbol_size * (*__padding - 1));
+		*__stream << (unsigned char)(*__reg24 >> 16);
+		if (*__padding != 2)
+			*__stream << (unsigned char)((*__reg24 >> 8) & k_byte);
 	}
-	else if ((padding + tally) != 0) {
+	else if ((*__padding + *__tally) != 0) {
 		impact_errno = B64_BADPAD;
-		__status = false;
+		return false;
 	}
-
-	return os.str();
+	return true;
 }
 
 
 unsigned char
-base64::reverse_lookup(const char __c)
+base64::_S_reverse_lookup(const char __c)
 {
     if      (__c >= 'A' && __c <= 'Z') return (unsigned char)(__c - 'A');
     else if (__c >= 'a' && __c <= 'z') return (unsigned char)(__c - 'a' + 26);
