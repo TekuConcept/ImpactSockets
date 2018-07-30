@@ -47,7 +47,8 @@ namespace internal {
         std::atomic<bool>              m_thread_ready_;
         std::atomic<bool>              m_thread_closing_;
 		std::atomic<bool>              m_thread_has_work_;
-        std::atomic<bool>              m_main_ready_;
+		std::atomic<int>               m_thread_pending_;
+        // std::atomic<bool>              m_main_ready_;
 		
 		std::mutex                     m_work_mtx_;
 		std::vector<poll_handle>       m_work_handles_;
@@ -58,6 +59,7 @@ namespace internal {
 		
 		const int                      k_default_granularity_ = 50;
 
+		void _M_notify_pending(int);
 		void _M_copy_pending_to_queue();
 		void _M_remove_pending_from_queue();
 		bool _M_update_handles();

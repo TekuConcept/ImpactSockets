@@ -34,7 +34,8 @@ async_pipeline::async_pipeline()
     m_thread_ready_     = false;
 	m_thread_closing_   = false;
 	m_thread_has_work_  = false;
-	m_main_ready_       = false;
+	m_thread_pending_   = 0;
+	// m_main_ready_       = false;
 
 	_M_begin();
 }
@@ -67,7 +68,7 @@ async_pipeline::add_object(
 		std::lock_guard<std::mutex> lock(m_work_mtx_);
 		m_work_pending_.push_back(handle_info(__socket,__object));
 	}
-	notify();
+	_M_notify_pending(1);
 }
 
 
@@ -81,7 +82,18 @@ async_pipeline::remove_object(int __socket)
 		std::lock_guard<std::mutex> lock(m_work_mtx_);
 		m_work_removed_.push_back(__socket);
 	}
-	notify();
+	_M_notify_pending(1);
+}
+
+
+void
+async_pipeline::_M_notify_pending(int p)
+{
+	{
+		std::lock_guard<std::mutex> lock(m_thread_mtx_);
+		m_thread_pending_ += p;
+	}
+	m_thread_cv_.notify_one();
 }
 
 
@@ -173,8 +185,11 @@ async_pipeline::_M_update_handles()
 void
 async_pipeline::_M_dowork()
 {
+	int pending_satisfied = 0;
 	{ /* worker locked scope */
 		std::lock_guard<std::mutex> lock(m_work_mtx_);
+		pending_satisfied += m_work_pending_.size();
+		pending_satisfied += m_work_removed_.size();
 		_M_copy_pending_to_queue();
 		_M_remove_pending_from_queue();
 	} /* end locked scope */
@@ -186,7 +201,8 @@ async_pipeline::_M_dowork()
 	
 	{ /* thread locked scope */
 		std::lock_guard<std::mutex> lock(m_thread_mtx_);
-		m_thread_has_work_ = has_work; // <- FLAW: ignores new poorly timed pendinding data
+		m_thread_has_work_ = has_work; // <- *
+		m_thread_pending_ -= pending_satisfied;
 	} /* end locked scope */
 }
 
@@ -195,21 +211,24 @@ void
 async_pipeline::_M_begin()
 {   
     m_thread_ = std::thread([&](){
-    	{ /* SND */
-    		std::lock_guard<std::mutex> lock(m_thread_mtx_);
-	        m_thread_ready_ = true;
-    	}
-	    m_thread_cv_.notify_one();
+    	// { /* SND */
+    	// 	std::lock_guard<std::mutex> lock(m_thread_mtx_);
+	    //     m_thread_ready_ = true;
+    	// }
+	    // m_thread_cv_.notify_one();
     	
-    	{ /* RCV */
-	        std::unique_lock<std::mutex> lock(m_thread_mtx_);
-	        m_thread_cv_.wait(lock, [&]()->bool{return m_main_ready_;});
-    	}
+    	// { /* RCV */
+	    //     std::unique_lock<std::mutex> lock(m_thread_mtx_);
+	    //     m_thread_cv_.wait(lock, [&]()->bool{return m_main_ready_;});
+    	// }
         
         do {
         	std::unique_lock<std::mutex> lock(m_thread_mtx_);
             m_thread_cv_.wait(lock, [&]() -> bool {
-                return m_thread_closing_ || m_thread_has_work_;
+                return
+                	m_thread_closing_  ||
+                	m_thread_has_work_ ||
+                	(m_thread_pending_ > 0);
             });
             if (m_thread_closing_) break;
             lock.unlock(); // release the lock
@@ -218,16 +237,16 @@ async_pipeline::_M_begin()
         } while (true);
     });
     
-    { /* ACK */
-	    std::unique_lock<std::mutex> lock(m_thread_mtx_);
-	    // wait for thread strartup signal
-	    m_thread_cv_.wait(lock, [&]() -> bool {
-	        return m_thread_ready_;
-	    });
-	    m_main_ready_ = true;
-	    lock.unlock();
-	    m_thread_cv_.notify_one();
-    }
+    // { /* ACK */
+	   // std::unique_lock<std::mutex> lock(m_thread_mtx_);
+	   // // wait for thread strartup signal
+	   // m_thread_cv_.wait(lock, [&]() -> bool {
+	   //     return m_thread_ready_;
+	   // });
+	   // m_main_ready_ = true;
+	   // lock.unlock();
+	   // m_thread_cv_.notify_one();
+    // }
 }
 
 
