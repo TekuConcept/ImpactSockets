@@ -14,8 +14,9 @@ namespace impact {
 		B64_BADSYM        , /* Bad base-64 symbol */
 		B64_BADPAD        , /* Data padding mismatch */
 		
-		UTF8_SYM_RANGE    , /* Symbol out of range */
 		UTF8_BADSYM       , /* Bad unicode symbol */
+		UTF8_BADHEAD      , /* Bad unicode byte header */
+		UTF8_BADTRAIL     , /* Bad unicode byte trailer */
 
 		URI_SCHEME        , /* No '://' scheme delimiter */
 		URI_V6HOST        , /* Bad IPv6 host name */

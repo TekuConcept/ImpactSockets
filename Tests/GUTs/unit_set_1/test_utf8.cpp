@@ -265,3 +265,41 @@ TEST(test_utf8, deserialize_append) {
     EXPECT_TRUE(utf8::deserialize(input, &result));
     EXPECT_EQ(result, expected);
 }
+
+TEST(test_utf8, examples) {
+    // U+0041 U+2262 U+0391 U+002E
+    // "A<NOT IDENTICAL TO><ALPHA>."
+    std::string str1("\x41\xE2\x89\xA2\xCE\x91\x2E", 7);
+    // U+D55C U+AD6D U+C5B4
+    // (Korean "hangugeo", meaning "the Korean language")
+    std::string str2("\xED\x95\x9C\xEA\xB5\xAD\xEC\x96\xB4", 9);
+    // U+65E5 U+672C U+8A9E
+    // (Japanese "nihongo", meaning "the Japanese language")
+    std::string str3("\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E", 9);
+    // UTF8_BOM U+233B4
+    // (a Chinese character meaning 'stump of tree')
+    std::string str4("\xEF\xBB\xBF\xF0\xA3\x8E\xB4", 7);
+    
+    std::u32string expected1(U"\U00000041\U00002262\U00000391\U0000002E", 4);
+    std::u32string expected2(U"\U0000D55C\U0000AD6D\U0000C5B4", 3);
+    std::u32string expected3(U"\U000065E5\U0000672C\U00008A9E", 3);
+    std::u32string expected4(U"\U0000FEFF\U000233B4", 2);
+    
+    std::u32string result;
+    
+    result.assign(U"");
+    EXPECT_TRUE(utf8::deserialize(str1, &result));
+    EXPECT_EQ(result, expected1);
+    
+    result.assign(U"");
+    EXPECT_TRUE(utf8::deserialize(str2, &result));
+    EXPECT_EQ(result, expected2);
+    
+    result.assign(U"");
+    EXPECT_TRUE(utf8::deserialize(str3, &result));
+    EXPECT_EQ(result, expected3);
+    
+    result.assign(U"");
+    EXPECT_TRUE(utf8::deserialize(str4, &result));
+    EXPECT_EQ(result, expected4);
+}

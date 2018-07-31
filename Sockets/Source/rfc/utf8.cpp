@@ -93,7 +93,6 @@ utf8::deserialize(
     std::u32string*    __result)
 {
     impact_errno = SUCCESS;
-    (void)__result;
     
     int state = 0;
     uint32_t symbol;
@@ -103,35 +102,28 @@ utf8::deserialize(
             if ((c & 0x80) == 0x00) {
                 symbol = c;
                 if (__result) __result->push_back(symbol);
+                continue;
             }
-            else if ((c & 0xE0) == 0xC0) {
-                symbol = (0x1F & c);
-                state = 1; /* 1 trailer */
-            }
-            else if ((c & 0xF0) == 0xE0) {
-                symbol = (0x0F & c);
-                state = 2; /* 2 trailers */
-            }
-            else if ((c & 0xF8) == 0xF0) {
-                symbol = (0x07 & c);
-                state = 3; /* 3 trailers */
-            }
-            else {
-                impact_errno = UTF8_BADSYM;
-                return false;
-            }
+                 if ((c & 0xE0) == 0xC0) state = 1;
+            else if ((c & 0xF0) == 0xE0) state = 2;
+            else if ((c & 0xF8) == 0xF0) state = 3;
+            else goto header_error;
+            symbol = ((0x3F >> state) & c);
+            continue;
+        header_error:
+            impact_errno = UTF8_BADHEAD;
+            return false;
         } break;
         default: /* trailer */ {
             if ((c & 0xC0) == 0x80) {
                 symbol <<= 6;
                 symbol |= (0x3F & c);
                 state--;
-                if (state == 0 && __result) {
+                if (state == 0 && __result)
                     __result->push_back(symbol);
-                }
             }
             else {
-                impact_errno = UTF8_BADSYM;
+                impact_errno = UTF8_BADTRAIL;
                 return false;
             }
         } break;
