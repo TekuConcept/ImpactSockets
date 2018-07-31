@@ -24,6 +24,9 @@ namespace impact {
 
 		case B64_BADSYM:     return "Bad base-64 symbol";
 		case B64_BADPAD:     return "Data padding mismatch";
+		
+		case UTF8_SYM_RANGE: return "Symbol out of range";
+		case UTF8_BADSYM:    return "Bad unicode symbol";
 
 		case URI_SCHEME:     return "No '://' scheme delimiter";
 		case URI_V6HOST:     return "Bad IPv6 host name";

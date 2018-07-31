@@ -1,7 +1,8 @@
 cmake_minimum_required (VERSION 3.0.2)
 project(SocketsLibrary)
 
-option(BUILD_TESTS "Build Complience Tests" ON)
+option(BUILD_SYSTEM_TESTS "Build runtime tests" ON)
+option(BUILD_UNIT_TESTS "Built unit tests" ON)
 #option(BUILD_SHARED "Build shared libraries instead of static ones." OFF)
 set(BUILD_SHARED OFF) # not implemented right now
 option(BUILD_EXAMPLES "Build the examples that demonstrate use-cases" ON)
@@ -131,8 +132,7 @@ endif(BUILD_EXAMPLES)
 #                       TEST MODULES                      #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-if(BUILD_TESTS)
-
+if(BUILD_UNIT_TESTS)
   if(GTEST_FOUND)
     if(NOT MSVC)
       set(OTHER_LIBRARIES pthread)
@@ -155,7 +155,9 @@ if(BUILD_TESTS)
       )
     endforeach()
   endif(GTEST_FOUND)
+endif()
 
+if(BUILD_SYSTEM_TESTS)
   set(SYSTEM_TESTS
 		"test_basic_socket"
 		"test_networking"
@@ -169,5 +171,4 @@ if(BUILD_TESTS)
 	endforeach()
 	
   target_compile_options(test_async_pipeline PRIVATE "-ggdb3")
-
-endif(BUILD_TESTS)
+endif()

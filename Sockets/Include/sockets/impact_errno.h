@@ -11,14 +11,17 @@ namespace impact {
 	enum impact_errors {
 		SUCCESS        = 0,
 
-		B64_BADSYM     = 1, /* Bad base-64 symbol */
-		B64_BADPAD     = 2, /* Data padding mismatch */
+		B64_BADSYM        , /* Bad base-64 symbol */
+		B64_BADPAD        , /* Data padding mismatch */
+		
+		UTF8_SYM_RANGE    , /* Symbol out of range */
+		UTF8_BADSYM       , /* Bad unicode symbol */
 
-		URI_SCHEME     = 3, /* No '://' scheme delimiter */
-		URI_V6HOST     = 4, /* Bad IPv6 host name */
-		URI_HOST_ERR   = 5, /* Bad host name */
-		URI_PORT_ERR   = 6, /* Invalid characters used for port */
-		URI_PORT_RANGE = 7, /* Port out of range */
+		URI_SCHEME        , /* No '://' scheme delimiter */
+		URI_V6HOST        , /* Bad IPv6 host name */
+		URI_HOST_ERR      , /* Bad host name */
+		URI_PORT_ERR      , /* Invalid characters used for port */
+		URI_PORT_RANGE    , /* Port out of range */
 	};
 
 	namespace internal {
