@@ -11,6 +11,7 @@
 #include <mutex>
 #include <memory>
 #include <condition_variable>
+#include <functional>
 
 namespace impact {
 namespace internal {
@@ -20,18 +21,22 @@ namespace internal {
         virtual ~worker_thread();
         
         struct object { /* extend from me */ };
+        class functor {
+        public:
+            virtual void callback() = 0;
+        };
         typedef std::shared_ptr<object> object_ptr;
     
     protected:
         virtual bool _M_has_work();
         virtual void _M_dowork();
         void _M_register_obj(object_ptr obj);
+        void _M_locked_run(functor* func);
 
     private:
         std::thread             m_thread_;
         std::condition_variable m_thread_cv_;
         std::mutex              m_thread_mtx_;
-        std::atomic<bool>       m_ready_;
         std::atomic<bool>       m_shutting_down_;
         std::vector<object_ptr> m_objects_;
         
