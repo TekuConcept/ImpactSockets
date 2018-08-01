@@ -1,97 +1,23 @@
 cmake_minimum_required (VERSION 3.0.2)
 project(SocketsLibrary)
 
+SET(CMAKE_MODULES_DIR "${CMAKE_SOURCE_DIR}/CMake")
+
 option(BUILD_SYSTEM_TESTS "Build runtime tests" ON)
 option(BUILD_UNIT_TESTS "Built unit tests" ON)
 #option(BUILD_SHARED "Build shared libraries instead of static ones." OFF)
 set(BUILD_SHARED OFF) # not implemented right now
 option(BUILD_EXAMPLES "Build the examples that demonstrate use-cases" ON)
-#list(APPEND <items>)
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-# Functions                                                                   #
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+include(${CMAKE_MODULES_DIR}/Checks.cmake)
+include(${CMAKE_MODULES_DIR}/Dependencies.cmake)
+include(${CMAKE_MODULES_DIR}/Functions.cmake)
+include(${CMAKE_MODULES_DIR}/Configuration.cmake)
 
-function(x_add_executable)
-  #message("Executable Traget: ${ARGV0}")
-  add_executable(${ARGV})
-endfunction()
 
-function(x_add_library)
-  #message("Library Target: ${ARGV0}")
-  add_library(${ARGV})
-endfunction()
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-# Find GTest                                                                  #
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-
-if(BUILD_TESTS)
-	if(MSVC)
-	  set(CMAKE_PREFIX_PATH
-	    ${CMAKE_PREFIX_PATH}
-	    "C:/Program Files (x86)/googletest-distribution"
-	    "C:/Program Files/googletest-distribution"
-	  )
-	endif()
-	find_package(GTest)
-	if(GTEST_FOUND)
-	  string(REGEX REPLACE "gtest" "gmock" GMOCK_LIBRARIES ${GTEST_LIBRARIES})
-	  get_filename_component(GTEST_DIR "${GTEST_INCLUDE_DIRS}" DIRECTORY)
-	  message(STATUS "Found GTest: ${GTEST_DIR}")
-	else()
-	  message(SEND_ERROR "Cannot Find GTest - Some tests cannot be built")
-	endif()
-endif()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-#                 COMPILER CONFIGURATION                  #
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-
-set(default_build_type "Release")
-if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
-  set(default_build_type "Debug")
-endif()
-
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "Setting build type to '${default_build_type}'")
-  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
-    STRING "Choose the type of build, options are: None;Debug;Release" FORCE)
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "None" "Debug" "Release")
-endif()
-
-if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX OR
-	CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Werror -Wextra -pthread")
-endif()
-
-message(STATUS "C++ Flags:  ${CMAKE_CXX_FLAGS}")
-message(STATUS "C++ Debug:   ${CMAKE_CXX_FLAGS_DEBUG}")
-message(STATUS "C++ Release: ${CMAKE_CXX_FLAGS_RELEASE}")
-
-# Set install directory to project root if building on Windows
-if(MSVC)
-	set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/Install" CACHE
-	  PATH "Prefix prepended to install directories" FORCE)
-endif()
-
-set(LIBRARIES_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/Libraries)
-set(SOCKETS_DIR         ${CMAKE_CURRENT_SOURCE_DIR}/Sockets)
-set(SOCKETS_INCLUDE_DIR ${SOCKETS_DIR}/Include)
-set(SOCKETS_SOURCE_DIR  ${SOCKETS_DIR}/Source)
-set(EXAMPLES_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/Examples)
-set(TESTS_DIR           ${CMAKE_CURRENT_SOURCE_DIR}/Tests)
-
-if(${BUILD_SHARED})
-	set(BUILD_MODE SHARED)
-	set(BUILD_FLAGS -DDLL_EXPORTS)
-else()
-	set(BUILD_MODE STATIC)
-	set(BUILD_FLAGS -DSTATIC)
-endif()
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-#                      LIBRARY MODULES                    #
+# LIBRARY MODULES                                         #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
 include_directories(${SOCKETS_INCLUDE_DIR})
@@ -112,8 +38,10 @@ INSTALL (
   FILES_MATCHING PATTERN "*.h*"
 )
 
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-#                      EXAMPLE MODULES                    #
+# EXAMPLE MODULES                                         #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
 if(BUILD_EXAMPLES)
@@ -123,13 +51,15 @@ if(BUILD_EXAMPLES)
     "Discovery"
   )
   foreach(EXAMPLE ${EXAMPLES})
-		x_add_executable(${EXAMPLE} "${EXAMPLES_DIR}/${EXAMPLE}.cpp")
-		target_link_libraries(${EXAMPLE} ${IMPACT_SOCKETS})
-	endforeach()
+        x_add_executable(${EXAMPLE} "${EXAMPLES_DIR}/${EXAMPLE}.cpp")
+        target_link_libraries(${EXAMPLE} ${IMPACT_SOCKETS})
+    endforeach()
 endif(BUILD_EXAMPLES)
 
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-#                       TEST MODULES                      #
+# TEST MODULES                                            #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
 if(BUILD_UNIT_TESTS)
@@ -159,16 +89,16 @@ endif()
 
 if(BUILD_SYSTEM_TESTS)
   set(SYSTEM_TESTS
-		"test_basic_socket"
-		"test_networking"
-		"test_impact_error"
-		"test_worker_thread"
-		"test_async_pipeline"
-	)
-	foreach(SYSTEM_TEST ${SYSTEM_TESTS})
-		x_add_executable(${SYSTEM_TEST} "${TESTS_DIR}/System/${SYSTEM_TEST}.cpp")
-		target_link_libraries(${SYSTEM_TEST} ${IMPACT_SOCKETS})
-	endforeach()
-	
+        "test_basic_socket"
+        "test_networking"
+        "test_impact_error"
+        "test_worker_thread"
+        "test_async_pipeline"
+    )
+    foreach(SYSTEM_TEST ${SYSTEM_TESTS})
+        x_add_executable(${SYSTEM_TEST} "${TESTS_DIR}/System/${SYSTEM_TEST}.cpp")
+        target_link_libraries(${SYSTEM_TEST} ${IMPACT_SOCKETS})
+    endforeach()
+    
   target_compile_options(test_async_pipeline PRIVATE "-ggdb3")
 endif()

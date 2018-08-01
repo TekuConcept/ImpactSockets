@@ -48,8 +48,7 @@ namespace internal {
         std::atomic<bool>              m_thread_closing_;
 		std::atomic<bool>              m_thread_has_work_;
 		std::atomic<int>               m_thread_pending_;
-        // std::atomic<bool>              m_main_ready_;
-		
+        
 		std::mutex                     m_work_mtx_;
 		std::vector<poll_handle>       m_work_handles_;
 		std::map<int,async_object_ptr> m_work_info_;

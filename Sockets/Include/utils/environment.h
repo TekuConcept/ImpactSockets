@@ -22,6 +22,7 @@
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #define UNUSED(x) (void)x
+#define UNUSED_FUNCTION(x)
 #define DEREF(p) (*p)
 
 #if defined(_WIN32) | defined(_WIN64)

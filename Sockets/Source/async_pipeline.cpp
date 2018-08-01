@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <chrono>
 
-#include "sockets/environment.h"
+#include "utils/environment.h"
 #include "sockets/impact_error.h"
 #include "sockets/types.h"
 #include "sockets/generic.h"
@@ -211,18 +211,7 @@ void
 async_pipeline::_M_begin()
 {   
     m_thread_ = std::thread([&](){
-    	// { /* SND */
-    	// 	std::lock_guard<std::mutex> lock(m_thread_mtx_);
-	    //     m_thread_ready_ = true;
-    	// }
-	    // m_thread_cv_.notify_one();
-    	
-    	// { /* RCV */
-	    //     std::unique_lock<std::mutex> lock(m_thread_mtx_);
-	    //     m_thread_cv_.wait(lock, [&]()->bool{return m_main_ready_;});
-    	// }
-        
-        do {
+    	do {
         	std::unique_lock<std::mutex> lock(m_thread_mtx_);
             m_thread_cv_.wait(lock, [&]() -> bool {
                 return
@@ -236,17 +225,6 @@ async_pipeline::_M_begin()
             _M_dowork();
         } while (true);
     });
-    
-    // { /* ACK */
-	   // std::unique_lock<std::mutex> lock(m_thread_mtx_);
-	   // // wait for thread strartup signal
-	   // m_thread_cv_.wait(lock, [&]() -> bool {
-	   //     return m_thread_ready_;
-	   // });
-	   // m_main_ready_ = true;
-	   // lock.unlock();
-	   // m_thread_cv_.notify_one();
-    // }
 }
 
 

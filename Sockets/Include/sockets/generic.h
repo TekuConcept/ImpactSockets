@@ -8,7 +8,7 @@
 #include <string>
 #include <locale>
 
-#include "sockets/environment.h"
+#include "utils/environment.h"
 #include "sockets/types.h"
 
 #if defined(__WINDOWS__)

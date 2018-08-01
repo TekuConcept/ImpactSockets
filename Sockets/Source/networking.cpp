@@ -7,7 +7,7 @@
 #include <sstream>              // ostringstream
 #include <cstring>              // memcpy
 
-#include "sockets/environment.h"
+#include "utils/environment.h"
 #include "sockets/generic.h"
 #include "sockets/types.h"
 #include "sockets/impact_error.h"

@@ -8,9 +8,6 @@
 #include <gtest/gtest.h>
 #include <rfc/utf8.h>
 
-#include <iostream>
-#define VERB(x) std::cout << x << std::endl
-
 namespace impact {
     class test_utf8_c {
     public:

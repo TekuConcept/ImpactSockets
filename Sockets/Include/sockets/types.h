@@ -5,7 +5,7 @@
 #ifndef _IMPACT_TYPES_H_
 #define _IMPACT_TYPES_H_
 
-#include "environment.h"
+#include "utils/environment.h"
 
 #include <string>
 #include <memory>
