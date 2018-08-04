@@ -4,4 +4,3 @@
 
 #include "sockets/basic_socket.h"
 #include "sockets/probe.h"
-#include "sockets/impact_error.h"

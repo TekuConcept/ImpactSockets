@@ -4,7 +4,8 @@
 
 #include <iostream>
 #include <cassert>
-#include <sockets/impact_error.h>
+
+#include "utils/impact_error.h"
 
 // #define VERBOSE(x) std::cout << x << std::endl
 #define VERBOSE(x)

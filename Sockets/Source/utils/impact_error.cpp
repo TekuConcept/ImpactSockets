@@ -2,7 +2,7 @@
  * Created by TekuConcept on July 15, 2018
  */
 
-#include "sockets/impact_error.h"
+#include "utils/impact_error.h"
 
 #include <ctime>
 #include <sstream>

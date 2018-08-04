@@ -7,6 +7,7 @@
 #include <atomic>
 
 #include <basic_socket>
+#include <impact_error>
 #include <networking>
 
 using namespace impact;

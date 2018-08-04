@@ -8,9 +8,9 @@
 #include <thread>
 #include <chrono>
 
-#include "sockets/environment.h"
+#include "utils/environment.h"
+#include "utils/impact_error.h"
 #include "sockets/async_pipeline.h"
-#include "sockets/impact_error.h"
 #include "sockets/generic.h"
 
 // #define VERBOSE(x) std::cout << x << std::endl

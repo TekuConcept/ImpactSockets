@@ -6,8 +6,8 @@
 
 #include <stdexcept>
 
-#include "sockets/impact_error.h"
-#include "sockets/impact_errno.h"
+#include "utils/impact_error.h"
+#include "utils/impact_errno.h"
 
 using namespace impact;
 

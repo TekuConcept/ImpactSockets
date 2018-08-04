@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-#include "sockets/impact_errno.h"
+#include "utils/impact_errno.h"
 
 
 using namespace impact;

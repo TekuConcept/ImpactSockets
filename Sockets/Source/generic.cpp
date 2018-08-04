@@ -9,7 +9,7 @@
 #include <csignal>            // sigaction
 #include <atomic>             // atomic
 
-#include "sockets/impact_error.h"
+#include "utils/impact_error.h"
 
 #if defined(__LINUX__)
   #include <netdb.h>          // h_errno

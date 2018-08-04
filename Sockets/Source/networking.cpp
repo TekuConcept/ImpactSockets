@@ -8,9 +8,9 @@
 #include <cstring>              // memcpy
 
 #include "utils/environment.h"
+#include "utils/impact_error.h"
 #include "sockets/generic.h"
 #include "sockets/types.h"
-#include "sockets/impact_error.h"
 
 #if defined(__LINUX__)
 	#include "sockets/basic_socket.h"

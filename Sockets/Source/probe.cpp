@@ -7,8 +7,8 @@
 #include <string>
 
 #include "utils/environment.h"
+#include "utils/impact_error.h"
 #include "sockets/generic.h"
-#include "sockets/impact_error.h"
 
 #if !defined(__WINDOWS__)
 	#include <sys/poll.h> // For struct pollfd, poll()

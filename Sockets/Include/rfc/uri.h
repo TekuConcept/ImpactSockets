@@ -6,48 +6,76 @@
 #define _IMPACT_RFC_URI_H_
 
 #include <string>
-#include <map>
+#include <sstream>
+
+#define RFC3986 1
 
 namespace impact {
+	typedef struct uri_opts {
+		std::string query;
+		std::string fragment;
+		bool        has_authority;
+	} UriOptions;
+	
 	class uri {
 	public:
-		uri(const std::string& uri);
-
-		std::string    scheme()   const;
-		std::string    host()     const;
-		std::string    resource() const;
-		unsigned short port()     const;
-		virtual bool   secure()   const;
-
-		static bool    valid(const std::string& uri);
-		static uri     parse(const std::string& uri);
-		static uri     try_parse(const std::string& uri, bool& success);
-
-		static void    register_scheme(
-			const std::string& name, unsigned short port, bool secure = false);
-
-	protected:
-		std::string    m_scheme_;
-		std::string    m_host_;
-		std::string    m_resource_;
-		unsigned short m_port_;
-		bool           m_secure_;
-
-	private:
-		static std::map<std::string, std::pair<bool, unsigned short>>
-			s_scheme_meta_data_;
-
 		uri();
+		uri(uri&& r);
+		uri(std::string value);
+		~uri();
 
-		static bool _S_parse(const std::string& u, uri& result);
-		static bool _S_parse_scheme(const std::string& u, uri& result);
-		static void _S_set_meta_info(uri& result);
-		static bool _S_parse_ipv6_host(
-			const std::string& u, unsigned int& offset, uri& result);
-		static bool _S_parse_host(
-			const std::string& u, unsigned int& offset, uri& result);
-		static bool _S_parse_port(
-			const std::string& u, unsigned int& offset, uri& result);
+		uri& operator=(uri&& r);
+		
+		static bool parse(std::string value, uri* result);
+		
+		std::string scheme()    const;
+		std::string hier_part() const; // normalized heir_part
+		std::string authority() const; // normalized authority
+		std::string userinfo()  const; // normalized userinfo
+		std::string host()      const; // normalized host
+		std::string path()      const; // normalized path
+		std::string query()     const; // normalized query
+		std::string fragment()  const; // normalized fragment
+		std::string str()       const; // normalized str
+		std::string abs_str()   const; // normalized abs_str
+		int         port()      const;
+		
+	private:
+		struct parser_context {
+			size_t             current_idx;
+			std::string*       data;
+			uri*               result;
+		};
+		
+		std::string  m_scheme_;
+		std::string  m_userinfo_;
+		std::string  m_host_;
+		std::string  m_path_;
+		std::string  m_query_;
+		std::string  m_fragment_;
+		int          m_port_;
+		bool         m_has_auth_;
+		
+		static void _S_clear(struct parser_context*);
+		static void _S_path_normalize(std::string*);
+		static bool _S_percent_normalize(std::string*,bool);
+		static bool _S_parse_uri(struct parser_context*);
+		static bool _S_parse_scheme(struct parser_context*);
+		static bool _S_parse_hier_part(struct parser_context*);
+		static bool _S_parse_authority(struct parser_context*);
+		static bool _S_parse_userinfo(struct parser_context*);
+		static bool _S_parse_host(struct parser_context*);
+		static bool _S_parse_port(struct parser_context*);
+		static bool _S_parse_ip_literal(struct parser_context*);
+		static bool _S_parse_ipv_future(struct parser_context*);
+		static bool _S_parse_ipv6_address(struct parser_context*);
+		static bool _S_parse_path(struct parser_context*,bool,bool);
+		static bool _S_parse_query(struct parser_context*);
+		static bool _S_parse_fragment(struct parser_context*);\
+		static inline bool _S_unreserved(char);
+		static inline bool _S_reserved(char);
+		static inline bool _S_gen_delims(char);
+		static inline bool _S_sub_delims(char);
 	};
 }
 

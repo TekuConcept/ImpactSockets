@@ -10,8 +10,8 @@
 #include <stdexcept>           // For runtime_error
 
 #include "utils/environment.h"
+#include "utils/impact_error.h"
 #include "sockets/generic.h"
-#include "sockets/impact_error.h"
 
 #if defined(__WINDOWS__)
 	#pragma pop_macro("IN")    // pushed in SocketTypes.h

@@ -4,6 +4,7 @@
 #include <chrono>
 
 #include <basic_socket>
+#include <impact_error>
 #include <socketstream>
 
 using namespace impact;

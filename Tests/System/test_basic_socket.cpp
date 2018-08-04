@@ -2,6 +2,7 @@
 #include <cassert>
 
 #include <basic_socket>
+#include <impact_error>
 
 #define VERBOSE(x) std::cout << x << std::endl
 

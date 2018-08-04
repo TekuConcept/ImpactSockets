@@ -8,412 +8,1060 @@
 #include "rfc/uri.h"
 
 #include <sstream>
-#include <exception>
 #include <algorithm>
+#include <vector>
 
-#include "sockets/impact_error.h"
-#include "sockets/impact_errno.h"
+#include "utils/environment.h"
+#include "utils/impact_error.h"
+#include "utils/impact_errno.h"
+#include "utils/abnf_ops.h"
 
-namespace impact {
-    const char k_sp = ' ';
-}
+#include <iostream>
+#include <iomanip>
+#define VERB(x) std::cout << x << std::endl
 
 using namespace impact;
-
-typedef std::pair<std::string, std::pair<bool, unsigned short>> meta_token;
-typedef std::pair<bool, unsigned short> meta_value;
-
-std::map<std::string, std::pair<bool,unsigned short>> uri::s_scheme_meta_data_
-= {
-    meta_token("http",  meta_value(false, (unsigned short)80)),
-    meta_token("https", meta_value(true,  (unsigned short)443)),
-    meta_token("ws",    meta_value(false, (unsigned short)80)),
-    meta_token("wss",   meta_value(true,  (unsigned short)443))
-};
-
+using namespace internal; /* abnf_ops */
 
 uri::uri()
+: m_port_(-1), m_has_auth_(false)
 {}
 
 
-uri::uri(const std::string& __uri)
+uri::uri(std::string __value)
 {
-	if (!_S_parse(__uri, *this))
+	UNUSED(__value);
+	
+	struct parser_context context;
+	context.current_idx = 0;
+	context.data        = &__value;
+	context.result      = this;
+	
+	if (!_S_parse_uri(&context))
 		throw impact_error(error_string(impact_errno));
 }
 
 
-std::string
-uri::scheme() const
+uri::~uri() {}
+
+
+uri::uri(uri&& __value)
+: m_scheme_  (std::move(__value.m_scheme_  )),
+  m_userinfo_(std::move(__value.m_userinfo_)),
+  m_host_    (std::move(__value.m_host_    )),
+  m_path_    (std::move(__value.m_path_    )),
+  m_query_   (std::move(__value.m_query_   )),
+  m_fragment_(std::move(__value.m_fragment_)),
+  m_port_    (          __value.m_port_     ),
+  m_has_auth_(          __value.m_has_auth_ )
+{}
+
+
+uri&
+uri::operator=(uri&& __rvalue)
 {
-    return m_scheme_;
-}
-
-
-std::string
-uri::host() const
-{
-    return m_host_;
-}
-
-
-std::string
-uri::resource() const
-{
-    return m_resource_;
-}
-
-
-unsigned short
-uri::port() const
-{
-    return m_port_;
-}
-
-
-bool
-uri::secure() const
-{
-    return m_secure_;
+	m_scheme_   = std::move(__rvalue.m_scheme_  );
+	m_userinfo_ = std::move(__rvalue.m_userinfo_);
+	m_host_     = std::move(__rvalue.m_host_    );
+	m_path_     = std::move(__rvalue.m_path_    );
+	m_query_    = std::move(__rvalue.m_query_   );
+	m_fragment_ = std::move(__rvalue.m_fragment_);
+	m_port_     =           __rvalue.m_port_     ;
+	m_has_auth_ =           __rvalue.m_has_auth_ ;
+	return *this;
 }
 
 
 bool
-uri::valid(const std::string& __uri)
+uri::parse(
+	std::string __value,
+	uri*        __result)
 {
-	uri uri_l;
-	return _S_parse(__uri, uri_l);
+	struct parser_context context;
+	context.current_idx = 0;
+	context.data        = &__value;
+	context.result      = __result;
+	
+	return _S_parse_uri(&context);
 }
 
 
-uri
-uri::parse(const std::string& __uri)
+std::string uri::scheme()   const { return m_scheme_;   }
+std::string uri::userinfo() const { return m_userinfo_; }
+std::string uri::host()     const { return m_host_;     }
+int uri::port()             const { return m_port_;     }
+std::string uri::path()     const { return m_path_;     }
+std::string uri::query()    const { return m_query_;    }
+std::string uri::fragment() const { return m_fragment_; }
+
+std::string
+uri::hier_part() const
 {
-	uri uri_l;
-	auto status = _S_parse(__uri, uri_l);
-	if (!status)
-		throw impact_error(error_string(impact_errno));
-	return uri_l;
+	std::string result = "";
+	
+	std::string auth = authority();
+	if (auth.size() || m_has_auth_) {
+		result.append("//");
+		result.append(auth);
+		
+		// RFC3986-3.3, Paragraph 2
+		if (m_path_.size())
+			result.append("/");
+	}
+	
+	result.append(m_path_);
+	
+	return result;
 }
 
 
-uri
-uri::try_parse(
-	const std::string& __uri,
-	bool&              __success)
+std::string
+uri::authority() const
 {
-	uri uri_l;
-	__success = _S_parse(__uri, uri_l);
-	return uri_l;
+	// authority = [ userinfo "@" ] host [ ":" port ]
+	std::string result = "";
+	
+	if (m_userinfo_.size()) {
+		result.append(m_userinfo_);
+		result.append("@");
+	}
+	
+	result.append(m_host_);
+	
+	// port = *DIGIT
+	// which means 0 is a valid uri port number
+	// -1 will represent an undetermined / unknown port
+	if (m_port_ >= 0) {
+		result.append(":");
+		result.append(std::to_string(m_port_));
+	}
+	
+	return result;
+}
+
+
+std::string
+uri::str() const
+{
+	// RFC3986-5.3:  Component Recomposition
+	std::string result = abs_str();
+
+	if (m_fragment_.size()) {
+		result.append("#");
+		result.append(m_fragment_);
+	}
+
+	return result;
+}
+
+
+std::string
+uri::abs_str() const
+{
+	std::string result = "";
+
+	if (m_scheme_.size()) {
+		result.append(m_scheme_);
+		result.append(":");
+	}
+
+	std::string auth = authority();
+	if (auth.size() || m_has_auth_) {
+		result.append("//");
+		result.append(auth);
+		
+		// RFC3986-3.3, Paragraph 2
+		if (m_path_.size())
+			result.append("/");
+	}
+	
+	result.append(m_path_);
+	
+	if (m_query_.size()) {
+		result.append("?");
+		result.append(m_query_);
+	}
+	
+	return result;
+}
+
+
+inline bool
+uri::_S_unreserved(char __c)
+{
+	// unreserved = ALPHA / DIGIT / "-" / "." / "_" / "~"
+	return ALPHA(__c) || DIGIT(__c)   ||
+		(__c == '-')  || (__c == '.') ||
+		(__c == '_')  || (__c == '~');
+}
+
+
+inline bool
+uri::_S_reserved(char __c)
+{
+	// reserved = gen-delims / sub-delims
+	return _S_gen_delims(__c) || _S_sub_delims(__c);
+}
+
+
+inline bool
+uri::_S_gen_delims(char __c)
+{
+	// gen-delims = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+	return
+		(__c == ':') || (__c == '/') ||
+		(__c == '?') || (__c == '#') ||
+		(__c == '[') || (__c == ']') ||
+		(__c == '@');
+}
+
+
+inline bool
+uri::_S_sub_delims(char __c)
+{
+	// sub-delims = "!" / "$" / "&" / "'" / "(" / ")"
+	//              / "*" / "+" / "," / ";" / "="
+	return
+		(__c == '!') || (__c == '$')  ||
+		(__c == '&') || (__c == '\'') ||
+		(__c == '(') || (__c == ')')  ||
+		(__c == '*') || (__c == '+')  ||
+		(__c == ',') || (__c == ';')  ||
+		(__c == '=');
+}
+
+
+void
+uri::_S_clear(struct parser_context* __context) {
+	if (__context->result) {
+		__context->result->m_scheme_   = "";
+		__context->result->m_userinfo_ = "";
+		__context->result->m_host_     = "";
+		__context->result->m_path_     = "";
+		__context->result->m_query_    = "";
+		__context->result->m_fragment_ = "";
+		__context->result->m_port_     = -1;
+		__context->result->m_has_auth_ = false;
+	}
+}
+
+
+void
+uri::_S_path_normalize(std::string* __str)
+{
+	std::vector<int> dir;
+    std::string input_buffer = *__str;
+    std::string output_buffer;
+    output_buffer.reserve(input_buffer.size());
+    
+    int dots = 0;
+    for (char c : input_buffer) {
+        if (c == '.') dots++;
+        else if (c == '/') {
+            if (dots == 0) {
+                output_buffer.push_back(c);
+                dir.push_back(output_buffer.size());
+            }
+            else if (dots == 2) {
+                if (dir.size() > 1) {
+                    auto i = dir[dir.size() - 2];
+                    dir.pop_back();
+                    output_buffer.erase(
+                        output_buffer.begin() + i,
+                        output_buffer.end());
+                }
+                else if (output_buffer.size() && (output_buffer[0] == '/'))
+                	output_buffer.erase(
+                		output_buffer.begin() + 1,
+                		output_buffer.end());
+                else output_buffer.clear();
+            }
+            else if (dots != 1) {
+                while (dots) {
+                    output_buffer.push_back('.');
+                    dots--;
+                }
+            }
+            dots = 0;
+        }
+        else {
+            if (dots) {
+                while (dots) {
+                    output_buffer.push_back('.');
+                    dots--;
+                }
+            }
+            output_buffer.push_back(c);
+        }
+    }
+    
+    __str->assign(output_buffer);
 }
 
 
 bool
-uri::_S_parse(
-	const std::string& __uri,
-	uri&               __result)
+uri::_S_percent_normalize(
+	std::string* __str,
+	bool         __tolower)
 {
-	if (!_S_parse_scheme(__uri, __result)) {
-		impact_errno = URI_SCHEME;
-		return false;
-	}
-
-	unsigned int idx = __result.m_scheme_.length() + 3; /* "://" */
-	if (idx >= __uri.length()) {
-		impact_errno = URI_SCHEME;
-		return false;
-	}
-	if (!(__uri[idx - 2] == '/' && __uri[idx - 1] == '/')) {
-		impact_errno = URI_SCHEME;
-		return false;
-	}
-
-	bool status;
-	if (__uri[idx] == '[')
-		// IPv6 enclosed: "[::]"
-		status = _S_parse_ipv6_host(__uri, idx, __result);
-	else status = _S_parse_host(__uri, idx, __result);
-	if (!status)
-		return status;
-
-	// idx should either be pointing at ':' for port,
-	// '/' for resource name, or the end of uri
-	status = _S_parse_port(__uri, idx, __result);
-	if (!status)
-		return status;
-
-	// store what is left into resourceName
+	if (__str->size() == 0) return true;
+	
+	std::istringstream is(*__str);
 	std::ostringstream os;
-	while (idx < __uri.length()) {
-		if (__uri[idx] == '#')
-			break;
-		if (__uri[idx] == k_sp)
-			os << "%%20";
-		else os << __uri[idx];
-		idx++;
+	int state = 0;
+	char nibble[2], c;
+	
+	while (is >> c) {
+		if (state == 0) {
+			if (c == '%') state++;
+			else if (__tolower) os << (char)::tolower(c);
+			else os << c;
+		}
+		else if (state == 1) {
+			if (!HEXDIG(c)) return false;
+			else {
+				state++;
+				nibble[0] = (char)std::toupper(c);
+			}
+		}
+		else if (state == 2) {
+			if (!HEXDIG(c)) return false;
+			else {
+				state = 0;
+				nibble[1] = (char)std::toupper(c);
+				
+				char n = 0;
+				for (int i = 0; i < 2; i++) {
+					n <<= 4; // size of nibble
+					if (nibble[i] >= '0' && nibble[i] <= '9')
+						n |= nibble[i] - '0';
+					else
+						n |= nibble[i] - 'A' + 10;
+				}
+				
+				if (_S_reserved(n))
+					os << "%" << nibble[0] << nibble[1];
+				else os << n;
+			}
+		}
 	}
-	__result.m_resource_ = os.str();
-	if (__result.m_resource_.length() == 0)
-		__result.m_resource_ = "/";
-
-	impact_errno = SUCCESS;
+	
+	if (state != 0) return false; // % decode not finished
+	
+	*__str = os.str();
+	
 	return true;
 }
 
 
 bool
-uri::_S_parse_scheme(const std::string& __uri, uri& __result)
+uri::_S_parse_uri(struct parser_context* __context)
 {
-	std::ostringstream os;
-	unsigned int
-		idx    = 0,
-		length = __uri.length();
-	bool found_delimiter = false;
-
-	while (idx < length) {
-		if (__uri[idx] == ':') {
-			found_delimiter = true;
-			break;
-		}
-		else os << ::tolower(__uri[idx]);
-		idx++;
+	// URI = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+	
+	_S_clear(__context);
+	
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	
+	// VERB("[ " << data << " ]");
+	
+	if (current_idx >= data.size())
+		return true;
+	
+	if (!_S_parse_scheme(__context))
+		return false; // bad scheme
+	
+	if (current_idx >= data.size())
+		return false; // no ":" delimiter
+	
+	if (data[current_idx] != ':')
+		return false; // unrecognized delimiter
+	
+	current_idx++;
+	
+	if (!_S_parse_hier_part(__context))
+		return false; // bad authority or path
+	
+	if ((current_idx < data.size()) &&
+		(data[current_idx] == '?')) {
+		current_idx++;
+		if (!_S_parse_query(__context))
+			return false; // bad query
 	}
-
-	__result.m_scheme_.assign(os.str());
-
-	if (found_delimiter)
-		_S_set_meta_info(__result);
-
-	return found_delimiter;
-}
-
-
-void
-uri::_S_set_meta_info(uri& __result)
-{
-	auto meta = s_scheme_meta_data_.find(__result.m_scheme_);
-	if (meta != s_scheme_meta_data_.end()) {
-		__result.m_secure_ = meta->second.first;
-		__result.m_port_   = meta->second.second;
+	
+	if ((current_idx < data.size()) &&
+		(data[current_idx] == '#')) {
+		current_idx++;
+		if (!_S_parse_fragment(__context))
+			return false; // bad fragment
 	}
-	else {
-		__result.m_secure_ = false;
-		__result.m_port_   = 0;
+	
+	if (__context->result) {
+		std::transform(
+			__context->result->m_scheme_.begin(),
+			__context->result->m_scheme_.end(),
+			__context->result->m_scheme_.begin(),
+			::tolower);
+		_S_path_normalize(&__context->result->m_path_);
 	}
-}
-
-
-bool
-uri::_S_parse_ipv6_host(
-	const std::string& __uri,
-	unsigned int&      __offset,
-	uri&               __result)
-{
-	const int k_max_host   = 39; // IPv6 fully exapanded with ':' is 39 chars
-	const int k_max_label  = 4; // labels are only 4 hex chars long
-	const int k_min_length = 4; // "[::]"
-	if ((__uri.length() - __offset) < k_min_length) {
-		impact_errno = URI_V6HOST;
-		return false;
-	}
-
-	std::ostringstream os;
-	int colon_delimiter_count = 0;
-	unsigned int& idx         = __offset;
-
-	if (__uri[idx] != '[') {
-		impact_errno = URI_V6HOST;
-		return false;
-	}
-	os << __uri[idx];
-	idx++;
-
-	int
-		label_length = 0,
-		host_length  = 0;
-	while (idx < __uri.length()) {
-		char c = (char) ::tolower(__uri[idx]);
-		if (c == '/')
-			break; // didn't close with ']'
-		else if (c == ':') {
-			label_length = 0;
-			host_length++;
-			os << c;
-
-			colon_delimiter_count++;
-			// IPv6 doesn't have more than 8 groups
-			if (colon_delimiter_count > 7)
-				break;
-		}
-		else if (c == ']') {
-			// expecting "::" minimum
-			if (colon_delimiter_count < 2)
-				break;
-			else {
-				os << c;
-				idx++; // align with _S_parse_ipv4_host() return index
-				__result.m_host_ = os.str();
-				impact_errno = SUCCESS;
-				return true;
-			}
-		}
-		else if ( // only allow legal hex values
-			(c >= 'a' && c <= 'f') || // a-f
-			(c >= '0' && c <= '9')) {
-			label_length++;
-			host_length++;
-			os << c;
-		}
-		else break;
-
-		if (label_length > k_max_label || host_length > k_max_host)
-			break;
-		idx++;
-	}
-
-	impact_errno = URI_V6HOST;
-	return false;
+	
+	return true;
 }
 
 
 bool
-uri::_S_parse_host(
-	const std::string& __uri,
-	unsigned int&      __offset,
-	uri&               __result)
+uri::_S_parse_scheme(struct parser_context* __context)
 {
-	const int k_max_host  = 254; // 253 + '.'
-	const int k_max_label = 63;
-	const int k_min_len   = 1; // "a"
-	if ((__uri.length() - __offset) < k_min_len) {
-		impact_errno = URI_HOST_ERR;
-		return false;
+	// scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	size_t last_idx   = current_idx;
+	
+	char c = data[current_idx];
+	if (!ALPHA(c))
+		return false; // invalid scheme character
+	current_idx++;
+	
+	for (; current_idx < data.size(); current_idx++) {
+		c = data[current_idx];
+		if (!(ALPHA(c) || DIGIT(c) || (c == '+') || (c == '-') || (c == '.')))
+			break;
 	}
+	
+	if (__context->result)
+		__context->result->m_scheme_.assign(
+			data.begin() + last_idx,
+			data.begin() + current_idx);
+	
+	return true;
+}
 
-	std::ostringstream os;
-	int
-		label_length = 0,
-		host_length  = 0;
-	bool
-		first_char   = true;
-	unsigned int&
-		idx          = __offset;
 
-	while (idx < __uri.length()) {
-		char c = (char) ::tolower(__uri[idx]);
-		if (first_char) {
-			// RFC 952: non-alphanumeric chars as the first char
-			// are not allowed.
-			if (c == '-') {
-				impact_errno = URI_HOST_ERR;
-				return false;
-			}
-			else first_char = false;
+bool
+uri::_S_parse_hier_part(struct parser_context* __context)
+{
+	/*
+	hier-part = "//" authority path-abempty
+                 / path-absolute
+                 / path-rootless
+                 / path-empty
+	*/
+	
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	
+	if (current_idx >= data.size())
+		return true; // path-empty
+	
+	if (data[current_idx] == '/') {
+		current_idx++;
+		if (current_idx >= data.size()) {
+			if (__context->result)
+				__context->result->m_path_.push_back('/');
+			return true; // path-absolute
 		}
-		if (c == '/') {
-			if (host_length < 1) {
-				impact_errno = URI_HOST_ERR;
-				return false;
-			}
-			break;
-		}
-		else if (c == ':')
-			break;
-		else if ( // only allow valid host name characters
-			(c >= 'a' && c <= 'z') || // a-z
-			(c >= '0' && c <= '9') || // 0-9
-			(c == '-')) {
-			os << c;
-			label_length++;
-			host_length++;
-		}
-		else if (c == '.') {
-			// end of label
-			os << c;
-			label_length = 0;
-			host_length++;
+		else if (data[current_idx] == '/') {
+			current_idx++;
+			bool success = _S_parse_authority(__context);
+			if (success)
+				success &= _S_parse_path(__context, true, true);
+			return success;
 		}
 		else {
-			impact_errno = URI_HOST_ERR;
-			return false;
+			if (__context->result)
+				__context->result->m_path_.push_back('/');
+			return _S_parse_path(__context, false, true);
 		}
-
-		if (label_length > k_max_label || host_length > k_max_host) {
-			impact_errno = URI_HOST_ERR;
-			return false;
-		}
-		idx++;
 	}
-
-	__result.m_host_ = os.str();
-	impact_errno = SUCCESS;
+	else {
+		char c = data[current_idx];
+		if (_S_unreserved(c) || _S_sub_delims(c) ||
+			(c == ':') || (c == '@') || (c == '%'))
+			return _S_parse_path(__context, false, true);
+		else return true; // path-empty
+	}
+	
 	return true;
 }
 
 
 bool
-uri::_S_parse_port(
-	const std::string& __uri,
-	unsigned int&      __offset,
-	uri&               __result)
+uri::_S_parse_path(
+	struct parser_context* __context,
+	bool                   __expect_root,
+	bool                   __allow_colon)
 {
-	unsigned int& idx = __offset;
-	std::ostringstream os;
-
-	if (idx < __uri.length() && __uri[idx] == ':') {
-		// parse port
-		const int k_max_chars = 5; // "65535"
-		int char_count = 0;
-		idx++; // skip ':'
-		while (idx < __uri.length()) {
-			if (__uri[idx] == '/')
-				break;
-			else if (__uri[idx] >= '0' && __uri[idx] <= '9') {
-				os << __uri[idx];
-				char_count++;
-			}
-			else {
-				impact_errno = URI_PORT_ERR;
-				return false;
-			}
-			if (char_count > k_max_chars) {
-				impact_errno = URI_PORT_RANGE;
-				return false;
-			}
-			idx++;
-		}
-
-		std::string strport = os.str();
-		if (strport.length() >= 1) {
-			// only try to parse if there is something to parse
-			unsigned int port = std::stoi(strport);
-			if (port > 65535) {
-				impact_errno = URI_PORT_RANGE;
-				return false;
-			}
-			else __result.m_port_ = static_cast<unsigned short>(port);
+	/*
+	path-abempty  = *( "/" segment )
+	path-absolute = "/" [ segment-nz *( "/" segment ) ]
+	path-noscheme = segment-nz-nc *( "/" segment )
+	path-rootless = segment-nz *( "/" segment )
+	path-empty    = 0<pchar>
+	*/
+	
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	size_t last_idx = current_idx;
+	
+	if (current_idx >= data.size()) return true; // empty path
+	
+	char c = data[current_idx];
+	if (__expect_root) {
+		     if (c == '?') return true; // empty path, next: query
+		else if (c == '#') return true; // empty path, next: fragment
+		else if (c != '/') return false;
+		else {
+			current_idx++;
+			if (current_idx >= data.size()) return true; // empty root
 		}
 	}
+	
+	c = data[current_idx];
+	if (c == '/') return false; // expected rootless path
+	else if (c == ':') {
+		if (__allow_colon)
+			current_idx++;
+		else return false; // expected no-scheme path
+	}
+	
+	// keep track of pchar count between '/'
+	size_t pchar_count = 0;
+	while (current_idx < data.size()) {
+		c = data[current_idx];
+		if (_S_unreserved(c) || _S_sub_delims(c) ||
+			(c == ':') || (c == '@') || (c == '%')) {
+			current_idx++;
+			pchar_count++;
+		}
+		else if (c == '/') {
+			// path child node
+			if (pchar_count == 0)
+				return false; // found illegal "//" in path
+			else {
+				current_idx++;
+				pchar_count = 0;
+			}
+		}
+		else break; // non-path character found
+	}
+	
+	std::string path(data.begin() + last_idx, data.begin() + current_idx);
+	bool success = _S_percent_normalize(&path, false);
+	
+	if (__context->result)
+		__context->result->m_path_.append(path);
+	
+	return success;
+}
 
-	impact_errno = SUCCESS;
+
+bool
+uri::_S_parse_authority(struct parser_context* __context)
+{
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	size_t last_idx = current_idx;
+	
+	auto at_count          = 0;
+	auto colon_count_after = 0;
+	auto ip_lit_a_count    = 0;
+	auto ip_lit_b_count    = 0;
+	
+	auto at_index         = last_idx - 1;
+	auto port_colon_index = last_idx - 1;
+	auto ip_lit_a_index   = last_idx - 1;
+	auto ip_lit_b_index   = last_idx - 1;
+	
+	char c;
+	while (current_idx < data.size()) {
+		c = data[current_idx];
+		if (c == '@') {
+			at_count++;
+			// can only be one '@'
+			if (at_count > 1) return false;
+			else at_index = current_idx;
+		}
+		else if (c == ':') {
+			if (at_count) colon_count_after++;
+			port_colon_index = current_idx;
+		}
+		else if (c == '[') {
+			ip_lit_a_count++;
+			if (ip_lit_a_count > 1) return false;
+			else ip_lit_a_index = current_idx;
+		}
+		else if (c == ']') {
+			ip_lit_b_count++;
+			if (ip_lit_b_count > 1) return false;
+			else ip_lit_b_index = current_idx;
+		}
+		else {
+			if (!(_S_unreserved(c) || _S_sub_delims(c) || (c == '%')))
+				break;
+		}
+		current_idx++;
+	}
+	
+	if (ip_lit_a_count != ip_lit_b_count)
+		return false; // mismatching '[' and ']'
+	if (ip_lit_a_index > ip_lit_b_index)
+		return false; // misorder ']'...'['
+	if (!ip_lit_a_count && (at_count && colon_count_after > 1))
+		return false; // too many ':'
+	
+	std::string userinfo = "";
+	std::string host     = "";
+	std::string port     = "";
+	
+	if (at_index >= last_idx) {
+		userinfo.assign(
+			data.begin() + last_idx,
+			data.begin() + at_index);
+		last_idx = at_index + 1; // skip '@'
+	}
+	
+	if (ip_lit_a_count) { // host is ip-literal
+		if ((port_colon_index > ip_lit_b_index)) {
+			if ((port_colon_index - 1) != ip_lit_b_index)
+				return false; // [::]foo: <- invalid port placement
+			port.assign(
+				data.begin() + port_colon_index + 1, // ignore ':'
+				data.begin() + current_idx);
+		}
+		host.assign(
+			data.begin() + ip_lit_a_index,
+			data.begin() + ip_lit_b_index + 1);
+	}
+	else {
+		auto host_index = at_count ? (at_index + 1) : last_idx;
+		if (colon_count_after) {
+			port.assign(
+				data.begin() + port_colon_index + 1,
+				data.begin() + current_idx);
+			host.assign(
+				data.begin() + host_index,
+				data.begin() + port_colon_index);
+		}
+		else {
+			host.assign(
+				data.begin() + host_index,
+				data.begin() + current_idx);
+		}
+	}
+	
+	struct parser_context temp;
+	bool success     = true;
+	temp.result      = __context->result;
+	
+	temp.current_idx = 0;
+	temp.data        = &userinfo;
+	success         &= _S_parse_userinfo(&temp);
+	
+	temp.current_idx = 0;
+	temp.data        = &host;
+	success         &= _S_parse_host(&temp);
+	
+	temp.current_idx = 0;
+	temp.data        = &port;
+	success         &= _S_parse_port(&temp);
+	
+	return success;
+}
+
+
+bool
+uri::_S_parse_userinfo(struct parser_context* __context)
+{
+	// userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
+	// assuming data only contains userinfo data
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	
+	char c; // validate against userinfo ABNF
+	for (; current_idx < data.size(); current_idx++) {
+		c = data[current_idx];
+		if (!(_S_unreserved(c) || _S_sub_delims(c) ||
+			(c == '%') || (c == ':')))
+			return false;
+	}
+	
+	bool success = _S_percent_normalize(&data, false);
+	
+	if (__context->result)
+		__context->result->m_userinfo_ = data;
+	
+	return success;
+}
+
+
+bool
+uri::_S_parse_host(struct parser_context* __context)
+{
+	(void)__context;
+	// host = IP-literal / IPv4address / reg-name
+	// reg-name = *( unreserved / pct-encoded / sub-delims )
+	/*
+	IPv4address is a match subset of reg-name
+	Match reg-name first, then match IPv4address later if needed
+	(basic_socket will try to resolve the host name either way)
+	*/
+	
+	// assuming data only contains host data
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	
+	if (data.size() == 0)
+		return true; // empty host allowed (reg-name)
+	else if (data[current_idx] == '[') {
+		if(!_S_parse_ip_literal(__context))
+			return false;
+	}
+	else {
+		char c; // validate against reg-name ABNF (includes IPv4address)
+		for (; current_idx < data.size(); current_idx++) {
+			c = data[current_idx];
+			if (!(_S_unreserved(c) || _S_sub_delims(c) || (c == '%')))
+				return false;
+		}
+	}
+	
+	bool success = _S_percent_normalize(&data, true);
+
+	if (__context->result)
+		__context->result->m_host_ = data;
+	
+	return success;
+}
+
+
+bool
+uri::_S_parse_port(struct parser_context* __context)
+{
+	// port = *DIGIT
+	// assuming data only contains port-specific data
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	
+	char c; // validate against port ABNF
+	for (; current_idx < data.size(); current_idx++) {
+		c = data[current_idx];
+		if (!DIGIT(c)) return false;
+	}
+	
+	// max(int) is 10 digits, play it safe with 9 digits
+	// typically socket ports are only 5 digits in length
+	// but the ABNF for URIs allow for any number of digits
+	if (current_idx > 9)
+		return false;
+	
+	if (__context->result && data.size()) {
+		__context->result->m_port_ = std::stoi(data);
+	}
+	
 	return true;
 }
 
 
-void
-uri::register_scheme(
-	const std::string& __name,
-	unsigned short     __port,
-	bool               __secure)
+bool
+uri::_S_parse_ip_literal(struct parser_context* __context)
 {
-	if (__name.length() == 0)
-		return;
-	std::string name = __name;
-	std::transform(
-		name.begin(),
-		name.end(),
-		name.begin(),
-		[](char c) { return (char) ::tolower(c); }
-	);
-	s_scheme_meta_data_[name] = meta_value(__secure, __port);
+	// IP-literal = "[" ( IPv6address / IPvFuture  ) "]"
+	// assuming data only contains ip-literal-specific data
+	// also assumes only one each '[' and ']'
+	std::string& data = *__context->data;
+	
+	if (data.size() < 4)
+		return false; // requires [::] minimum
+	
+	if (!((data[0] == '[') && (data[data.size()-1] == ']')))
+		return false;
+	
+	std::string d2 = data.substr(1, data.size() - 2);
+	struct parser_context context;
+	context.current_idx = 0;
+	context.data        = &d2;
+	context.result      = __context->result;
+	
+	if (d2[0] == 'v')
+		return _S_parse_ipv_future(&context);
+	else
+		return _S_parse_ipv6_address(&context);
+}
+
+
+bool
+uri::_S_parse_ipv_future(struct parser_context* __context)
+{
+	// IPvFuture = "v" 1*HEXDIG "." 1*( unreserved / sub-delims / ":" )
+	// assuming data only contains IPvfuture-specific data
+	std::string& data = *__context->data;
+	size_t current_idx = 0;
+	
+	if (data.size() < 4) return false; // at least v0.0
+	
+	if (data[current_idx] != 'v') return false;
+	current_idx++;
+	
+	if (!HEXDIG(data[current_idx])) return false;
+	
+	char c;
+	do {
+		current_idx++;
+		c = data[current_idx];
+		if (!HEXDIG(c)) break;
+	} while(current_idx < (data.size() - 2));
+	
+	if (data[current_idx] != '.') return false;
+	current_idx++;
+	
+	c = data[current_idx];
+	if (!(_S_unreserved(c) || _S_sub_delims(c) || (c == ':')))
+		return false;
+	current_idx++;
+	
+	while (current_idx < data.size()) {
+		c = data[current_idx];
+		if (!(_S_unreserved(c) || _S_sub_delims(c) || (c == ':')))
+			return false;
+		current_idx++;
+	}
+	
+	return true;
+}
+
+
+bool
+uri::_S_parse_ipv6_address(struct parser_context* __context)
+{
+	// A long and annoying ipv6 parser
+	std::string& data = *__context->data;
+	
+	// parsing backwards makes things easier
+    if (data.size() == 0 || data.size() == 1)
+        return false; // at least 2 chars required
+    size_t current_idx     = data.size() - 1;
+    bool have_placeholder  = false;
+    bool have_ipv4         = false;
+    
+    if (data[current_idx  ] == ':' &&
+        data[current_idx-1] == ':') { // "::"
+        if (current_idx == 1) return true; // no more chars
+        have_placeholder = true;
+        current_idx -= 2; // move past "::"
+        goto hex;
+    }
+    else if (HEXDIG(data[current_idx])) {
+        if (data.size() < 9) { // ::0.0.0.0
+            if (data.size() < 3) return false; // at least ::0
+            goto hex;
+        }
+        else {
+            for (int i = 1; i <= 3; i++)
+                if (data[current_idx - i] == '.')
+                    goto dec;
+            goto hex;
+        }
+    }
+    else return false;
+    
+    dec: { // expect "dec.dec.dec.dec"
+        int state = 5;
+        int dcnt = 0;
+        int dgrp = 1;
+        char c;
+        have_ipv4 = true;
+        
+        while (current_idx > 1) {
+            c = data[current_idx];
+            if (state == 5) {
+                if (dcnt == 0) {
+                         if (c >= '0' && c <= '5')   dcnt++;
+                    else if (c >= '6' && c <= '9') { dcnt++; state = 4; }
+                    else return false;
+                }
+                else if (dcnt == 1) {
+                         if (c == '5')               dcnt++;
+                    else if (c >= '0' && c <= '4') { dcnt++; state = 4; }
+                    else if (c >= '6' && c <= '9') { dcnt++; state = 3; }
+                    else if (c == '.')             { dcnt = 0; dgrp++; }
+                    else if (c == ':')               break;
+                    else return false;
+                }
+                else if (dcnt == 2) {
+                         if (c == '2')               dcnt++;
+                    else if (c == '.')             { dcnt = 0; dgrp++; }
+                    else if (c == ':')               break;
+                    else return false;
+                }
+                else {
+                         if (c == '.')             { dcnt = 0; dgrp++; }
+                    else if (c == ':')               break;
+                    else return false;
+                }
+            }
+            else if (state == 4) {
+                if (dcnt == 1) {
+                         if (c >= '0' && c <= '4')   dcnt++;
+                    else if (c >= '5' && c <= '9') { dcnt++;           state = 3; }
+                    else if (c == '.')             { dcnt = 0; dgrp++; state = 5; }
+                    else if (c == ':')               break;
+                    else return false;
+                }
+                else if (dcnt == 2) {
+                         if (c == '2' || c == '1')   dcnt++;
+                    else if (c == '.')             { dcnt = 0; dgrp++; state = 5; }
+                    else if (c == ':')               break;
+                    else return false;
+                }
+                else {
+                         if (c == '.')             { dcnt = 0; dgrp++; state = 5; }
+                    else if (c == ':')               break;
+                    else return false;
+                }
+            }
+            else if (state == 3) {
+                if (dcnt == 2) {
+                         if (c == '1')               dcnt++;
+                    else if (c == '.')             { dcnt = 0; dgrp++; state = 5; }
+                    else if (c == ':')               break;
+                    else return false;
+                }
+                else {
+                         if (c == '.')             { dcnt = 0; dgrp++; state = 5; }
+                    else if (c == ':')               break;
+                    else return false;
+                }
+            }
+            else return false;
+            current_idx--;
+        }
+        
+        if (dgrp != 4) return false;
+        
+        // guaranteed at least 2 chars left
+        // Note: at least 9 chars going into while loop
+        //       at least 2 chars comming out of the loop
+        if (data[current_idx] == ':') {
+            current_idx--;
+            if (data[current_idx] == ':') {
+                have_placeholder = true;
+                if (current_idx == 0)
+                    return true; // no more chars
+                current_idx--;
+            }
+        }
+        else return false;
+    }
+    
+    hex: {
+        // starts with hex because initial ":" checks have been made already
+        // guaranteed at least 1 char available
+        
+        int hcnt     = 0;
+        int hgrp     = 0;
+        bool p_idx_z = false; // placeholder index is zero
+        char c;
+        
+        do {
+            c = data[current_idx];
+            
+            if (HEXDIG(c)) {
+                hcnt++;
+                if (hcnt > 4) return false;
+            }
+            else if (c == ':') {
+                if (hcnt > 0) {
+                    hcnt = 0;
+                    if (hgrp == 8) break;
+                    hgrp++;
+                }
+                else if (hcnt == 0) {
+                    if (have_placeholder) return false;
+                    else {
+                        have_placeholder = true;
+                        p_idx_z = current_idx == 0;
+                        hgrp--; // avoid counting twice
+                    }
+                }
+                else return false;
+            }
+            else return false;
+            
+            if (current_idx == 0) break;
+            else current_idx--;
+        } while (true);
+        hgrp++; // include last group
+        
+        if (current_idx != 0)
+            return false; // bad ipv6
+        
+        if (!p_idx_z && data[current_idx] == ':')
+            return false; // begins with ":x"
+        
+        if (have_placeholder) {
+            if (have_ipv4 && hgrp > 5)       return false; // group count
+            else if (!have_ipv4 && hgrp > 7) return false; // group count
+        }
+        else {
+            if (have_ipv4 && hgrp != 6)      return false; // group count
+            else if (hgrp != 8)              return false; // group count
+        }
+    }
+    
+    return true;
+}
+
+
+bool
+uri::_S_parse_query(struct parser_context* __context)
+{
+	// query = *( pchar / "/" / "?" )
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	size_t last_idx = current_idx;
+	
+	char c;
+	while (current_idx < data.size()) {
+		c = data[current_idx];
+		if (!(_S_unreserved(c) || _S_sub_delims(c) ||
+			(c == '%') || (c == ':') || (c == '@') ||
+			(c == '/') || (c == '?'))) break;
+		current_idx++;
+	}
+	
+	std::string result(data.begin() + last_idx, data.begin() + current_idx);
+	bool success = _S_percent_normalize(&result, false);
+	
+	if (__context->result)
+		__context->result->m_query_.assign(result);
+	
+	return success;
+}
+
+
+bool
+uri::_S_parse_fragment(struct parser_context* __context)
+{
+	// fragment = *( pchar / "/" / "?" )
+	
+	/* RFC3986-3.5, Paragraph 1
+	A fragment identifier component is indicated by the presence of a
+	number sign ("#") character and terminated by the end of the URI.
+	*/ // in other words, match all characters to end of string
+	
+	std::string& data = *__context->data;
+	auto& current_idx = __context->current_idx;
+	bool success = true;
+	
+	if (current_idx < data.size()) {
+		std::string result(data.begin() + current_idx, data.end());
+		success = _S_percent_normalize(&result, false);
+		
+		if (__context->result) {
+			__context->result->m_fragment_.assign(result);
+		}
+	}
+	
+	return success;
 }
