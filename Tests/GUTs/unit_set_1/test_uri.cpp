@@ -59,6 +59,7 @@ TEST(test_uri, authority) {
     
     EXPECT_TRUE(uri::parse("foo://", &u));
     EXPECT_EQ(u.authority(), "");
+    EXPECT_EQ(u.str(), "foo://");
     EXPECT_TRUE(uri::parse("foo://bar.baz", &u));
     EXPECT_EQ(u.authority(), "bar.baz");
     
@@ -219,6 +220,10 @@ TEST(test_uri, normalize) {
     EXPECT_EQ(u.path(), "bar/");
     EXPECT_TRUE(uri::parse("foo:../bar/", &u));
     EXPECT_EQ(u.path(), "bar/");
+    EXPECT_TRUE(uri::parse("foo:/bar/..", &u));
+    EXPECT_EQ(u.path(), "/bar/..");
+    EXPECT_TRUE(uri::parse("foo:/bar/.", &u));
+    EXPECT_EQ(u.path(), "/bar/.");
     EXPECT_TRUE(uri::parse("foo:/a/b/c/./../../g", &u));
     EXPECT_EQ(u.path(), "/a/g");
     EXPECT_TRUE(uri::parse("foo:mid/content=5/../6", &u));

@@ -294,6 +294,10 @@ uri::_S_path_normalize(std::string* __str)
             output_buffer.push_back(c);
         }
     }
+    while (dots) {
+    	output_buffer.push_back('.');
+    	dots--;
+    }
     
     __str->assign(output_buffer);
 }
@@ -305,6 +309,8 @@ uri::_S_percent_normalize(
 	bool         __tolower)
 {
 	if (__str->size() == 0) return true;
+	
+	impact_errno = impact_errors::URI_PERCENTENC;
 	
 	std::istringstream is(*__str);
 	std::ostringstream os;
@@ -350,6 +356,7 @@ uri::_S_percent_normalize(
 	
 	*__str = os.str();
 	
+	impact_errno = impact_errors::SUCCESS;
 	return true;
 }
 
@@ -358,6 +365,7 @@ bool
 uri::_S_parse_uri(struct parser_context* __context)
 {
 	// URI = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+	impact_errno = impact_errors::SUCCESS;
 	
 	_S_clear(__context);
 	
@@ -369,24 +377,32 @@ uri::_S_parse_uri(struct parser_context* __context)
 	if (current_idx >= data.size())
 		return true;
 	
-	if (!_S_parse_scheme(__context))
+	if (!_S_parse_scheme(__context)) {
+		impact_errno = impact_errors::URI_SCHEME;
 		return false; // bad scheme
+	}
 	
-	if (current_idx >= data.size())
+	if (current_idx >= data.size()) {
+		impact_errno = impact_errors::URI_NOCOLON;
 		return false; // no ":" delimiter
+	}
 	
-	if (data[current_idx] != ':')
+	if (data[current_idx] != ':') {
+		impact_errno = impact_errors::URI_NOCOLON;
 		return false; // unrecognized delimiter
+	}
 	
 	current_idx++;
 	
 	if (!_S_parse_hier_part(__context))
+		// impact_errno: see parse_heir_part()
 		return false; // bad authority or path
 	
 	if ((current_idx < data.size()) &&
 		(data[current_idx] == '?')) {
 		current_idx++;
 		if (!_S_parse_query(__context))
+			// impact_errno: see parse_query()
 			return false; // bad query
 	}
 	
@@ -394,6 +410,7 @@ uri::_S_parse_uri(struct parser_context* __context)
 		(data[current_idx] == '#')) {
 		current_idx++;
 		if (!_S_parse_fragment(__context))
+			// impact_errno: see parse_fragment()
 			return false; // bad fragment
 	}
 	
@@ -463,6 +480,7 @@ uri::_S_parse_hier_part(struct parser_context* __context)
 		}
 		else if (data[current_idx] == '/') {
 			current_idx++;
+			// impact_errno: see parse_authority()
 			bool success = _S_parse_authority(__context);
 			if (success)
 				success &= _S_parse_path(__context, true, true);
@@ -471,6 +489,7 @@ uri::_S_parse_hier_part(struct parser_context* __context)
 		else {
 			if (__context->result)
 				__context->result->m_path_.push_back('/');
+			// impact_errno: see parse_path()
 			return _S_parse_path(__context, false, true);
 		}
 	}
@@ -478,6 +497,7 @@ uri::_S_parse_hier_part(struct parser_context* __context)
 		char c = data[current_idx];
 		if (_S_unreserved(c) || _S_sub_delims(c) ||
 			(c == ':') || (c == '@') || (c == '%'))
+			// impact_errno: see parse_path()
 			return _S_parse_path(__context, false, true);
 		else return true; // path-empty
 	}
@@ -510,7 +530,10 @@ uri::_S_parse_path(
 	if (__expect_root) {
 		     if (c == '?') return true; // empty path, next: query
 		else if (c == '#') return true; // empty path, next: fragment
-		else if (c != '/') return false;
+		else if (c != '/') {
+			impact_errno = impact_errors::URI_PATHABEMPTY;
+			return false;
+		}
 		else {
 			current_idx++;
 			if (current_idx >= data.size()) return true; // empty root
@@ -518,11 +541,17 @@ uri::_S_parse_path(
 	}
 	
 	c = data[current_idx];
-	if (c == '/') return false; // expected rootless path
+	if (c == '/') {
+		impact_errno = impact_errors::URI_PATHDELIM;
+		return false; // expected rootless path
+	}
 	else if (c == ':') {
 		if (__allow_colon)
 			current_idx++;
-		else return false; // expected no-scheme path
+		else {
+			impact_errno = impact_errors::URI_COLON;
+			return false; // expected no-scheme path
+		}
 	}
 	
 	// keep track of pchar count between '/'
@@ -536,8 +565,10 @@ uri::_S_parse_path(
 		}
 		else if (c == '/') {
 			// path child node
-			if (pchar_count == 0)
+			if (pchar_count == 0) {
+				impact_errno = impact_errors::URI_AUTHINPATH;
 				return false; // found illegal "//" in path
+			}
 			else {
 				current_idx++;
 				pchar_count = 0;
@@ -547,6 +578,7 @@ uri::_S_parse_path(
 	}
 	
 	std::string path(data.begin() + last_idx, data.begin() + current_idx);
+	// impact_errno: see percent_normalize()
 	bool success = _S_percent_normalize(&path, false);
 	
 	if (__context->result)
@@ -579,7 +611,10 @@ uri::_S_parse_authority(struct parser_context* __context)
 		if (c == '@') {
 			at_count++;
 			// can only be one '@'
-			if (at_count > 1) return false;
+			if (at_count > 1) {
+				impact_errno = impact_errors::URI_MULTI_AT;
+				return false;
+			}
 			else at_index = current_idx;
 		}
 		else if (c == ':') {
@@ -588,12 +623,18 @@ uri::_S_parse_authority(struct parser_context* __context)
 		}
 		else if (c == '[') {
 			ip_lit_a_count++;
-			if (ip_lit_a_count > 1) return false;
+			if (ip_lit_a_count > 1) {
+				impact_errno = impact_errors::URI_MULTI_IP_LIT;
+				return false;
+			}
 			else ip_lit_a_index = current_idx;
 		}
 		else if (c == ']') {
 			ip_lit_b_count++;
-			if (ip_lit_b_count > 1) return false;
+			if (ip_lit_b_count > 1) {
+				impact_errno = impact_errors::URI_MULTI_IP_LIT;
+				return false;
+			}
 			else ip_lit_b_index = current_idx;
 		}
 		else {
@@ -603,12 +644,18 @@ uri::_S_parse_authority(struct parser_context* __context)
 		current_idx++;
 	}
 	
-	if (ip_lit_a_count != ip_lit_b_count)
+	if (ip_lit_a_count != ip_lit_b_count) {
+		impact_errno = impact_errors::URI_IP_LIT_MISMATCH;
 		return false; // mismatching '[' and ']'
-	if (ip_lit_a_index > ip_lit_b_index)
+	}
+	if (ip_lit_a_index > ip_lit_b_index) {
+		impact_errno = impact_errors::URI_IP_LIT_MISMATCH;
 		return false; // misorder ']'...'['
-	if (!ip_lit_a_count && (at_count && colon_count_after > 1))
+	}
+	if (!ip_lit_a_count && (at_count && colon_count_after > 1)) {
+		impact_errno = impact_errors::URI_COLON;
 		return false; // too many ':'
+	}
 	
 	std::string userinfo = "";
 	std::string host     = "";
@@ -623,8 +670,10 @@ uri::_S_parse_authority(struct parser_context* __context)
 	
 	if (ip_lit_a_count) { // host is ip-literal
 		if ((port_colon_index > ip_lit_b_index)) {
-			if ((port_colon_index - 1) != ip_lit_b_index)
+			if ((port_colon_index - 1) != ip_lit_b_index) {
+				impact_errno = impact_errors::URI_COLON;
 				return false; // [::]foo: <- invalid port placement
+			}
 			port.assign(
 				data.begin() + port_colon_index + 1, // ignore ':'
 				data.begin() + current_idx);
@@ -654,17 +703,23 @@ uri::_S_parse_authority(struct parser_context* __context)
 	bool success     = true;
 	temp.result      = __context->result;
 	
+	// impact_errno: see parse_userinfo()
 	temp.current_idx = 0;
 	temp.data        = &userinfo;
 	success         &= _S_parse_userinfo(&temp);
 	
+	// impact_errno: see parse_host()
 	temp.current_idx = 0;
 	temp.data        = &host;
 	success         &= _S_parse_host(&temp);
 	
+	// impact_errno: see parse_port()
 	temp.current_idx = 0;
 	temp.data        = &port;
 	success         &= _S_parse_port(&temp);
+	
+	if (__context->result)
+		__context->result->m_has_auth_ = true;
 	
 	return success;
 }
@@ -682,10 +737,13 @@ uri::_S_parse_userinfo(struct parser_context* __context)
 	for (; current_idx < data.size(); current_idx++) {
 		c = data[current_idx];
 		if (!(_S_unreserved(c) || _S_sub_delims(c) ||
-			(c == '%') || (c == ':')))
+			(c == '%') || (c == ':'))) {
+			impact_errno = impact_errors::URI_USERINFO_SYM;
 			return false;
+		}
 	}
 	
+	// impact_errno: see percent_normalize()
 	bool success = _S_percent_normalize(&data, false);
 	
 	if (__context->result)
@@ -714,6 +772,7 @@ uri::_S_parse_host(struct parser_context* __context)
 	if (data.size() == 0)
 		return true; // empty host allowed (reg-name)
 	else if (data[current_idx] == '[') {
+		// impact_errno: see parse_ip_literal()
 		if(!_S_parse_ip_literal(__context))
 			return false;
 	}
@@ -721,11 +780,14 @@ uri::_S_parse_host(struct parser_context* __context)
 		char c; // validate against reg-name ABNF (includes IPv4address)
 		for (; current_idx < data.size(); current_idx++) {
 			c = data[current_idx];
-			if (!(_S_unreserved(c) || _S_sub_delims(c) || (c == '%')))
+			if (!(_S_unreserved(c) || _S_sub_delims(c) || (c == '%'))) {
+				impact_errno = impact_errors::URI_HOST_SYM;
 				return false;
+			}
 		}
 	}
 	
+	// impact_errno: see percent_normalize()
 	bool success = _S_percent_normalize(&data, true);
 
 	if (__context->result)
@@ -746,14 +808,19 @@ uri::_S_parse_port(struct parser_context* __context)
 	char c; // validate against port ABNF
 	for (; current_idx < data.size(); current_idx++) {
 		c = data[current_idx];
-		if (!DIGIT(c)) return false;
+		if (!DIGIT(c)) {
+			impact_errno = impact_errors::URI_PORT_SYM;
+			return false;
+		}
 	}
 	
 	// max(int) is 10 digits, play it safe with 9 digits
 	// typically socket ports are only 5 digits in length
 	// but the ABNF for URIs allow for any number of digits
-	if (current_idx > 9)
+	if (current_idx > 9) {
+		impact_errno = impact_errors::URI_PORT_LIMIT;
 		return false;
+	}
 	
 	if (__context->result && data.size()) {
 		__context->result->m_port_ = std::stoi(data);
@@ -770,12 +837,15 @@ uri::_S_parse_ip_literal(struct parser_context* __context)
 	// assuming data only contains ip-literal-specific data
 	// also assumes only one each '[' and ']'
 	std::string& data = *__context->data;
+	impact_errno = impact_errors::URI_INVL_IP_LIT;
 	
 	if (data.size() < 4)
 		return false; // requires [::] minimum
 	
 	if (!((data[0] == '[') && (data[data.size()-1] == ']')))
 		return false;
+	
+	impact_errno = impact_errors::SUCCESS;
 	
 	std::string d2 = data.substr(1, data.size() - 2);
 	struct parser_context context;
@@ -784,8 +854,10 @@ uri::_S_parse_ip_literal(struct parser_context* __context)
 	context.result      = __context->result;
 	
 	if (d2[0] == 'v')
+		// impact_errno: see parse_ipv_future()
 		return _S_parse_ipv_future(&context);
 	else
+		// impact_errno: see parse_ipv6_address()
 		return _S_parse_ipv6_address(&context);
 }
 
@@ -797,6 +869,7 @@ uri::_S_parse_ipv_future(struct parser_context* __context)
 	// assuming data only contains IPvfuture-specific data
 	std::string& data = *__context->data;
 	size_t current_idx = 0;
+	impact_errno = impact_errors::URI_INVL_IP_LIT;
 	
 	if (data.size() < 4) return false; // at least v0.0
 	
@@ -827,6 +900,7 @@ uri::_S_parse_ipv_future(struct parser_context* __context)
 		current_idx++;
 	}
 	
+	impact_errno = impact_errors::SUCCESS;
 	return true;
 }
 
@@ -836,6 +910,7 @@ uri::_S_parse_ipv6_address(struct parser_context* __context)
 {
 	// A long and annoying ipv6 parser
 	std::string& data = *__context->data;
+	impact_errno = impact_errors::URI_INVL_IP_LIT;
 	
 	// parsing backwards makes things easier
     if (data.size() == 0 || data.size() == 1)
@@ -1009,6 +1084,7 @@ uri::_S_parse_ipv6_address(struct parser_context* __context)
         }
     }
     
+    impact_errno = impact_errors::SUCCESS;
     return true;
 }
 
@@ -1031,6 +1107,7 @@ uri::_S_parse_query(struct parser_context* __context)
 	}
 	
 	std::string result(data.begin() + last_idx, data.begin() + current_idx);
+	// impact_errno: see percent_normalize()
 	bool success = _S_percent_normalize(&result, false);
 	
 	if (__context->result)
@@ -1058,10 +1135,12 @@ uri::_S_parse_fragment(struct parser_context* __context)
 		std::string result(data.begin() + current_idx, data.end());
 		success = _S_percent_normalize(&result, false);
 		
-		if (__context->result) {
+		if (__context->result)
 			__context->result->m_fragment_.assign(result);
-		}
 	}
+	
+	// percent normalization here left to uri schemes or user applications
+	// impact_errno left unchanged
 	
 	return success;
 }
