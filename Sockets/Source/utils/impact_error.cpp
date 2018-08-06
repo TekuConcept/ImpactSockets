@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <memory>
 
+#define DMSG(x) std::cout << x << std::endl
+
 #include "utils/environment.h"
 
 #if defined(__WINDOWS__)
@@ -24,6 +26,11 @@
     #include <execinfo.h>
     #include <cxxabi.h>
     #include <cstring>
+    #if defined(__LINUX__)
+    	#define STACK_OFFSET 2
+    #else
+    	#define STACK_OFFSET 3
+    #endif
 #endif
 
 using namespace impact;
@@ -139,7 +146,7 @@ impact_error::_M_trace() const throw()
 		);
 
 		out << "Trace: " << std::endl;
-		for (size_t i = 2; i < size; i++) {
+		for (size_t i = STACK_OFFSET; i < size; i++) {
 			std::string token(raw_symbols[i]);
 			out << _M_demangle(token) << std::endl;
 		}
@@ -160,13 +167,21 @@ impact_error::_M_demangle(std::string __token) const throw()
 {
 #if !defined(__WINDOWS__)
 	try {
+	#if defined(__LINUX__)
+		// GCC Linux symbols are in the form
+		// "(symbol+offset) address"
 		auto start = __token.find_first_of('(') + 1;
 		auto end   = __token.find_first_of('+', start);
+	#else /* __APPLE__ */
+		// Apple clang symbols are in the form
+		// # bin address symbol + offset
+		auto start = __token.find(" _") + 1;
+		auto end   = __token.find(" +");
+	#endif
 
 		if (start == std::string::npos ||
 			end == std::string::npos ||
 			start >= end) {
-			// DMSG("[StackTrace] No Symbol for " << token);
 			return __token;
 		}
 
@@ -185,16 +200,22 @@ impact_error::_M_demangle(std::string __token) const throw()
 			&status
 		); // mc_str = fname
 		
+		std::string dname;
 		if (mc_str == NULL) {
 			free(fname);
 			return __token;
 		}
-		
-		std::string dname(mc_str);
-		free(mc_str);
+		else {
+			dname.assign(mc_str);
+			free(mc_str);
+		}
 
 		if (status == 0) {
+		#if defined(__LINUX__)
 			return "(" + dname + __token.substr(end);
+		#else
+			return __token.substr(0, start) + dname + __token.substr(end);
+		#endif
 		}
 	}
 	catch (...) { /* do nothing - just return __token */ }

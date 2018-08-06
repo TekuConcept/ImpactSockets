@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <rfc/uri.h>
+#include <impact_error>
 
 using namespace impact;
 
@@ -184,6 +185,22 @@ TEST(test_uri, examples) {
     
     // RFC6068 (mailto)
     EXPECT_TRUE(uri::parse("mailto:user@example.org?subject=caf", NULL));
+    
+    // Default ports
+    EXPECT_TRUE(uri::parse("http://www.example.com/", &u));
+    EXPECT_EQ(u.scheme(), "http");
+    EXPECT_EQ(u.host(), "www.example.com");
+    EXPECT_EQ(u.port(), 80);
+    EXPECT_EQ(u.path(), "/");
+    
+    EXPECT_TRUE(uri::parse("http://www.example.com:80/", &u));
+    EXPECT_EQ(u.str(), "http://www.example.com/");
+    EXPECT_TRUE(uri::parse("http://www.example.com:3000/", &u));
+    EXPECT_EQ(u.str(), "http://www.example.com:3000/");
+    
+    EXPECT_TRUE(uri::parse("http://[::]:3000/", &u));
+    EXPECT_EQ(u.str(), "http://[::]:3000/");
+    EXPECT_EQ(u.port(), 3000);
 }
 
 TEST(test_uri, normalize) {
@@ -228,6 +245,22 @@ TEST(test_uri, normalize) {
     EXPECT_EQ(u.path(), "/a/g");
     EXPECT_TRUE(uri::parse("foo:mid/content=5/../6", &u));
     EXPECT_EQ(u.path(), "mid/6");
+    
+    // normalized strings
+    EXPECT_TRUE(uri::parse("foo:/%25AE%7E", &u));
+    // '%' is not decoded but '~' is
+    // All reserved symbols as well as '%' are left encoded
+    // while everything else is decoded
+    EXPECT_EQ(u.path(), "/%25AE~");
+    // '%' is decoded
+    // Everything that hasn't been decoded previously is now decoded
+    EXPECT_EQ(u.norm_path(), "/%AE~");
+    
+    EXPECT_TRUE(uri::parse("foo://bar/", &u));
+    // when there are no encoded symbols,
+    // the normalized is equal to the original
+    EXPECT_EQ(u.authority(), "bar");
+    EXPECT_EQ(u.norm_authority(), "bar");
 }
 
 /*

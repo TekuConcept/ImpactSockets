@@ -8,7 +8,7 @@
 #include <string>
 
 namespace impact {
-	enum impact_errors {
+	enum class imperr {
 		SUCCESS          = 0,
 
 		B64_BADSYM			, /* Bad base-64 symbol */
@@ -33,14 +33,16 @@ namespace impact {
 		URI_PORT_SYM        , /* Unexpected character or symbol in port */
 		URI_PORT_LIMIT      , /* Port size unsupported */
 		URI_INVL_IP_LIT     , /* Invalid IP literal */
+		URI_SCHEME_RSV      , /* Scheme already reserved (permanent scheme) */
+		URI_SCHEME_NOTFOUND , /* Registered scheme not found */
 	};
 
 	namespace internal {
-		unsigned int& imp_errno_f();
+		imperr& imp_errno_f();
 	}
-	#define impact_errno internal::imp_errno_f()
+	#define imp_errno internal::imp_errno_f()
 
-	std::string error_string(unsigned int code);
+	std::string error_string(imperr code);
 }
 
 #endif

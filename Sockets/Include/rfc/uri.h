@@ -7,6 +7,7 @@
 
 #include <string>
 #include <sstream>
+#include <map>
 
 #define RFC3986 1
 
@@ -22,23 +23,35 @@ namespace impact {
 		uri();
 		uri(uri&& r);
 		uri(std::string value);
-		~uri();
+		virtual ~uri();
 
 		uri& operator=(uri&& r);
 		
+		static bool register_scheme_port(std::string scheme, int port);
+		static bool deregister_scheme_port(std::string scheme);
 		static bool parse(std::string value, uri* result);
 		
-		std::string scheme()    const;
-		std::string hier_part() const; // normalized heir_part
-		std::string authority() const; // normalized authority
-		std::string userinfo()  const; // normalized userinfo
-		std::string host()      const; // normalized host
-		std::string path()      const; // normalized path
-		std::string query()     const; // normalized query
-		std::string fragment()  const; // normalized fragment
-		std::string str()       const; // normalized str
-		std::string abs_str()   const; // normalized abs_str
-		int         port()      const;
+		std::string scheme()         const;
+		std::string hier_part()      const;
+		std::string authority()      const;
+		std::string userinfo()       const;
+		std::string host()           const;
+		std::string path()           const;
+		std::string query()          const;
+		std::string fragment()       const;
+		std::string str()            const;
+		std::string abs_str()        const;
+		int         port()           const;
+		
+		std::string norm_hier_part() const;
+		std::string norm_authority() const;
+		std::string norm_userinfo()  const;
+		std::string norm_host()      const;
+		std::string norm_path()      const;
+		std::string norm_query()     const;
+		std::string norm_fragment()  const;
+		std::string norm_str()       const;
+		std::string norm_abs_str()   const;
 		
 	private:
 		struct parser_context {
@@ -55,10 +68,18 @@ namespace impact {
 		std::string  m_fragment_;
 		int          m_port_;
 		bool         m_has_auth_;
+		bool         m_has_default_port_;
+		
+		// Based on IANA Registered URI Schemes 08/03/2018 (permanent)
+		static std::map<std::string,int> s_scheme_port_dictionary_;
+		// User-Defined URI Schemes
+		static std::map<std::string,int> s_scheme_port_dictionary_usr_;
 		
 		static void _S_clear(struct parser_context*);
 		static void _S_path_normalize(std::string*);
-		static bool _S_percent_normalize(std::string*,bool);
+		static void _S_post_parse(struct parser_context*);
+		static std::string _S_percent_decode(const std::string&);
+		static bool _S_percent_decode(std::string*,bool);
 		static bool _S_parse_uri(struct parser_context*);
 		static bool _S_parse_scheme(struct parser_context*);
 		static bool _S_parse_hier_part(struct parser_context*);

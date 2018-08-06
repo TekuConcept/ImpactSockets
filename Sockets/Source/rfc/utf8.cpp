@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-#include "utils/impact_errno.h"
+#include "utils/errno.h"
 
 
 using namespace impact;
@@ -18,7 +18,7 @@ using namespace impact;
 */
 
 #define SERIALIZE_STRING_CODE_SNIPPET(mask) {           \
-    impact_errno = SUCCESS;                             \
+    imp_errno = imperr::SUCCESS;                        \
     size_t size = 0;                                    \
     for (auto& c : __input) {                           \
         size_t test = _S_estimate_buf_size( mask & c ); \
@@ -29,7 +29,7 @@ using namespace impact;
         size += test;                                   \
     }                                                   \
     if (size == static_cast<size_t>(-1)) {              \
-        impact_errno = UTF8_BADSYM;                     \
+        imp_errno = imperr::UTF8_BADSYM;                \
         return false;                                   \
     }                                                   \
     if (__result) {                                     \
@@ -46,11 +46,11 @@ utf8::serialize(
     char32_t     __input,
     std::string* __result)
 {
-    impact_errno = SUCCESS;
+    imp_errno = imperr::SUCCESS;
     
     if (__input > 0x0010FFFF ||
         (__input >= 0x0000D800 && __input <= 0x0000DFFF)) {
-        impact_errno = UTF8_BADSYM;
+        imp_errno = imperr::UTF8_BADSYM;
         return false;
     }
     
@@ -92,7 +92,7 @@ utf8::deserialize(
     const std::string& __input,
     std::u32string*    __result)
 {
-    impact_errno = SUCCESS;
+    imp_errno = imperr::SUCCESS;
     
     int state = 0;
     uint32_t symbol;
@@ -111,7 +111,7 @@ utf8::deserialize(
             symbol = ((0x3F >> state) & c);
             continue;
         header_error:
-            impact_errno = UTF8_BADHEAD;
+            imp_errno = imperr::UTF8_BADHEAD;
             return false;
         } break;
         default: /* trailer */ {
@@ -123,7 +123,7 @@ utf8::deserialize(
                     __result->push_back(symbol);
             }
             else {
-                impact_errno = UTF8_BADTRAIL;
+                imp_errno = imperr::UTF8_BADTRAIL;
                 return false;
             }
         } break;

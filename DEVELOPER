@@ -6,9 +6,9 @@ Naming conventions based on ISO C++ and GNU GCC.
 
 `MACRO_NAME`  - all caps for macros
 `ENUM_OPTION` - all caps for enum options
-`k_type`      - constant type
-`m_type`      - private member variable types
-`s_type`      - private static variable types
+`k_type_`     - constant type
+`m_type_`     - private member variable types
+`s_type_`     - private static variable types
 `_M_function` - private member functions
 `_S_function` - private static functions
 `__type`      - function parameters
@@ -24,16 +24,16 @@ Headers:
 - file names all lower case with underscores '_' separating each word.
 - safe guarding
 ```
-#ifndef _NAMESPACE_SCOPE_HEADER_H_
-#define _NAMESPACE_SCOPE_HEADER_H_
+#ifndef _NAMESPACE_CLASS_HEADER_H_
+#define _NAMESPACE_CLASS_HEADER_H_
 // code
 #endif
 ```
-- no `using namespace name;`
+- no `using namespace name;` in header files
 
 Source:
 - files end in .cpp
-- file names match header names
+- file names match header names with exception to partial implementations
 - use `using namespace name;` for project scope namespaces only
   ie no `using namespace std;`
 
@@ -66,31 +66,35 @@ class unique_name {
 
 typedef struct unique_name {
 
-} unique_name;
+} UniqueName;
 
-typedef class enum unique_name {
+typedef enum class unique_name {
 
-} unique_name;
+} UniqueName;
 ```
 
 Functions:
 ```
 constructor()
-: parameter_initialization(),
-  parameter_initialization_continued()
+: parameter_initialization(...),
+  parameter_initialization_continued(...)
 {
   // code
 }
 
 return_type
-function_name(type1 __param1, type2 __param2)
+function_name(
+    type1 __param1,
+    type2 __param2)
 {
   // code
 }
 
 void
-function_name(class_type __class, struct struct_type __struct,
-  enum enum_class_type, __enum)
+function_name(
+    class_type         __class,
+    struct struct_type __struct,
+    enum_class_type    __enum)
 {
   // code
 }
@@ -117,9 +121,8 @@ while (condition) {
 }
 
 do {
-
-}
-while (condition);
+  // code
+} while (condition);
 ```
 
 ##-: Addition Reading :-

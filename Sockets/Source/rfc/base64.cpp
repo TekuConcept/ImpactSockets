@@ -7,7 +7,7 @@
 #include <stdexcept>
 
 #include "utils/impact_error.h"
-#include "utils/impact_errno.h"
+#include "utils/errno.h"
 
 using namespace impact;
 
@@ -29,7 +29,7 @@ base64::encode(
 	const std::string& __data,
 	std::string*       __result)
 {
-	impact_errno = SUCCESS;
+	imp_errno = imperr::SUCCESS;
     if (__data.length() == 0)
       return "";
 
@@ -98,7 +98,7 @@ base64::decode(
 	const std::string& __data,
 	std::string*       __result)
 {
-	impact_errno = SUCCESS;
+	imp_errno = imperr::SUCCESS;
 	if (__data.length() == 0)
 		return "";
 
@@ -107,6 +107,7 @@ base64::decode(
     unsigned short     tally   = 0;
     unsigned int       reg24   = 0;
 	
+	// impact_errno: see run_decode()
 	if (!_S_run_decode(
 		__data,
 		&stream,
@@ -115,6 +116,7 @@ base64::decode(
 		&reg24
 	)) return false;
 	
+	// impact_errno: see unpad_stream
 	if (!_S_unpad_stream(
 		&stream,
 		&padding,
@@ -145,7 +147,7 @@ base64::_S_run_decode(
 		}
 		auto c = _S_reverse_lookup(__data[i]);
 		if (c == '\x40') {
-			impact_errno = B64_BADSYM;
+			imp_errno = imperr::B64_BADSYM;
 			return false;
 		}
 		else {
@@ -179,7 +181,7 @@ base64::_S_unpad_stream(
 			*__stream << (unsigned char)((*__reg24 >> 8) & k_byte);
 	}
 	else if ((*__padding + *__tally) != 0) {
-		impact_errno = B64_BADPAD;
+		imp_errno = imperr::B64_BADPAD;
 		return false;
 	}
 	return true;
