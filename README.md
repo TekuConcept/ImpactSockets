@@ -1,8 +1,9 @@
+
 # Cross-Platform C++ Sockets
 
 [![progress](https://img.shields.io/badge/OSX-pass-green.svg)]()&nbsp;
-[![progress](https://img.shields.io/badge/Win32-pass-green.svg)]()&nbsp;
-[![progress](https://img.shields.io/badge/Debian-pass-green.svg)]()
+[![progress](https://img.shields.io/badge/Win32-unknown-yellow.svg)]()&nbsp;
+[![progress](https://img.shields.io/badge/Debian-unknown-yellow.svg)]()
 
 Tested on:<br>
 
@@ -16,11 +17,16 @@ Tested on:<br>
 
 This project has also been tested by others and found to work on Chrome OS and PCDuino.
 
-### Websockets Comming Soon
-An attempt is underway to add full RFC 6455 websocket support wrapping the current TCP sockets.
+### Features Comming Soon
+An attempt is underway to add full support for the following protocols - though it may take several years to fully implement.
+- Websockets (RFC 6455)
+- Real-Time Streaming Protocol (RTSP v2, RFC 7826)
+- HyperText Transfer Protocol (HTTP v1.1, RFC 7230 - 7235)
 
-### Credits
-[Nathan Copier](https://github.com/nfcopier) of the Utah State RoboSub Team provided the C++ implementation of iostream wrappers for `TcpClient`.
+### External Libraries
+While one of the primary goals of this library is to be self contained, requiring only the C++ standard library, there are some critical features like security that need to be delegated elsewhere.
+
+- _GnuTLS_ for Transparent Layer Security. Optional for all security enabled protocols. As of this writing, GnuTLS uses the LGPLv2.1 software license, which is compatible with the license(s) provided for ImpactSockets.
 
 
 ___

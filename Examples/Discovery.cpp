@@ -3,21 +3,27 @@
 #include <algorithm> /* For transform() */
 #include <thread>
 #include <chrono>
-#include <future> /* async() */
+#include <future>    /* async() */
 #include <atomic>
-#include <UdpSocket.h>
-#include <Networking.h>
+
+#include <basic_socket>
+#include <impact_error>
+#include <networking>
+
+using namespace impact;
 
 #define VERBOSE(x) std::cout << x << std::endl
 #define CATCH(x) \
-	try { x } catch (std::runtime_error e)\
-	{ VERBOSE(e.what()); exit(1); }
+	try { x }\
+	catch (impact_error e) { VERBOSE(e.what()); exit(1); }\
+	catch (...) { VERBOSE("Unknown internal error"); exit(2); }
 
-using NetInterface  = Impact::Networking::NetInterface;
-using InterfaceType = Impact::Networking::InterfaceType;
+using Interface     = networking::netinterface;
+using InterfaceType = networking::InterfaceType;
 
-void printInterfaces(std::vector<NetInterface> list) {
-	for(const auto& iface : list) {
+
+void printInterfaces(std::vector<Interface> list) {
+	for (const auto& iface : list) {
 		VERBOSE("Name:      " << iface.name);
 		VERBOSE("Address:   " << iface.address);
 		VERBOSE("Netmask:   " << iface.netmask);
@@ -27,178 +33,144 @@ void printInterfaces(std::vector<NetInterface> list) {
 
 		switch (iface.type) {
 		case InterfaceType::OTHER:
-			VERBOSE("Type:      Other"); break;
+			VERBOSE("Type:      Other");                      break;
 		case InterfaceType::ETHERNET:
-			VERBOSE("Type:      Ethernet"); break;
+			VERBOSE("Type:      Ethernet");                   break;
 		case InterfaceType::WIFI:
-			VERBOSE("Type:      WiFi"); break;
+			VERBOSE("Type:      WiFi");                       break;
 		case InterfaceType::FIREWIRE:
-			VERBOSE("Type:      Firewire");  break;
+			VERBOSE("Type:      Firewire");                   break;
 		case InterfaceType::PPP:
-			VERBOSE("Type:      Point-to-Point Protocol");  break;
+			VERBOSE("Type:      Point-to-Point Protocol");    break;
 		case InterfaceType::ATM:
 			VERBOSE("Type:      Asynchronous Transfer Mode"); break;
 		default:
-			VERBOSE("Type:      [unknown]"); break;
+			VERBOSE("Type:      [unknown]");                  break;
 		}
 
 		std::cout << std::endl;
 	}
 }
 
-std::vector<NetInterface> filter(std::vector<NetInterface> list) {
-	std::vector<NetInterface> table;
+
+std::vector<Interface> filter(std::vector<Interface> list) {
+	std::vector<Interface> table;
 
 	// collect interfaces with the following characteristics
 	for (const auto& iface : list) {
-		if(!iface.ipv4) continue;
-		if(!(iface.type == InterfaceType::WIFI ||
-			iface.type == InterfaceType::ETHERNET)) continue;
-		if(iface.broadcast.size() == 0) continue;
+		if (!iface.ipv4)                            continue;
+		if (!(iface.type == InterfaceType::WIFI ||
+            iface.type == InterfaceType::ETHERNET)) continue;
+		if (iface.broadcast.size() == 0)            continue;
+
 		std::string name = iface.name;
 		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-		if(name.compare(0, 2, "en") == 0 ||
-			name.compare(0, 3, "eth") == 0 ||
-			name.compare(0, 4, "wlan") == 0 ||
-			name.compare(0, 5, "wi-fi") == 0 ||
-			name.compare(0, 3, "wlp") == 0)
+		if (name.compare(0, 2, "en")    == 0 ||
+            name.compare(0, 3, "eth")   == 0 ||
+            name.compare(0, 4, "wlan")  == 0 ||
+            name.compare(0, 5, "wi-fi") == 0 ||
+            name.compare(0, 3, "wlp")   == 0)
 			table.push_back(iface);
 	}
 
 	return table;
 }
 
-void sendMessage(Impact::UdpSocket& socket, std::vector<NetInterface> list) {
-	std::string message("msc-discovery-request");
-	for(const auto& iface : list) {
-		// (void)list;
-		for(auto i = 0; i < 5; i++) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-			try {
-				VERBOSE("Sending to " << iface.broadcast << ":5001");
-				socket.sendTo(&message[0], message.length(),
-					5001, iface.broadcast);
-			}
-			catch (std::runtime_error e) {
-				VERBOSE(e.what());
-				CATCH(socket.close();)
-				exit(1);
+
+void sendMessage(basic_socket& socket, std::vector<Interface> list) {
+	try {
+		std::string message("discovery-request");
+		for (const auto& iface : list) {
+			for (auto i = 0; i < 5; i++) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				VERBOSE("Sending to " << iface.broadcast << ":25565");
+				socket.sendto(&message[0], message.length(), 25565, iface.broadcast);
 			}
 		}
 	}
-}
-
-void receiveResponse(Impact::UdpSocket& socket) {
-	const int TIMEOUT = 1000;
-	const int LENGTH = 512;
-	char buffer[LENGTH];
-	for(auto retries = 0; retries < 5;) {
-		std::string address;
-		unsigned short port;
-		int size;
-		try { size = socket.recvFrom(buffer, LENGTH, port, address, TIMEOUT); }
-		catch (std::runtime_error e) {
-			VERBOSE(e.what());
-			CATCH(socket.close();)
-			exit(1);
-		}
-		if (size == LENGTH) VERBOSE("[ overflow ]");
-		else if(size > 0) {
-			retries = 0;
-			buffer[size] = 0;
-			VERBOSE(address << ":" << port << "\t" << buffer);
-		}
-		else retries++;
+	catch (impact_error e) {
+		VERBOSE(e.what());
+		throw;
 	}
 }
 
-std::thread service;
-std::atomic<bool> fshutdown(false);
-void runServer() {
-	service = std::thread([](){
-		Impact::UdpSocket socket;
-		CATCH(socket.open(5001, "0.0.0.0");)
 
-		try { socket.setBroadcast(true); }
-		catch (std::runtime_error e) {
-			VERBOSE(e.what());
-			CATCH(socket.close();)
-			exit(1);
-		}
+void receiveResponse(basic_socket& socket) {
+	try {
+		struct poll_handle handle;
+		handle.socket = socket.get();
+		handle.events = (int)PollFlags::IN;
+		std::vector<poll_handle> handles{ handle };
 
-		VERBOSE("UDP Listening On Port 5001\n");
+		const int kTimeout = 1000;
+		const int kLength  = 512;
+		const int kRetries = 5;
+		char buffer[kLength];
 
-		const int TIMEOUT = 1000;
-		const int LENGTH = 512;
-		char buffer[LENGTH];
-		while(!fshutdown) {
-			std::string address;
+		for (auto retries = 0; retries < kRetries;) {
+			std::string    address;
 			unsigned short port;
-			int size;
-			try { size = socket.recvFrom(
-				buffer, LENGTH, port, address, TIMEOUT); }
-			catch (std::runtime_error e) {
-				VERBOSE(e.what());
-				CATCH(socket.close();)
-				exit(1);
-			}
-			if (size == LENGTH) VERBOSE("[ overflow ]");
-			else if(size > 0) {
-				VERBOSE("Received: " << buffer);
-			}
-			else continue;
-		}
+			int            size;
 
-		CATCH(socket.close();)
-	});
+			// timeout
+			auto status = impact::poll(&handles, kTimeout);
+			if (status == 0)
+				size = 0;
+			else {
+				auto flags = handles[0].return_events;
+				handles[0].return_events = 0;
+
+				if ((int)(flags & (int)PollFlags::IN))
+					size = socket.recvfrom(buffer, kLength, &port, &address);
+				else size = 0;
+			}
+
+			if (size == kLength)
+				VERBOSE("[ overflow ]");
+			else if (size > 0) {
+				retries      = 0;
+				buffer[size] = 0;
+				VERBOSE("Received from: " << address << ":" << port << "\t" << buffer);
+			}
+			else retries++;
+		}
+	}
+	catch (...) { throw; }
 }
+
 
 void runClient() {
-	std::vector<NetInterface> list;
-	CATCH(list = Impact::Networking::findNetworkInterfaces();)
+	try {
+		std::vector<Interface> list = networking::find_network_interfaces();
 
-	list = filter(list);
-	printInterfaces(list);
+		list = filter(list);
+		printInterfaces(list);
 
-	Impact::UdpSocket socket;
-#if defined(_MSC_VER)
-	// Windows automatically listens on the given port
-	// No need to manuall bind to inaddrany:port
-	CATCH(socket.open();)
-#else
-	CATCH(socket.open(5001, "0.0.0.0");)
-#endif
+		basic_socket socket = make_udp_socket();
+		socket.broadcast(true);
+		socket.reuse_address(true);
+		socket.multicast_ttl(2);
+		VERBOSE("> Bind");
+		socket.bind("0.0.0.0", 25565);
 
-	try { socket.setBroadcast(true); }
-	catch (std::runtime_error e) {
-		VERBOSE(e.what());
-		CATCH(socket.close();)
-		exit(1);
+		VERBOSE("> Sending");
+		sendMessage(socket, list);
+
+		VERBOSE("> Receiving");
+		receiveResponse(socket);
+
+		VERBOSE("> Done!");
+		socket.close();
 	}
-
-	try { socket.setMulticastTTL(2); }
-	catch (std::runtime_error e) {
-		VERBOSE(e.what());
-		CATCH(socket.close();)
-		exit(1);
-	}
-
-	sendMessage(socket, list);
-	receiveResponse(socket);
-
-	CATCH(socket.close();)
+	catch (impact_error e) { VERBOSE("CLIENT: " << e.what()); }
+	catch (...) { VERBOSE("CLIENT: Unknown error"); }
 }
 
 int main() {
 	VERBOSE("- BEGINING NETWORK DISCOVERY -");
 
-	//runServer(); // Fails to run on windows
-	//std::this_thread::sleep_for(std::chrono::seconds(1));
 	runClient();
 
-	fshutdown = true;
-	if(service.joinable()) service.join();
-	
 	VERBOSE("- END OF LINE -");
 	return 0;
 }

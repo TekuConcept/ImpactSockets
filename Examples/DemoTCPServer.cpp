@@ -1,61 +1,61 @@
-#include <TcpServer.h>
 #include <iostream>
 #include <string>
-#include <stdexcept>
-// #include "StaticCommand.h"
+#include <thread>
+#include <chrono>
 
-// void callback(Object&,EventArgs) {
-//     std::cerr << "Read Timed Out [Intentional]" << std::endl;
-// }
+#include <basic_socket>
+#include <impact_error>
+#include <socketstream>
+
+using namespace impact;
 
 #define VERBOSE(x) std::cout << x << std::endl
 
 int main() {
-    Impact::TcpServer server;
+	VERBOSE("- BEGIN TCP DEMO -");
 
-    try { server.open(25565); }
-    catch (std::runtime_error e) { VERBOSE(e.what()); return -1; }
-    
-    VERBOSE("- SERVER STARTED -");
-    
-    Impact::TcpSocket connection;
-    try {
-        server.accept(connection);
-        connection.setTimeout(2500); // 2.5 seconds
-        // connection->onTimeout += StaticCommandPtr(
-        //     EventArgs,
-        //     callback
-        // );
-    }
-    catch (std::runtime_error e) { VERBOSE(e.what()); return 1; }
-    
-    VERBOSE("Found new Client");
-    
-    std::string msg;
-    std::getline(connection, msg);
-    std::cout << "msg: " << msg << std::endl;
+	try {
+		basic_socket server = make_tcp_socket();
+		server.bind(25565);
+		server.listen();
 
-    connection << "Hello From Server" << std::endl;
-    
-    std::string done;
-    std::getline(connection, done);
-    VERBOSE("done: " << done);
-    
-    // attempt to wait for client but timeout
-    // because nothing arrives
-    std::string latemsg = "- NO MESSAGE -";
-    std::getline(connection, latemsg);
-    VERBOSE("Fail: " << connection.fail());
-    VERBOSE("Bad:  " << connection.bad());
-    VERBOSE(latemsg);
+		VERBOSE("+ SERVER STARTED");
 
-    // shouldn't throw except for a system io error
-    // or if close was called before open, nevertheless
-    // try-catch for demo purposes
-    try { connection.close(); } catch (...) {}
-    try { server.close(); } catch (...) {}
+		basic_socket client = server.accept();
+		socketstream stream(client);
+		stream.set_timeout(2500); // 2.5s
 
-    VERBOSE("- END OF LINE -");
-    
-    return 0;
+		VERBOSE("+ FOUND NEW CLIENT");
+
+		std::string message;
+		std::getline(stream, message);
+		VERBOSE("+ Message: " << message);
+
+		stream << "Hello From Server" << std::endl;
+
+		std::getline(stream, message);
+		VERBOSE("+ Message: " << message);
+
+		// attempt to wait for client but timeout
+		// because nothing arrives
+		std::string late_message = "- NO MESSAGE -";
+		std::getline(stream, late_message);
+		VERBOSE("+ Fail: " << stream.fail());
+		VERBOSE("+ Bad:  " << stream.bad());
+		VERBOSE("+ Message: " << late_message);
+
+		VERBOSE("+ SERVER SHUTTING DOWN");
+
+		try { client.close(); }
+		catch (...) { VERBOSE("+ Client error on close"); }
+		try { server.close(); }
+		catch (impact_error e) {
+			VERBOSE("+ Server close error " << e.what());
+		}
+	}
+	catch (impact_error e) { VERBOSE("+ Error: " << e.what()); }
+	catch (...) { VERBOSE("Unknown internal error"); }
+
+	VERBOSE("- END OF TCP DEMO -");
+	return 0;
 }
