@@ -14,7 +14,12 @@
 #   SOCKETS_VERSION_STRING - the version of ImpactSockets found.
 
 # Look for the header file.
-find_path(SOCKETS_INCLUDE_DIR NAMES sockets/SocketInterface.h)
+find_path(SOCKETS_INCLUDE_DIR
+  PATHS
+  /usr/include/sockets
+  /usr/local/include/sockets
+  NAMES basic_socket
+)
 mark_as_advanced(SOCKETS_INCLUDE_DIR)
 
 # Look for the library (sorted from most current/relevant entry to least).
