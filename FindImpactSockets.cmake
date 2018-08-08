@@ -20,6 +20,7 @@ find_path(SOCKETS_INCLUDE_DIR
   /usr/local/include/sockets
   NAMES basic_socket
 )
+message("Library: ${SOCKETS_INCLUDE_DIR}")
 mark_as_advanced(SOCKETS_INCLUDE_DIR)
 
 # Look for the library (sorted from most current/relevant entry to least).
