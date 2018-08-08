@@ -2,6 +2,8 @@ include(CheckCXXSourceRuns)
 #include(CheckVariableExists)
 #include(CheckCXXSymbolExists)
 
+SET(TMP_REQ_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+SET(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11")
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
@@ -88,3 +90,5 @@ else()
   # Bit-Aligned and Word-Aligned Endianness Not Supported
   message(FATAL_ERROR "Architecture endianness not supported")
 endif()
+
+SET(CMAKE_REQUIRED_FLAGS "${TMP_REQ_FLAGS}")

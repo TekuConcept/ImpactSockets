@@ -47,15 +47,15 @@ utf8::serialize(
     std::string* __result)
 {
     imp_errno = imperr::SUCCESS;
-    
+
     if (__input > 0x0010FFFF ||
         (__input >= 0x0000D800 && __input <= 0x0000DFFF)) {
         imp_errno = imperr::UTF8_BADSYM;
         return false;
     }
-    
+
     if (__result) _S_encode(__input, __result);
-    
+
     return true;
 }
 
@@ -93,7 +93,7 @@ utf8::deserialize(
     std::u32string*    __result)
 {
     imp_errno = imperr::SUCCESS;
-    
+
     int state = 0;
     uint32_t symbol;
     for (char c : __input) {
@@ -129,6 +129,6 @@ utf8::deserialize(
         } break;
         }
     }
-    
+
     return true;
 }

@@ -68,7 +68,7 @@ namespace impact {
             tail_b: __result->push_back(0x80|((__symbol>>6)&0x3F));
             tail_a: __result->push_back(0x80|(__symbol&0x3F));
         }
-        
+
         friend class test_utf8_c; /* guts private access */
     };
 }
