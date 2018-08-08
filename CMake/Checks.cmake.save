@@ -2,8 +2,6 @@ include(CheckCXXSourceRuns)
 #include(CheckVariableExists)
 #include(CheckCXXSymbolExists)
 
-SET(TMP_REQ_FLAGS "${CMAKE_REQUIRED_FLAGS}")
-SET(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11")
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
@@ -16,6 +14,9 @@ TYPE n\;                \n\
 int main() {return 0\;} \
 ")
 
+
+SET(TMP_REQ_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+SET(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11")
 
 STRING(REPLACE "TYPE" "uint8_t" TYPE_CODE "${TYPE_CODE_TEMPLATE}")
 CHECK_CXX_SOURCE_RUNS(${TYPE_CODE} HAVE_UINT8_T)
@@ -41,6 +42,7 @@ CHECK_CXX_SOURCE_RUNS(${TYPE_CODE} HAVE_INT32_T)
 STRING(REPLACE "TYPE" "int64_t" TYPE_CODE "${TYPE_CODE_TEMPLATE}")
 CHECK_CXX_SOURCE_RUNS(${TYPE_CODE} HAVE_INT64_T)
 
+SET(CMAKE_REQUIRED_FLAGS "${TMP_REQ_FLAGS}")
 
 # These types should be supported on just about every system that
 # supports socket transactions and the C++11 standard, nevertheless,
@@ -90,5 +92,3 @@ else()
   # Bit-Aligned and Word-Aligned Endianness Not Supported
   message(FATAL_ERROR "Architecture endianness not supported")
 endif()
-
-SET(CMAKE_REQUIRED_FLAGS "${TMP_REQ_FLAGS}")

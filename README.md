@@ -3,7 +3,7 @@
 
 [![progress](https://img.shields.io/badge/OSX-pass-green.svg)]()&nbsp;
 [![progress](https://img.shields.io/badge/Win32-unknown-yellow.svg)]()&nbsp;
-[![progress](https://img.shields.io/badge/Debian-unknown-yellow.svg)]()
+[![progress](https://img.shields.io/badge/Debian-pass-green.svg)]()
 
 Tested on:<br>
 
