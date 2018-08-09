@@ -210,6 +210,14 @@ TEST(test_uri, normalize) {
     EXPECT_TRUE(uri::parse("FoO:", &u));
     EXPECT_EQ(u.scheme(), "foo");
     
+    // normalized host to lower
+    EXPECT_TRUE(uri::parse("foo://BaR", &u));
+    EXPECT_EQ(u.host(), "bar");
+    
+    // path not normalized to lower
+    EXPECT_TRUE(uri::parse("foo:/Path/TO/File", &u));
+    EXPECT_EQ(u.path(), "/Path/TO/File");
+    
     // normalized unreserved %-encoded data to mapped values
     EXPECT_TRUE(uri::parse("foo:/%2E%2E%2F", &u));
     EXPECT_EQ(u.path(), "/..%2F");

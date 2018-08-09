@@ -79,6 +79,7 @@ if(BUILD_UNIT_TESTS)
   
         set(UNIT_SETS
             "unit_set_1"
+            "unit_set_2"
         )
         foreach(UNIT_SET ${UNIT_SETS})
             file(GLOB_RECURSE UNIT_FILES "${TESTS_DIR}/GUTs/${UNIT_SET}/*.cpp")

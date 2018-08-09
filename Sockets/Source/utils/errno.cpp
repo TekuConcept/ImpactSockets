@@ -29,9 +29,11 @@ namespace impact {
 		case imperr::UTF8_BADHEAD:		  return "Bad unicode byte header";
 		case imperr::UTF8_BADTRAIL:		  return "Bad unicode byte trailer";
 
-		case imperr::URI_SCHEME:		  return "Failed to parse uri scheme";
+		case imperr::URI_SCHEME:		  return "Bad uri scheme";
 		case imperr::URI_COLON:           return "Colon delimiter out of place";
 		case imperr::URI_NOCOLON:         return "No collon delimiter";
+		case imperr::URI_QUERY_SYM:       return "Unexpected character or symbol in query";
+		case imperr::URI_PATH_SYM:        return "Unexpected character or symbol in path";
 		case imperr::URI_PATHABEMPTY:     return "Path is neither absolute nor empty";
 		case imperr::URI_PATHDELIM:       return "Path delimiter '/' found out of place";
 		case imperr::URI_AUTHINPATH:      return "Unexpected '//' in uri path";
@@ -39,7 +41,9 @@ namespace impact {
 		case imperr::URI_MULTI_AT:        return "More than one '@' found in auth name";
 		case imperr::URI_MULTI_IP_LIT:    return "More than one IP literal identifier found in auth name";
 		case imperr::URI_IP_LIT_MISMATCH: return "'[' and ']' IP literal identifiers missing or out of order";
+		case imperr::URI_USERINFO:        return "Bad uri userinfo";
 		case imperr::URI_USERINFO_SYM:    return "Unexpected character or symbol in userinfo";
+		case imperr::URI_HOST:            return "Bad uri host";
 		case imperr::URI_HOST_SYM:        return "Unexpected character or symbol in host";
 		case imperr::URI_PORT_SYM:        return "Unexpected character or symbol in port";
 		case imperr::URI_PORT_LIMIT:      return "Port size unsupported";

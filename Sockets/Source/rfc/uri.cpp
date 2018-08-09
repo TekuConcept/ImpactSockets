@@ -28,6 +28,20 @@ uri::uri()
 {}
 
 
+uri::uri(const uri& __value)
+: m_parser_options_  (__value.m_parser_options_  ),
+  m_scheme_          (__value.m_scheme_          ),
+  m_userinfo_        (__value.m_userinfo_        ),
+  m_host_            (__value.m_host_            ),
+  m_path_            (__value.m_path_            ),
+  m_query_           (__value.m_query_           ),
+  m_fragment_        (__value.m_fragment_        ),
+  m_port_            (__value.m_port_            ),
+  m_has_auth_        (__value.m_has_auth_        ),
+  m_has_default_port_(__value.m_has_default_port_)
+{}
+
+
 uri::uri(std::string __value)
 {
 	UNUSED(__value);
@@ -36,6 +50,7 @@ uri::uri(std::string __value)
 	context.current_idx = 0;
 	context.data        = &__value;
 	context.result      = this;
+	context.parser_opts = m_parser_options_;
 	
 	if (!_S_parse_uri(&context))
 		throw impact_error(error_string(imp_errno));
@@ -46,15 +61,16 @@ uri::~uri() {}
 
 
 uri::uri(uri&& __value)
-: m_scheme_  (std::move(__value.m_scheme_  )),
-  m_userinfo_(std::move(__value.m_userinfo_)),
-  m_host_    (std::move(__value.m_host_    )),
-  m_path_    (std::move(__value.m_path_    )),
-  m_query_   (std::move(__value.m_query_   )),
-  m_fragment_(std::move(__value.m_fragment_)),
-  m_port_    (          __value.m_port_     ),
-  m_has_auth_(          __value.m_has_auth_ ),
-  m_has_default_port_(__value.m_has_default_port_)
+: m_parser_options_  (__value.m_parser_options_     ),
+  m_scheme_          (std::move(__value.m_scheme_  )),
+  m_userinfo_        (std::move(__value.m_userinfo_)),
+  m_host_            (std::move(__value.m_host_    )),
+  m_path_            (std::move(__value.m_path_    )),
+  m_query_           (std::move(__value.m_query_   )),
+  m_fragment_        (std::move(__value.m_fragment_)),
+  m_port_            (          __value.m_port_     ),
+  m_has_auth_        (          __value.m_has_auth_ ),
+  m_has_default_port_(__value.m_has_default_port_   )
 {}
 
 
@@ -82,6 +98,37 @@ uri::parse(
 	context.current_idx = 0;
 	context.data        = &__value;
 	context.result      = __result;
+	if (__result)
+		context.parser_opts = __result->m_parser_options_;
+	
+	return _S_parse_uri(&context);
+}
+
+
+bool
+uri::parse(
+	std::string            __value,
+	uri*                   __result,
+	struct uri_parser_opts __opts)
+{
+	struct parser_context context;
+	context.current_idx = 0;
+	context.data        = &__value;
+	context.result      = __result;
+	if (__result) {
+		auto& opts = __result->m_parser_options_;
+		if (opts.expect_scheme)
+			 context.parser_opts.expect_scheme = opts.expect_scheme;
+		else context.parser_opts.expect_scheme = __opts.expect_scheme;
+		if (opts.expect_userinfo)
+			 context.parser_opts.expect_userinfo = opts.expect_userinfo;
+		else context.parser_opts.expect_userinfo = __opts.expect_userinfo;
+		if (opts.expect_host)
+			 context.parser_opts.expect_host = opts.expect_host;
+		else context.parser_opts.expect_host = __opts.expect_host;
+	}
+	else
+		context.parser_opts = __opts;
 	
 	return _S_parse_uri(&context);
 }
@@ -563,10 +610,19 @@ uri::_S_parse_scheme(struct parser_context* __context)
 			break;
 	}
 	
+	std::string scheme;
+	scheme.assign(
+		data.begin() + last_idx,
+		data.begin() + current_idx);
+	
+	if (__context->parser_opts.expect_scheme &&
+		!__context->parser_opts.expect_scheme(scheme)) {
+		imp_errno = imperr::URI_SCHEME;
+		return false;
+	}
+	
 	if (__context->result)
-		__context->result->m_scheme_.assign(
-			data.begin() + last_idx,
-			data.begin() + current_idx);
+		__context->result->m_scheme_.assign(scheme);
 	
 	return true;
 }
@@ -616,6 +672,13 @@ uri::_S_parse_hier_part(struct parser_context* __context)
 			(c == ':') || (c == '@') || (c == '%'))
 			// impact_errno: see parse_path()
 			return _S_parse_path(__context, false, true);
+		else if ((c != '?') && (c != '#')) {
+			// NOTE: test '?' and '#' incase the current character is
+			// a non-path character. This assertion is not enforced in
+			// parse_uri() so try to enforce it here.
+			imp_errno = imperr::URI_PATH_SYM;
+			return false;
+		}
 		else return true; // path-empty
 	}
 	
@@ -823,6 +886,7 @@ uri::_S_parse_authority(struct parser_context* __context)
 	struct parser_context temp;
 	bool success     = true;
 	temp.result      = __context->result;
+	temp.parser_opts = __context->parser_opts;
 	
 	// impact_errno: see parse_userinfo()
 	temp.current_idx = 0;
@@ -865,12 +929,19 @@ uri::_S_parse_userinfo(struct parser_context* __context)
 	}
 	
 	// impact_errno: see percent_decode()
-	bool success = _S_percent_decode(&data, false);
+	if (!_S_percent_decode(&data, false))
+		return false;
+	
+	if (__context->parser_opts.expect_userinfo &&
+		!__context->parser_opts.expect_userinfo(data)) {
+		imp_errno = imperr::URI_USERINFO;
+		return false;
+	}
 	
 	if (__context->result)
 		__context->result->m_userinfo_ = data;
 	
-	return success;
+	return true;
 }
 
 
@@ -890,8 +961,11 @@ uri::_S_parse_host(struct parser_context* __context)
 	std::string& data = *__context->data;
 	auto& current_idx = __context->current_idx;
 	
-	if (data.size() == 0)
-		return true; // empty host allowed (reg-name)
+	if (data.size() == 0) {
+		if (__context->parser_opts.expect_host)
+			return __context->parser_opts.expect_host(data);
+		else return true; // empty host allowed (reg-name)
+	}
 	else if (data[current_idx] == '[') {
 		// impact_errno: see parse_ip_literal()
 		if(!_S_parse_ip_literal(__context))
@@ -909,12 +983,19 @@ uri::_S_parse_host(struct parser_context* __context)
 	}
 	
 	// impact_errno: see percent_decode()
-	bool success = _S_percent_decode(&data, true);
+	if (!_S_percent_decode(&data, true))
+		return false;
+	
+	if (__context->parser_opts.expect_host &&
+		!__context->parser_opts.expect_host(data)) {
+		imp_errno = imperr::URI_HOST;
+		return false;
+	}
 
 	if (__context->result)
 		__context->result->m_host_ = data;
 	
-	return success;
+	return true;
 }
 
 
@@ -1225,6 +1306,15 @@ uri::_S_parse_query(struct parser_context* __context)
 			(c == '%') || (c == ':') || (c == '@') ||
 			(c == '/') || (c == '?'))) break;
 		current_idx++;
+	}
+	
+	if (current_idx < data.size() &&
+		(data[current_idx] != '#')) {
+		// NOTE: test '#' incase the current character is
+		// a non-query character. This assertion is not enforced
+		// in parse_uri() so try to enforce it here.
+		imp_errno = imperr::URI_QUERY_SYM;
+		return false;
 	}
 	
 	std::string result(data.begin() + last_idx, data.begin() + current_idx);
