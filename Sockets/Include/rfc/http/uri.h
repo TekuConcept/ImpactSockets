@@ -16,6 +16,8 @@ namespace http {
      * to enforce protocol requirements. In time this object
      * may be completely omitted in favor of impact::uri to
      * make the API more convinient (less stuff to worry about).
+     * This object may be considered more or less a reference
+     * for the time being.
      */
     class uri : public impact::uri {
     public:
