@@ -46,20 +46,81 @@ TEST(test_http_message, message) {
                    *( header-field CRLF )
                    CRLF
                    [ message-body ]
-    start-line   = request-line / status-line
-    request-line = method SP request-target SP HTTP-version CRLF
-    status-line  = HTTP-version SP status-code SP reason-phrase CRLF
     */
     std::stringstream stream(get_test_response());
     message msg;
+    struct message_parser_opts opts;
     
-    // returns blank message
+    // null stream
     msg = message::from_stream(NULL);
+    EXPECT_FALSE(msg.valid());
     
-    // message from non-null stream
+    // non-null stream
     msg = message::from_stream(&stream);
     EXPECT_EQ(msg.start_line(), "HTTP/1.1 200 OK");
     EXPECT_EQ(msg.header_fields().size(), 8);
     EXPECT_EQ(msg.message_body(),
         "Hello World! My payload includes a trailing CRLF.\r\n");
+    EXPECT_TRUE(msg.valid());
+    
+    // empty stream
+    stream.clear();
+    stream.str("");
+    msg = message::from_stream(&stream);
+    EXPECT_FALSE(msg.valid());
+    
+    stream.clear();
+    stream.str("\r\n");
+    msg = message::from_stream(&stream);
+    EXPECT_FALSE(msg.valid());
+    
+    // no header tail
+    stream.clear();
+    stream.str("HTTP/1.1 200 OK\r\n");
+    msg = message::from_stream(&stream);
+    EXPECT_FALSE(msg.valid());
+    
+    // embeded linefeed
+    stream.clear();
+    stream.str("HTTP/1.1\n200 OK\r\n\r\n");
+    msg = message::from_stream(&stream);
+    EXPECT_FALSE(msg.valid());
+    
+    // embeded carriage return
+    stream.clear();
+    stream.str("HTTP/1.1\r200 OK\r\n\r\n");
+    msg = message::from_stream(&stream);
+    EXPECT_FALSE(msg.valid());
+    
+    // - LIMITS -
+    
+    stream.clear();
+    stream.str(get_test_request());
+    msg = message::from_stream(&stream, &opts);
+    EXPECT_EQ(msg.start_line(), "GET /hello.txt HTTP/1.1");
+    EXPECT_EQ(msg.header_fields().size(), 3);
+    EXPECT_TRUE(msg.valid());
+    
+    // line size limit
+    opts.line_size_limit = 20; // default: 8000
+    stream.clear();
+    stream.str("GET /long/path/to/a/resource HTTP/1.1\r\n\r\n");
+    msg = message::from_stream(&stream, &opts);
+    EXPECT_FALSE(msg.valid());
+    
+    // header count limit
+    opts.line_size_limit = 8000; // reset
+    opts.header_count_limit = 4; // default: 101
+    stream.clear();
+    stream.str(get_test_response());
+    msg = message::from_stream(&stream, &opts);
+    EXPECT_FALSE(msg.valid());
+    
+    // body size limit
+    opts.header_count_limit = 4;
+    opts.body_size_limit = 20; // default: 200000
+    stream.clear();
+    stream.str(get_test_response());
+    msg = message::from_stream(&stream, &opts);
+    EXPECT_FALSE(msg.valid());
 }
