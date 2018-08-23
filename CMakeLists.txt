@@ -102,6 +102,7 @@ if(BUILD_SYSTEM_TESTS)
         "test_impact_error"
         "test_worker_thread"
         "test_async_pipeline"
+        "test_regex"
     )
     foreach(SYSTEM_TEST ${SYSTEM_TESTS})
         x_add_executable(${SYSTEM_TEST} "${TESTS_DIR}/System/${SYSTEM_TEST}.cpp")

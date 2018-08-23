@@ -13,6 +13,11 @@
 #include "sockets/probe.h"
 
 namespace impact {
+	typedef enum class iostate_reason {
+		NONE,
+		TIMEOUT,
+	} iostate_reason;
+	
 	class socketstream : private std::streambuf, public std::iostream {
 	public:
 		socketstream(basic_socket& socket, unsigned int stream_buffer_size = 256)
@@ -37,7 +42,6 @@ namespace impact {
 		char*                    m_input_buffer_;
 
 		bool                     m_hangup_;
-		bool                     m_again_;
 		int                      m_timeout_;
 
 		void _M_initialize(unsigned int);

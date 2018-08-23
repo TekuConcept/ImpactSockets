@@ -11,6 +11,10 @@
 using namespace impact;
 using namespace http;
 
+#define RESET(stream,string)\
+    stream.clear();\
+    stream.str(string);
+
 
 std::string get_test_request() {
     std::ostringstream os;
@@ -41,86 +45,115 @@ std::string get_test_response() {
 
 
 TEST(test_http_message, message) {
-    /*
-    HTTP-message = start-line
-                   *( header-field CRLF )
-                   CRLF
-                   [ message-body ]
-    */
-    std::stringstream stream(get_test_response());
-    message msg;
+    std::stringstream stream;
+    message_ptr msg;
     struct message_parser_opts opts;
     
     // null stream
-    msg = message::from_stream(NULL);
-    EXPECT_FALSE(msg.valid());
-    
+    EXPECT_EQ(message::from_stream(NULL), nullptr);
+
     // non-null stream
+    RESET(stream,get_test_response())
     msg = message::from_stream(&stream);
-    EXPECT_EQ(msg.start_line(), "HTTP/1.1 200 OK");
-    EXPECT_EQ(msg.header_fields().size(), 8);
-    EXPECT_EQ(msg.message_body(),
+    EXPECT_EQ(msg->start_line(), "HTTP/1.1 200 OK");
+    EXPECT_EQ(msg->header_fields().size(), 8);
+    EXPECT_EQ(msg->message_body(),
         "Hello World! My payload includes a trailing CRLF.\r\n");
-    EXPECT_TRUE(msg.valid());
-    
+
     // empty stream
-    stream.clear();
-    stream.str("");
-    msg = message::from_stream(&stream);
-    EXPECT_FALSE(msg.valid());
+    RESET(stream,"")
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
     
-    stream.clear();
-    stream.str("\r\n");
-    msg = message::from_stream(&stream);
-    EXPECT_FALSE(msg.valid());
+    RESET(stream,"\r\n")
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
     
     // no header tail
-    stream.clear();
-    stream.str("HTTP/1.1 200 OK\r\n");
-    msg = message::from_stream(&stream);
-    EXPECT_FALSE(msg.valid());
+    RESET(stream,"HTTP/1.1 200 OK\r\n");
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
     
     // embeded linefeed
-    stream.clear();
-    stream.str("HTTP/1.1\n200 OK\r\n\r\n");
-    msg = message::from_stream(&stream);
-    EXPECT_FALSE(msg.valid());
+    RESET(stream,"HTTP/1.1\n200 OK\r\n\r\n");
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
     
     // embeded carriage return
-    stream.clear();
-    stream.str("HTTP/1.1\r200 OK\r\n\r\n");
-    msg = message::from_stream(&stream);
-    EXPECT_FALSE(msg.valid());
+    RESET(stream,"HTTP/1.1\r200 OK\r\n\r\n");
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
     
-    // - LIMITS -
+    // -: LIMITS :-
     
-    stream.clear();
-    stream.str(get_test_request());
+    // within limits
+    RESET(stream,get_test_request());
     msg = message::from_stream(&stream, &opts);
-    EXPECT_EQ(msg.start_line(), "GET /hello.txt HTTP/1.1");
-    EXPECT_EQ(msg.header_fields().size(), 3);
-    EXPECT_TRUE(msg.valid());
+    EXPECT_EQ(msg->start_line(), "GET /hello.txt HTTP/1.1");
+    EXPECT_EQ(msg->header_fields().size(), 3);
     
     // line size limit
     opts.line_size_limit = 20; // default: 8000
-    stream.clear();
-    stream.str("GET /long/path/to/a/resource HTTP/1.1\r\n\r\n");
-    msg = message::from_stream(&stream, &opts);
-    EXPECT_FALSE(msg.valid());
+    RESET(stream,"GET /long/path/to/a/resource HTTP/1.1\r\n\r\n");
+    EXPECT_EQ(message::from_stream(&stream, &opts), nullptr);
     
     // header count limit
     opts.line_size_limit = 8000; // reset
     opts.header_count_limit = 4; // default: 101
-    stream.clear();
-    stream.str(get_test_response());
-    msg = message::from_stream(&stream, &opts);
-    EXPECT_FALSE(msg.valid());
+    RESET(stream,get_test_response());
+    EXPECT_EQ(message::from_stream(&stream, &opts), nullptr);
     
     // body size limit
     opts.header_count_limit = 4;
     opts.body_size_limit = 20; // default: 200000
-    stream.clear();
-    stream.str(get_test_response());
-    msg = message::from_stream(&stream, &opts);
-    EXPECT_FALSE(msg.valid());
+    RESET(stream,get_test_response());
+    EXPECT_EQ(message::from_stream(&stream, &opts), nullptr);
+}
+
+
+TEST(test_http_message, start_line) {
+    std::stringstream stream;
+    message_ptr msg;
+
+    msg = message_ptr(new message());
+    EXPECT_EQ(msg->type(), message_type::UNKNOWN);
+    
+    // -: VALIDITY :-
+    
+    // start line seen as empty
+    RESET(stream,"\r\nHTTP/1.1 200 OK\r\n\r\n")
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
+    
+    // white space at begining of stream
+    RESET(stream,"  HTTP/1.1 200 OK\r\n\r\n")
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
+    
+    // white space at end of stream
+    RESET(stream,"HTTP/1.1 200 OK  \r\n\r\n")
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
+    
+    // more than three tokens
+    RESET(stream,"HTTP/1.1 200 OK FOO\r\n\r\n")
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
+    
+    // successive whitespace characters
+    RESET(stream,"HTTP/1.1  200  OK\r\n\r\n")
+    EXPECT_EQ(message::from_stream(&stream), nullptr);
+
+    // -: DETAILS :-
+
+    // test message type detection
+    // RESET(stream,"HTTP/1.1 200 OK\r\n\r\n");
+    // msg = message::from_stream(&stream);
+    // EXPECT_EQ(msg->type(), message_type::RESPONSE);
+    
+    // RESET(stream,"GET / HTTP/1.1\r\n\r\n");
+    // msg = message::from_stream(&stream);
+    // EXPECT_EQ(msg->type(), message_type::REQUEST);
+
+    // RESET(stream,"HTTP / HTTP/1.1\r\n\r\n");
+    // msg = message::from_stream(&stream);
+    // EXPECT_EQ(msg->type(), message_type::REQUEST);
+    
+    // test http version major
+    // test http version minor
+    // test method
+    // test request-target
+    // test status-code
+    // test status-message
 }

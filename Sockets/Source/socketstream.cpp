@@ -81,21 +81,26 @@ socketstream::underflow()
 		return EOF;
 	}
 
+	auto status = impact::poll(&m_poll_handle_, m_timeout_);
+
+	if (status == 0)
+		return EOF; // timeout
+	
+	if (status < 0) {
+		setstate(std::ios_base::failbit);
+		return EOF;
+	}
+
+	short flags = m_poll_handle_[0].return_events;
+	m_poll_handle_[0].return_events = 0;
+
+	if ((int)(flags & (int)poll_flags::HANGUP)) {
+		m_hangup_ = true;
+		setstate(std::ios_base::badbit);
+		return EOF;
+	}
+
 	try {
-		auto status = impact::poll(&m_poll_handle_, m_timeout_);
-
-		if (status == 0)
-			return EOF; // timeout
-
-		short flags = m_poll_handle_[0].return_events;
-		m_poll_handle_[0].return_events = 0;
-
-		if ((int)(flags & (int)poll_flags::HANGUP)) {
-			m_hangup_ = true;
-			setstate(std::ios_base::badbit);
-			return EOF;
-		}
-
 		if ((int)(flags & (int)poll_flags::IN)) {
 			int bytes_received = m_handle_.recv(eback(), m_stream_buffer_size_);
 
@@ -106,7 +111,10 @@ socketstream::underflow()
 			return *eback();
 		}
 	}
-	catch (...) { return EOF; }
+	catch (...) {
+		setstate(std::ios_base::failbit);
+		return EOF;
+	}
 
 	return EOF;
 }
@@ -151,5 +159,5 @@ socketstream::hup() const noexcept
 void
 socketstream::set_timeout(int __milliseconds) noexcept
 {
-	m_timeout_ = __milliseconds<-1?-1:__milliseconds;
+	m_timeout_ = (__milliseconds < -1) ? -1 : __milliseconds;
 }
