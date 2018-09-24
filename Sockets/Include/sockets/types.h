@@ -92,6 +92,7 @@ namespace impact {
 		UNIX        = AF_UNIX,     // local communication (AF_LOCAL)
 		NETLINK     = AF_NETLINK,  // kernel user interface device
 		CRYPTO      = AF_ALG,      // interface to kernel crypto API
+		PACKET      = AF_PACKET,
 	#endif
 	} SocketDomain;
 
