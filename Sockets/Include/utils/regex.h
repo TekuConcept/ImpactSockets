@@ -9,6 +9,15 @@
 #include <vector>
 #include <set>
 
+/* TODO
+    - error checking
+    - range quantifiers {x[,[y]]}
+    - do not count child matches when parent matches fail
+      eg ((A)B) - do not count 'A' as a match when 'AB'
+      is not a match
+    - match chain insertion \1, \2, \x
+*/
+
 namespace impact {
 namespace internal {
     class regex {
