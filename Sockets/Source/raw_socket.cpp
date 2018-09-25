@@ -1,5 +1,6 @@
 /**
  * Created by TekuConcept on September 24, 2018
+ * NOTE: May need to use WinPCap for sending raw frames
  */
 
 #include "sockets/raw_socket.h"
@@ -120,8 +121,7 @@ raw_socket::associate(std::string __interface_name)
     }
 
 #if defined(__WINDOWS__)
-    // TODO
-    throw impact_error("Not Implemented");
+    m_socket_.bind(m_interface_.address, 0);
 #else
     #if defined(__APPLE__)
         auto target = m_bpf_descriptor_;
