@@ -66,6 +66,7 @@ internal::error_message()
 	else os << data;
 #else
 	os << strerror(errno);
+	os << " [" << errno << "]";
 #endif
 	return os.str();
 }

@@ -23,16 +23,17 @@ namespace experimental {
             /* throw(impact_error) */;
         int recv(void* buffer, int length)
             /* throw(impact_error) */;
-        // sendto
-        // recvfrom
         
         void associate(std::string interface_name)
             /* throw(impact_error) */;
         
         const struct networking::netinterface& interface() const noexcept;
+        int get() const noexcept;
+        int allignment() const noexcept;
 
     private:
         struct networking::netinterface m_interface_;
+        size_t m_buffer_align_size_;
     #if defined(__LINUX__) || defined(__WINDOWS__)
         basic_socket m_socket_;
     #else
