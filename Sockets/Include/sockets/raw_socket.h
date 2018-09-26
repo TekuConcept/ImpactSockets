@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 
+#include "utils/environment.h"
 #include "sockets/basic_socket.h"
 #include "sockets/networking.h"
 

@@ -5,7 +5,6 @@
 
 #include "sockets/raw_socket.h"
 
-#include "utils/environment.h"
 #include "utils/impact_error.h"
 #include "basic_socket_common.inc"
 
@@ -19,11 +18,12 @@ using namespace impact;
 using namespace experimental;
 
 #include <iostream>
-#define VERBOSE(x) std::cout << x << std::endl
+#define VERBOSE(x)
+// #define VERBOSE(x) std::cout << x << std::endl
 
 
 raw_socket::raw_socket()
-: m_buffer_align_size_(4096) /* 4096 is form OSX-BPF */
+: m_buffer_align_size_(4096) /* 4096 is from OSX-BPF */
 {
 #if defined(__LINUX__)
     VERBOSE("Raw: Linux Detected");
