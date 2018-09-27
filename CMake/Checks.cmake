@@ -92,3 +92,24 @@ else()
 endif()
 
 SET(CMAKE_REQUIRED_FLAGS "${TMP_REQ_FLAGS}")
+
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# FEATURE CHECK                                           #
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+CHECK_CXX_SOURCE_RUNS(" \
+int main(void) {        \n\
+    int x = 0;          \n\
+    switch (x) {        \n\
+        case 0: x++;    \n\
+        [[fallthrough]];\n\
+        default: break; \n\
+    }                   \n\
+    return x - 1;       \n\
+}                       \
+" HAS_FALLTHROUGH_ATTRIBUTE)
+if (HAS_FALLTHROUGH_ATTRIBUTE)
+  add_definitions(-DHAS_FALLTHROUGH_ATTRIBUTE)
+endif()

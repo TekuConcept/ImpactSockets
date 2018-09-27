@@ -1,18 +1,22 @@
 /**
  * Created by TekuConcept on September 24, 2018
- * NOTE: May need to use WinPCap for sending raw frames
+ * NOTE: May need to use WinPCap for sending raw frames in Windows
  */
 
 #include "sockets/raw_socket.h"
-
-#include "utils/impact_error.h"
-#include "basic_socket_common.inc"
 
 #if defined(__APPLE__)
     #include <fcntl.h>
     #include <net/bpf.h>
     #include <algorithm> /* std::min */
+#elif defined(__LINUX__)
+    #include <linux/if_packet.h>
+    #include <net/ethernet.h>
+    #include <string.h>
 #endif
+
+#include "utils/impact_error.h"
+#include "basic_socket_common.inc"
 
 using namespace impact;
 using namespace experimental;
@@ -30,7 +34,7 @@ raw_socket::raw_socket()
     m_socket_ = make_socket(
         socket_domain::PACKET,
         socket_type::RAW,
-        htons(ETH_P_ALL)
+        (socket_protocol)htons(ETH_P_ALL)
     );
 #elif defined(__WINDOWS__)
     VERBOSE("Raw: Windows Detected");
@@ -158,11 +162,11 @@ raw_socket::associate(std::string __interface_name)
     m_socket_.bind(m_interface_.address, 0);
 #else
         struct ifreq ifr;
-        strlcpy(
+        strncpy(
             ifr.ifr_name,
             __interface_name.c_str(),
             sizeof(ifr.ifr_name) - 1);
-            
+
     #if defined(__APPLE__)
         VERBOSE("Raw: [Apple] associated");
         unsigned int enabled = 1;
@@ -197,7 +201,7 @@ raw_socket::associate(std::string __interface_name)
         sll.sll_family   = PF_PACKET;
         sll.sll_protocol = htons(ETH_P_ALL);
         sll.sll_ifindex  = ifr.ifr_ifindex;
-        status = ::bind(target, (struct sockaddr*)&sll, sizeof(sll));
+        status = ::bind(m_socket_.get(), (struct sockaddr*)&sll, sizeof(sll));
         ASSERT(status != SOCKET_ERROR)
     #endif
 #endif

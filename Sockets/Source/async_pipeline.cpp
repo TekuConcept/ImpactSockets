@@ -63,7 +63,7 @@ async_pipeline::add_object(
 {
 	if (__socket < 0)
 		throw impact_error("Invalid socket");
-	
+
 	{
 		std::lock_guard<std::mutex> lock(m_work_mtx_);
 		m_work_pending_.push_back(handle_info(__socket,__object));
@@ -77,7 +77,7 @@ async_pipeline::remove_object(int __socket)
 {
 	if (__socket < 0)
 		throw impact_error("Invalid socket");
-	
+
 	{
 		std::lock_guard<std::mutex> lock(m_work_mtx_);
 		m_work_removed_.push_back(__socket);
@@ -158,14 +158,15 @@ async_pipeline::_M_update_handles()
 		auto& key   = m_work_handles_[i];
 		auto socket = std::abs(key.socket);
 		auto value  = m_work_info_.find(socket);
-		
+
 		auto option = value->second->async_callback(&key,error);
-		
+
 		switch (option) {
 		case async_option::IGNORE:
 			socket            = -socket;
 			/* special 0-fd case */
 			if (socket == 0) ignored++;
+      FALLTHROUGH;
 		case async_option::CONTINUE:
 			key.return_events = 0;
 			key.socket        = socket;
@@ -196,9 +197,9 @@ async_pipeline::_M_dowork()
 
 	auto status = poll(&m_work_handles_, (int)m_poll_granularity_);
 	UNUSED(status);
-	
+
 	auto has_work = !_M_update_handles();
-	
+
 	{ /* thread locked scope */
 		std::lock_guard<std::mutex> lock(m_thread_mtx_);
 		m_thread_has_work_ = has_work; // <- *
@@ -209,7 +210,7 @@ async_pipeline::_M_dowork()
 
 void
 async_pipeline::_M_begin()
-{   
+{
     m_thread_ = std::thread([&](){
     	do {
         	std::unique_lock<std::mutex> lock(m_thread_mtx_);
@@ -221,7 +222,7 @@ async_pipeline::_M_begin()
             });
             if (m_thread_closing_) break;
             lock.unlock(); // release the lock
-            
+
             _M_dowork();
         } while (true);
     });

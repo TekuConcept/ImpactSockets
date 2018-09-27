@@ -34,6 +34,12 @@
 */
 #endif
 
+#if defined(HAS_FALLTHROUGH_ATTRIBUTE)
+  #define FALLTHROUGH [[fallthrough]]
+#else
+  #define FALLTHROUGH
+#endif
+
 #ifdef __WINDOWS__
   #pragma warning (disable : 4514)
   #pragma warning (disable : 4710)
