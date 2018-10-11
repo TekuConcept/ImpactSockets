@@ -23,7 +23,6 @@ using namespace experimental;
 
 #include <iostream>
 #define VERBOSE(x)
-// #define VERBOSE(x) std::cout << x << std::endl
 
 
 raw_socket::raw_socket()
@@ -157,15 +156,30 @@ raw_socket::associate(std::string __interface_name)
             __interface_name +
             std::string("\" detected"));
 
+    try { _M_associate(__interface_name.c_str()); } catch (...) { throw; }
+}
+
+
+void
+raw_socket::associate(struct networking::netinterface __interface)
+{
+    m_interface_ = __interface;
+    try { _M_associate(__interface.name.c_str()); } catch (...) { throw; }
+}
+
+
+void
+raw_socket::_M_associate(const char* __interface_name)
+{
 #if defined(__WINDOWS__)
     VERBOSE("Raw: [Windows] bind");
     m_socket_.bind(m_interface_.address, 0);
 #else
-        struct ifreq ifr;
-        strncpy(
-            ifr.ifr_name,
-            __interface_name.c_str(),
-            sizeof(ifr.ifr_name) - 1);
+    struct ifreq ifr;
+    strncpy(
+        ifr.ifr_name,
+        __interface_name,
+        sizeof(ifr.ifr_name) - 1);
 
     #if defined(__APPLE__)
         VERBOSE("Raw: [Apple] associated");

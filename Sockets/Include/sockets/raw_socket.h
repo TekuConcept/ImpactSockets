@@ -19,15 +19,17 @@ namespace experimental {
     public:
         raw_socket();
         virtual ~raw_socket();
-        
+
         int send(const void* buffer, int length)
             /* throw(impact_error) */;
         int recv(void* buffer, int length)
             /* throw(impact_error) */;
-        
+
         void associate(std::string interface_name)
             /* throw(impact_error) */;
-        
+        void associate(struct networking::netinterface interface)
+            /* throw(impact_error) */;
+
         const struct networking::netinterface& interface() const noexcept;
         int get() const noexcept;
         int allignment() const noexcept;
@@ -41,6 +43,8 @@ namespace experimental {
         // OSX and BSD systems use BPF devices for raw networking 
         int m_bpf_descriptor_;
     #endif
+    
+        void _M_associate(const char*);
     };
 }}
 
