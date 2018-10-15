@@ -147,7 +147,7 @@ raw_socket::associate(std::string __interface_name)
         if (iface.name == __interface_name) {
             m_interface_ = iface;
             VERBOSE("Raw: Found iface " << iface.name);
-            break;
+            if (m_interface_.ipv4) break; // prefer ipv4
         }
     }
     if (m_interface_.name != __interface_name)

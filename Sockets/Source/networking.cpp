@@ -4,8 +4,12 @@
 
 #include "sockets/networking.h"
 
-#include <sstream>              // ostringstream
+#include <iostream>
+#define VERBOSE(x) std::cout << x << std::endl
+
 #include <cstring>              // memcpy
+#include <sstream>              // ostringstream
+#include <map>
 
 #include "utils/environment.h"
 #include "utils/impact_error.h"
@@ -74,11 +78,14 @@ namespace internal {
     PIP_ADAPTER_UNICAST_ADDRESS);
 	interface_type get_interface_type(unsigned int);
 #else /* NIX */
-	void traverse_links(std::vector<netinterface>&, struct ifaddrs*);
+	void traverse_links(const struct ifaddrs*, std::vector<netinterface>*);
 	interface_type get_interface_type(unsigned short);
 #if defined(__LINUX__)
-	void set_interface_type_mac(netinterface&);
-#endif /* __LINUX__ */
+	void set_interface_type_mac(netinterface*);
+#else /* __APPLE__ */
+	void set_interface_type_mac(const struct ifaddrs*, netinterface*,
+		std::map<std::string,netinterface>*);
+#endif
 #endif /* __WINDOWS__ */
 }}
 
@@ -243,7 +250,7 @@ networking::find_network_interfaces()
 
 	ASSERT(status != -1)
 
-	try { internal::traverse_links(list, addresses); }
+	try { internal::traverse_links(addresses, &list); }
 	catch (impact_error) {
 		freeifaddrs(addresses);
 		throw;
@@ -260,9 +267,11 @@ networking::find_network_interfaces()
 
 void
 internal::traverse_links(
-	std::vector<netinterface>& __list,
-	struct ifaddrs*            __addresses)
+	const struct ifaddrs*               __addresses,
+	std::vector<netinterface>*          __list)
 {
+	std::map<std::string,netinterface> hardware;
+
 	// WARNING: ifa_addr may be NULL
 	for (auto target = __addresses; target != NULL; target = target->ifa_next) {
 		netinterface token;
@@ -276,27 +285,15 @@ internal::traverse_links(
 			(target->ifa_addr->sa_family == AF_INET) : false;
 
 #if defined(__APPLE__)
-		// be consistent with linux
-		token.mac.resize(6);
-		std::memset(&token.mac[0], 0, token.mac.size());
-		
-		if (target->ifa_addr != NULL) {
-			struct sockaddr_dl* sdl = (struct sockaddr_dl*)target->ifa_addr;
-			token.type              = get_interface_type(sdl->sdl_type);
-
-			if (sdl->sdl_alen != 0) {
-				token.mac.resize(sdl->sdl_alen);
-				memcpy(&token.mac[0], LLADDR(sdl), token.mac.size());
-			}
-		}
-		else token.type = interface_type::OTHER;
+		set_interface_type_mac(target, &token, &hardware);
 #else
+		UNUSED(hardware);
 		CATCH_ASSERT(
-			set_interface_type_mac(token);
+			set_interface_type_mac(&token);
 		)
 #endif
 
-		__list.push_back(token);
+		__list->push_back(token);
 	}
 }
 
@@ -304,7 +301,7 @@ internal::traverse_links(
 #if defined(__LINUX__)
 
 void
-internal::set_interface_type_mac(netinterface& __token)
+internal::set_interface_type_mac(netinterface* __token)
 {
 	basic_socket handle;
 	CATCH_ASSERT(
@@ -318,8 +315,8 @@ internal::set_interface_type_mac(netinterface& __token)
 	struct ifreq request;
 	std::memcpy(
 		request.ifr_name,
-		(void*)&__token.name[0],
-		__token.name.length() + 1
+		(void*)&__token->name[0],
+		__token->name.length() + 1
 	);
 	auto status = ::ioctl(handle.get(), SIOCGIFHWADDR, &request);
 
@@ -327,13 +324,17 @@ internal::set_interface_type_mac(netinterface& __token)
 
 	if (status == -1) {
 		std::ostringstream os;
-		os << internal::error_message() << " " << __token.name << std::endl;
+		os << internal::error_message() << " " << __token->name << std::endl;
 		throw impact_error(os.str());
 	}
 
-	__token.type = get_interface_type(request.ifr_hwaddr.sa_family);
-	__token.mac.resize(6); // standard MAC length (64 bits | 6 bytes)
-	std::memcpy(&__token.mac[0],request.ifr_hwaddr.sa_data,__token.mac.size());
+	__token->type = get_interface_type(request.ifr_hwaddr.sa_family);
+	__token->mac.resize(6); // standard MAC length (64 bits | 6 bytes)
+	std::memcpy(
+		&__token->mac[0],
+		request.ifr_hwaddr.sa_data,
+		__token->mac.size()
+	);
 }
 
 
@@ -359,6 +360,59 @@ internal::get_interface_type(unsigned short __family)
 
 
 #if defined(__APPLE__)
+
+void
+internal::set_interface_type_mac(
+	const struct ifaddrs*               __target,
+	netinterface*                       __token,
+	std::map<std::string,netinterface>* __hardware)
+{
+	// be consistent with linux
+	__token->type = interface_type::OTHER;
+	__token->mac.resize(6);
+	std::memset(&(__token->mac)[0], 0, __token->mac.size());
+	
+	if (__target->ifa_addr != NULL) {
+		if (__target->ifa_addr->sa_family == AF_LINK) {
+			struct sockaddr_dl* sdl = (struct sockaddr_dl*)__target->ifa_addr;
+			__token->type           = get_interface_type(sdl->sdl_type);
+
+			if (sdl->sdl_alen != 0) {
+				__token->mac.resize(sdl->sdl_alen);
+				std::memcpy(
+					&(__token->mac)[0],
+					LLADDR(sdl),
+					__token->mac.size()
+				);
+			}
+			
+			VERBOSE("Link:  " << __token->name);
+			(*__hardware)[__token->name] = *__token;
+		}
+		else goto iface_history;
+	}
+	else goto iface_history;
+	
+	return;
+	
+	iface_history: {
+		VERBOSE("OTHER: " << __token->name);
+		// WARNING:
+		// - this assumes a link token comes first
+		// - there is the possibility of duplicate
+		// link tokens under the same name but with
+		// different mac addresses.
+		auto iface = __hardware->find(__token->name);
+		if (iface != __hardware->end()) {
+			__token->mac   = iface->second.mac;
+			__token->type  = iface->second.type;
+		}
+		else {
+			VERBOSE("Not Found: " << __token->name);
+		}
+	}
+}
+
 
 interface_type
 internal::get_interface_type(unsigned short __family)

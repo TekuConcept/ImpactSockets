@@ -34,6 +34,13 @@ namespace networking {
 	} NetworkInterface;
 
 
+	/**
+	 * BUG: Only the second three bytes of the MAC address is saved
+	 * as the first three bytes in the netinterface struct.
+	 * PLATFORM: OSX
+	 * REPRODUCE: Compare raw ARP ping to target MAC with the MAC
+	 * returned by find_network_interfaces().
+	 */
 	std::vector<struct netinterface> find_network_interfaces()
 		/* throw(std::runtime_error) */;
 }}

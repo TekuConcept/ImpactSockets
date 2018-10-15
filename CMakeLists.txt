@@ -56,6 +56,7 @@ if(BUILD_EXAMPLES)
         "DemoTCPClient"
         "DemoTCPServer"
         "Discovery"
+        "ListInterfaces"
     )
     foreach(EXAMPLE ${EXAMPLES})
         x_add_executable(${EXAMPLE} "${EXAMPLES_DIR}/${EXAMPLE}.cpp")
