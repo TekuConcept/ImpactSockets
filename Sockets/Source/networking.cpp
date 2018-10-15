@@ -4,9 +4,6 @@
 
 #include "sockets/networking.h"
 
-#include <iostream>
-#define VERBOSE(x) std::cout << x << std::endl
-
 #include <cstring>              // memcpy
 #include <sstream>              // ostringstream
 #include <map>
@@ -386,7 +383,6 @@ internal::set_interface_type_mac(
 				);
 			}
 			
-			VERBOSE("Link:  " << __token->name);
 			(*__hardware)[__token->name] = *__token;
 		}
 		else goto iface_history;
@@ -396,7 +392,6 @@ internal::set_interface_type_mac(
 	return;
 	
 	iface_history: {
-		VERBOSE("OTHER: " << __token->name);
 		// WARNING:
 		// - this assumes a link token comes first
 		// - there is the possibility of duplicate
@@ -406,9 +401,6 @@ internal::set_interface_type_mac(
 		if (iface != __hardware->end()) {
 			__token->mac   = iface->second.mac;
 			__token->type  = iface->second.type;
-		}
-		else {
-			VERBOSE("Not Found: " << __token->name);
 		}
 	}
 }
