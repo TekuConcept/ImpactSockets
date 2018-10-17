@@ -22,14 +22,15 @@ namespace networking {
 
 
 	typedef struct netinterface {
-		unsigned int               flags;
 		std::string                name;
-		std::string                address;
-		std::string                netmask;
-		std::string                broadcast;
 		interface_type             type;
+		unsigned int               flags;
+		std::vector<unsigned char> address;
+		std::vector<unsigned char> netmask;
+		std::vector<unsigned char> broadcast;
 		std::vector<unsigned char> mac;
-		bool                       ipv4; // TODO: use union for ipv4,ipv6,other
+		bool                       ipv4 : 1;
+		bool                       ipv6 : 1;
 		netinterface();
 	} NetworkInterface;
 

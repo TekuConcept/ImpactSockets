@@ -63,6 +63,9 @@
 #define ASSERT(cond)\
  	if (!(cond)) throw impact_error(internal::error_message());
 
+#define IMPACT_INET_ADDRESS_SIZE   4 /*  32 bits */
+#define IMPACT_INET6_ADDRESS_SIZE 16 /* 128 bits */
+
 using netinterface   = impact::networking::netinterface;
 using interface_type = impact::networking::interface_type;
 
@@ -91,8 +94,8 @@ using namespace impact;
 
 
 netinterface::netinterface()
-: flags(0), name(""), address(""), netmask(""),
-  broadcast(""), type(interface_type::OTHER), ipv4(false)
+: name(""), type(interface_type::OTHER), flags(0),
+  ipv4(false), ipv6(false)
 {}
 
 
@@ -161,12 +164,15 @@ internal::traverse_adapters(
 		adapter = adapter->Next) {
 		netinterface token;
 		token.name  = to_narrow_string(adapter->FriendlyName);
-		token.flags = (unsigned int)adapter->Flags;
 		token.type  = get_interface_type(adapter->IfType);
+		token.flags = (unsigned int)adapter->Flags;
 
 		if (adapter->PhysicalAddressLength != 0) {
 			token.mac.resize(adapter->PhysicalAddressLength);
-			std::memcpy(&token.mac[0], adapter->PhysicalAddress, token.mac.size());
+			std::memcpy(
+				&token.mac[0],
+				adapter->PhysicalAddress,
+				token.mac.size());
 		}
 		else { // be consistent with linux
 			token.mac.resize(6);
@@ -190,10 +196,13 @@ internal::traverse_unicast(
 		address = address->Next) {
 
 		auto socket_address = address->Address.lpSockaddr;
-		__token.address = sock_addr_string(socket_address);
+		
 
 		if (socket_address->sa_family == AF_INET) {
 			__token.ipv4 = true;
+			__token.address.resize(  IMPACT_INET_ADDRESS_SIZE);
+			__token.netmask.resize(  IMPACT_INET_ADDRESS_SIZE);
+			__token.broadcast.resize(IMPACT_INET_ADDRESS_SIZE);
 
 			struct sockaddr_in mask;
 			mask.sin_family = socket_address->sa_family;
@@ -212,7 +221,14 @@ internal::traverse_unicast(
 			broadcast.sin_addr   = *(struct in_addr*)&C;
 			__token.broadcast    = sock_addr_string((struct sockaddr*)&broadcast);
 		}
-		// TODO: IPv6 mask and broadcast
+		else if (socket_address->sa_family == AF_INET6) {
+			__token.ipv6 = true;
+			__token.address.resize(  IMPACT_INET6_ADDRESS_SIZE);
+			__token.netmask.resize(  IMPACT_INET6_ADDRESS_SIZE);
+			__token.broadcast.resize(IMPACT_INET6_ADDRESS_SIZE);
+			
+			// TODO: IPv6 mask and broadcast
+		}
 
 		__list.push_back(__token);
 	}
