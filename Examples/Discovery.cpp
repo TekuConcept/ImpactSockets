@@ -25,9 +25,9 @@ using InterfaceType = networking::InterfaceType;
 void printInterfaces(std::vector<Interface> list) {
 	for (const auto& iface : list) {
 		VERBOSE("Name:      " << iface.name);
-		VERBOSE("Address:   " << iface.address);
-		VERBOSE("Netmask:   " << iface.netmask);
-		VERBOSE("Broadcast: " << iface.broadcast);
+		VERBOSE("Address:   " << networking::sockaddr_to_string(iface.address.get()));
+		VERBOSE("Netmask:   " << networking::sockaddr_to_string(iface.netmask.get()));
+		VERBOSE("Broadcast: " << networking::sockaddr_to_string(iface.broadcast.get()));
 		VERBOSE("Flags:     " << iface.flags);
 		VERBOSE("IPv4:      " << (iface.ipv4?"true":"false"));
 
@@ -61,7 +61,7 @@ std::vector<Interface> filter(std::vector<Interface> list) {
 		if (!iface.ipv4)                            continue;
 		if (!(iface.type == InterfaceType::WIFI ||
             iface.type == InterfaceType::ETHERNET)) continue;
-		if (iface.broadcast.size() == 0)            continue;
+		if (iface.broadcast == nullptr)             continue;
 
 		std::string name = iface.name;
 		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -83,8 +83,9 @@ void sendMessage(basic_socket& socket, std::vector<Interface> list) {
 		for (const auto& iface : list) {
 			for (auto i = 0; i < 5; i++) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				VERBOSE("Sending to " << iface.broadcast << ":25565");
-				socket.sendto(&message[0], message.length(), 25565, iface.broadcast);
+				VERBOSE("Sending to " << networking::sockaddr_to_string(iface.broadcast.get()) << ":25565");
+				socket.sendto(&message[0], message.length(), 25565,
+					networking::sockaddr_to_string(iface.broadcast.get()));
 			}
 		}
 	}

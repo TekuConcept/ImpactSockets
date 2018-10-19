@@ -5,11 +5,11 @@
 
 #include "sockets/raw_socket.h"
 
-#if defined(__APPLE__)
+#if defined(__OS_APPLE__)
     #include <fcntl.h>
     #include <net/bpf.h>
     #include <algorithm> /* std::min */
-#elif defined(__LINUX__)
+#elif defined(__OS_LINUX__)
     #include <linux/if_packet.h>
     #include <net/ethernet.h>
     #include <string.h>
@@ -28,14 +28,14 @@ using namespace experimental;
 raw_socket::raw_socket()
 : m_buffer_align_size_(4096) /* 4096 is from OSX-BPF */
 {
-#if defined(__LINUX__)
+#if defined(__OS_LINUX__)
     VERBOSE("Raw: Linux Detected");
     m_socket_ = make_socket(
         socket_domain::PACKET,
         socket_type::RAW,
         (socket_protocol)htons(ETH_P_ALL)
     );
-#elif defined(__WINDOWS__)
+#elif defined(__OS_WINDOWS__)
     VERBOSE("Raw: Windows Detected");
     m_socket_ = make_socket(
         socket_domain::INET,
@@ -68,7 +68,7 @@ raw_socket::raw_socket()
 
 raw_socket::~raw_socket()
 {
-#if defined (__APPLE__)
+#if defined (__OS_APPLE__)
     VERBOSE("Raw: [Apple] dtor");
     if (m_bpf_descriptor_ != -1)
         ::close(m_bpf_descriptor_);
@@ -85,7 +85,7 @@ raw_socket::send(
     const void* __buffer,
     int         __length)
 {
-#if defined(__APPLE__)
+#if defined(__OS_APPLE__)
     VERBOSE("Raw: [Apple] send");
     auto status = ::write(
         m_bpf_descriptor_,
@@ -95,14 +95,14 @@ raw_socket::send(
 #else
     VERBOSE("Raw: [Other] send");
     auto status = ::send(
-		m_socket_.get(),
-		(CCHAR_PTR)__buffer,
-		__length,
-		(int)message_flags::NONE
-	);
+        m_socket_.get(),
+        (CCHAR_PTR)__buffer,
+        __length,
+        (int)message_flags::NONE
+    );
 #endif
-	ASSERT(status != SOCKET_ERROR)
-	return status;
+    ASSERT(status != SOCKET_ERROR)
+    return status;
 }
 
 
@@ -112,7 +112,7 @@ raw_socket::recv(
     int   __length)
 {
     if (__length <= 0) throw impact_error("invalid length");
-#if defined(__APPLE__)
+#if defined(__OS_APPLE__)
     VERBOSE(
         "Raw: [Apple] recv [" <<
         m_bpf_descriptor_ << ", " <<
@@ -127,14 +127,14 @@ raw_socket::recv(
 #else
     VERBOSE("Raw: [Other] recv");
     auto status = ::recv(
-		m_socket_.get(),
-		(CHAR_PTR)__buffer,
-		__length,
-		(int)message_flags::NONE
-	);
-	ASSERT(status != SOCKET_ERROR)
+        m_socket_.get(),
+        (CHAR_PTR)__buffer,
+        __length,
+        (int)message_flags::NONE
+    );
+    ASSERT(status != SOCKET_ERROR)
 #endif
-	return status;
+    return status;
 }
 
 
@@ -161,19 +161,19 @@ raw_socket::associate(std::string __interface_name)
 
 
 void
-raw_socket::associate(struct networking::netinterface __interface)
+raw_socket::associate(struct networking::netinterface __iface)
 {
-    m_interface_ = __interface;
-    try { _M_associate(__interface.name.c_str()); } catch (...) { throw; }
+    m_interface_ = __iface;
+    try { _M_associate(__iface.name.c_str()); } catch (...) { throw; }
 }
 
 
 void
 raw_socket::_M_associate(const char* __interface_name)
 {
-#if defined(__WINDOWS__)
+#if defined(__OS_WINDOWS__)
     VERBOSE("Raw: [Windows] bind");
-    m_socket_.bind(m_interface_.address, 0);
+    m_socket_.bind(m_interface_.address.get(), 0);
 #else
     struct ifreq ifr;
     strncpy(
@@ -181,7 +181,7 @@ raw_socket::_M_associate(const char* __interface_name)
         __interface_name,
         sizeof(ifr.ifr_name) - 1);
 
-    #if defined(__APPLE__)
+    #if defined(__OS_APPLE__)
         VERBOSE("Raw: [Apple] associated");
         unsigned int enabled = 1;
         auto target = m_bpf_descriptor_;
@@ -223,7 +223,7 @@ raw_socket::_M_associate(const char* __interface_name)
 
 
 const struct networking::netinterface&
-raw_socket::interface() const noexcept
+raw_socket::iface() const noexcept
 {
     return m_interface_;
 }
@@ -232,7 +232,7 @@ raw_socket::interface() const noexcept
 int
 raw_socket::get() const noexcept
 {
-#if defined(__APPLE__)
+#if defined(__OS_APPLE__)
     return m_bpf_descriptor_;
 #else
     return m_socket_.get();

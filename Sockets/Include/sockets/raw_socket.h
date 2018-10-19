@@ -27,17 +27,17 @@ namespace experimental {
 
         void associate(std::string interface_name)
             /* throw(impact_error) */;
-        void associate(struct networking::netinterface interface)
+        void associate(struct networking::netinterface iface)
             /* throw(impact_error) */;
 
-        const struct networking::netinterface& interface() const noexcept;
+        const struct networking::netinterface& iface() const noexcept;
         int get() const noexcept;
         int allignment() const noexcept;
 
     private:
         struct networking::netinterface m_interface_;
         size_t m_buffer_align_size_;
-    #if defined(__LINUX__) || defined(__WINDOWS__)
+    #if defined(__OS_LINUX__) || defined(__OS_WINDOWS__)
         basic_socket m_socket_;
     #else
         // OSX and BSD systems use BPF devices for raw networking 

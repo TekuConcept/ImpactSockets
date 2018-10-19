@@ -21,44 +21,37 @@
 
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#include "configure.h"
+
 #define UNUSED(x) (void)x
 #define UNUSED_FUNCTION(x)
 #define DEREF(p) (*p)
 
-#if defined(_WIN32) | defined(_WIN64)
-  #define __WINDOWS__
-#elif defined(__linux__) | defined(__linux) | defined(linux)
-  #define __LINUX__
-/*
-#else __APPLE__
-*/
-#endif
-
 #if defined(HAS_FALLTHROUGH_ATTRIBUTE)
-  #define FALLTHROUGH [[fallthrough]]
+    #define FALLTHROUGH [[fallthrough]]
 #else
-  #define FALLTHROUGH
+    #define FALLTHROUGH
 #endif
 
-#ifdef __WINDOWS__
-  #pragma warning (disable : 4514)
-  #pragma warning (disable : 4710)
-  #pragma warning (disable : 4626)
-  #pragma warning (disable : 4996)
+#ifdef __OS_WINDOWS__
+    #pragma warning (disable : 4514)
+    #pragma warning (disable : 4710)
+    #pragma warning (disable : 4626)
+    #pragma warning (disable : 4996)
 #endif
 
 #ifndef SOC_DECLSPEC
-	#ifdef __WINDOWS__
-		#ifdef EXPORT
-			#define SOC_DECLSPEC __declspec(dllexport)
-		#elif defined(IMPORT)
-			#define SOC_DECLSPEC __declspec(dllimport)
-		#else /* STATIC */
-			#define SOC_DECLSPEC
-		#endif
-	#else
-    #define SOC_DECLSPEC
-	#endif // __WINDOWS__
+    #ifdef __OS_WINDOWS__
+        #ifdef EXPORT
+            #define SOC_DECLSPEC __declspec(dllexport)
+        #elif defined(IMPORT)
+            #define SOC_DECLSPEC __declspec(dllimport)
+        #else /* STATIC */
+            #define SOC_DECLSPEC
+        #endif
+    #else
+        #define SOC_DECLSPEC
+    #endif // __OS_WINDOWS__
 #endif // SOC_DECLSPEC
 
-#endif // _ENVIRONMENT_H_
+#endif // _IMPACT_ENVIRONMENT_H_
