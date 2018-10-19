@@ -31,7 +31,7 @@ base64::encode(
 {
     imp_errno = imperr::SUCCESS;
     if (__data.length() == 0)
-      return "";
+        return "";
 
     std::ostringstream os;
 
@@ -80,7 +80,7 @@ base64::_S_pad_stream(
         std::string padding(pad_count, k_pad);
         reg24 = ((0xFF & __data[__data.length() - 3 + pad_count]) << 16);
         if (pad_count == 1)
-          reg24 |= ((0xFF & __data[__data.length() - 1]) <<  8);
+            reg24 |= ((0xFF & __data[__data.length() - 1]) <<  8);
         else reg24 >>= k_symbol_size;
         for (short i = (3 - pad_count); i >= 0; i--) {
             reg24 >>= k_symbol_size;

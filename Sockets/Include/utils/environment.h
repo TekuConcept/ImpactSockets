@@ -8,16 +8,16 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
                  -: BUILD DEFINE FLAGS :-
 
-   IMPACT_NO_WSAESTR: Disables in-house WSA string lookup.
-   The default string lookup will be FormatMessage, which
-   doesn't always return a value for the given code. Note:
-   this only applies for Windows builds.
+    IMPACT_NO_WSAESTR: Disables in-house WSA string lookup.
+    The default string lookup will be FormatMessage, which
+    doesn't always return a value for the given code. Note:
+    this only applies for Windows builds.
 
-   IMPACT_WIN_NODEBUG: Disables stacktrace information
-   on Windows systems which use features from Dbghelp.lib.
+    IMPACT_WIN_NODEBUG: Disables stacktrace information
+    on Windows systems which use features from Dbghelp.lib.
 
-   IMPACT_WIN_SECURE_REUSE: Enables 'exclusive address use'
-   security for all sockets that need to reuse an address.
+    IMPACT_WIN_SECURE_REUSE: Enables 'exclusive address use'
+    security for all sockets that need to reuse an address.
 
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 

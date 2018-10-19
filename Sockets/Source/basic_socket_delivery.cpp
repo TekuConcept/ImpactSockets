@@ -30,14 +30,15 @@ basic_socket::bind(unsigned short __port)
 
 void
 basic_socket::bind(
-    const std::string& __address,
-    unsigned short     __port)
+    std::string    __address,
+    unsigned short __port)
 {
     ASSERT_MOVED
     std::shared_ptr<struct sockaddr> socket_address;
 
+    size_t size;
     CATCH_ASSERT(
-        internal::fill_address(
+        size = internal::fill_address(
             m_info_->domain,
             m_info_->type,
             m_info_->protocol,
@@ -50,7 +51,7 @@ basic_socket::bind(
     auto status = ::bind(
         m_info_->descriptor,
         socket_address.get(),
-        sizeof(socket_address.get())
+        size
     );
 
     ASSERT(status != SOCKET_ERROR)
@@ -73,17 +74,21 @@ basic_socket::bind(
     ASSERT(status != SOCKET_ERROR)
 }
 
-
+#include <iostream>
+#include <iomanip>
+#include "sockets/networking.h"
+#define VERBOSE(x) std::cout << x << std::endl
 void
 basic_socket::connect(
-    unsigned short     __port,
-    const std::string& __address)
+    unsigned short __port,
+    std::string    __address)
 {
     ASSERT_MOVED
     std::shared_ptr<struct sockaddr> destination_address;
 
+    size_t size;
     CATCH_ASSERT(
-        internal::fill_address(
+        size = internal::fill_address(
             m_info_->domain,
             m_info_->type,
             m_info_->protocol,
@@ -96,7 +101,7 @@ basic_socket::connect(
     auto status = ::connect(
         m_info_->descriptor,
         destination_address.get(),
-        sizeof(destination_address.get())
+        size
     );
 
     ASSERT(status != SOCKET_ERROR)
@@ -278,8 +283,9 @@ basic_socket::sendto(
     ASSERT_MOVED
     std::shared_ptr<struct sockaddr> destination_address;
 
+    size_t size;
     CATCH_ASSERT(
-        internal::fill_address(
+        size = internal::fill_address(
             m_info_->domain,
             m_info_->type,
             m_info_->protocol,
@@ -295,7 +301,7 @@ basic_socket::sendto(
         __length,
         (int)__flags,
         destination_address.get(),
-        sizeof(destination_address.get())
+        size
     );
 
     ASSERT(status != SOCKET_ERROR)

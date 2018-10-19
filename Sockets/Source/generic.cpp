@@ -73,7 +73,7 @@ internal::error_message()
 
 
 // TODO: Support IPv6
-void
+size_t
 internal::fill_address(
     socket_domain                     __domain,
     socket_type                       __type,
@@ -100,19 +100,23 @@ internal::fill_address(
         throw impact_error(::gai_strerror(status));
 
     struct sockaddr* copy;
-    if (__domain == socket_domain::INET) {
+    size_t size = 0;
+    if (result->ai_family == AF_INET) {
         copy = (struct sockaddr*)(new struct sockaddr_in);
         memcpy(copy, result->ai_addr, sizeof(struct sockaddr_in));
+        size = sizeof(struct sockaddr_in);
     }
-    else if (__domain == socket_domain::INET6) {
+    else if (result->ai_family == AF_INET6) {
         copy = (struct sockaddr*)(new struct sockaddr_in6);
         memcpy(copy, result->ai_addr, sizeof(struct sockaddr_in6));
+        size = sizeof(struct sockaddr_in6);
     }
     else throw impact_error("Unsupported domain");
 
     *__socket_address_info = std::shared_ptr<struct sockaddr>(copy);
-    
+
     freeaddrinfo(result);
+    return size;
 }
 
 

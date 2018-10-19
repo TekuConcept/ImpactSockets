@@ -47,12 +47,12 @@ namespace impact {
 
         // communication / delivery
         void bind(unsigned short port) /* throw(impact_error) */;
-        void bind(const std::string& address, unsigned short port = 0)
+        void bind(std::string address, unsigned short port = 0)
             /* throw(impact_error) */;
         void bind(const sockaddr* address, unsigned short port)
             /* throw(impact_error) */;
         void connect(unsigned short port,
-            const std::string& address = "localhost")
+            std::string address = "localhost")
             /* throw(impact_error) */;
         void listen(int backlog = 5)
             /* throw(impact_error) */;

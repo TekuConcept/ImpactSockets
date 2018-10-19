@@ -43,18 +43,18 @@ print_mac(const iface& __iface)
 void
 print_interfaces(const std::vector<iface>& __list)
 {
-	for (const auto& iface : __list) {
-		VERBOSE("Name:      " << iface.name);
-		VERBOSE("Address:   " << networking::sockaddr_to_string(iface.address.get()));
-		VERBOSE("Netmask:   " << networking::sockaddr_to_string(iface.netmask.get()));
-		VERBOSE("Broadcast: " << networking::sockaddr_to_string(iface.broadcast.get()));
-		VERBOSE("Flags:     " << iface.flags);
+    for (const auto& iface : __list) {
+        VERBOSE("Name:      " << iface.name);
+        VERBOSE("Address:   " << networking::sockaddr_to_string(iface.address.get()));
+        VERBOSE("Netmask:   " << networking::sockaddr_to_string(iface.netmask.get()));
+        VERBOSE("Broadcast: " << networking::sockaddr_to_string(iface.broadcast.get()));
+        VERBOSE("Flags:     " << iface.flags);
         VERBOSE("IPv4:      " << (iface.ipv4 ? "true" : "false"));
-		VERBOSE("IPv6:      " << (iface.ipv6 ? "true" : "false"));
-		VERBOSE("Type:      " << interface_type_to_string(iface.type));
-		print_mac(iface);
-		std::cout << std::endl;
-	}
+        VERBOSE("IPv6:      " << (iface.ipv6 ? "true" : "false"));
+        VERBOSE("Type:      " << interface_type_to_string(iface.type));
+        print_mac(iface);
+        std::cout << std::endl;
+    }
 }
 
 
