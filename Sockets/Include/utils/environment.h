@@ -34,6 +34,8 @@
 #endif
 
 #ifdef __OS_WINDOWS__
+    #define NOMINMAX
+    #define _CRT_SECURE_NO_WARNINGS
     #pragma warning (disable : 4514)
     #pragma warning (disable : 4710)
     #pragma warning (disable : 4626)

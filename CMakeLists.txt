@@ -23,12 +23,16 @@ CONFIGURE_FILE(${CMAKE_MODULES_DIR}/configure.h.in configure.h @ONLY)
 INCLUDE_DIRECTORIES(
     ${SOCKETS_INCLUDE_DIR}
     ${SOCKETS_INCLUDE_DIR}/placeholder
+    ${NPCAP_INCLUDE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR} # location of configure.h
 )
 FILE(GLOB_RECURSE SOURCE_FILES "${SOCKETS_SOURCE_DIR}/*.cpp")
 SET(IMPACT_SOCKETS ImpactSockets)
 x_add_library(${IMPACT_SOCKETS} ${BUILD_MODE} ${SOURCE_FILES})
 TARGET_COMPILE_DEFINITIONS(${IMPACT_SOCKETS} PUBLIC ${BUILD_FLAGS})
+IF (HAVE_NPCAP)
+    TARGET_LINK_LIBRARIES(${IMPACT_SOCKETS} ${NPCAP_LIBRARY})
+ENDIF ()
 
 INSTALL (
     TARGETS ${IMPACT_SOCKETS}
@@ -58,6 +62,7 @@ IF (BUILD_EXAMPLES)
         "DemoTCPServer"
         "Discovery"
         "ListInterfaces"
+        "EthernetDemo"
     )
     FOREACH (EXAMPLE ${EXAMPLES})
         x_add_executable(${EXAMPLE} "${EXAMPLES_DIR}/${EXAMPLE}.cpp")

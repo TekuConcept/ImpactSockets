@@ -20,4 +20,6 @@
 #cmakedefine HAVE_INT32_T
 #cmakedefine HAVE_INT64_T
 
+#cmakedefine HAVE_NPCAP
+
 #endif

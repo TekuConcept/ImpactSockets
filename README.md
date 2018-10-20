@@ -1,9 +1,9 @@
 
 # Cross-Platform C++ Sockets
 
-[![progress](https://img.shields.io/badge/OSX-pass-green.svg)]()&nbsp;
-[![progress](https://img.shields.io/badge/Win32-unknown-yellow.svg)]()&nbsp;
-[![progress](https://img.shields.io/badge/Debian-pass-green.svg)]()
+[![progress](https://img.shields.io/badge/OSX-unknown-yellow.svg)]()&nbsp;
+[![progress](https://img.shields.io/badge/Win32-pass-green.svg)]()&nbsp;
+[![progress](https://img.shields.io/badge/Debian-unknown-yellow.svg)]()
 
 Tested on:<br>
 
