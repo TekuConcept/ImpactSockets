@@ -437,8 +437,16 @@ internal::traverse_links(
         token.address       = copy_sockaddr_to_ptr(target->ifa_addr);
         token.netmask       = copy_sockaddr_to_ptr(target->ifa_netmask);
         token.broadcast     = copy_sockaddr_to_ptr(target->ifa_broadaddr);
-        token.ipv4          = (target->ifa_addr != NULL) ?
-            (target->ifa_addr->sa_family == AF_INET) : false;
+        // TODO: calculate broadcast from netmask and address if broadcast null?
+
+        token.ipv4 = false;
+        token.ipv6 = false;
+        if (target->ifa_addr != NULL) {
+            switch (target->ifa_addr->sa_family) {
+            case AF_INET:  token.ipv4 = true; break;
+            case AF_INET6: token.ipv6 = true; break;
+            }
+        }
 
 #if defined(__OS_APPLE__)
         set_interface_type_mac(target, &token, &hardware);
@@ -449,7 +457,12 @@ internal::traverse_links(
         )
 #endif
 
-        __list->push_back(token);
+        if (target->ifa_addr != NULL) {
+            // don't add LINK interfaces to list
+            if (target->ifa_addr->sa_family != AF_LINK)
+                __list->push_back(token);
+        }
+        else __list->push_back(token);
     }
 }
 
