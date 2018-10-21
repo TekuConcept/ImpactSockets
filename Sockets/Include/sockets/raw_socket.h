@@ -26,22 +26,17 @@ namespace experimental {
         int recv(void* buffer, int length)
             /* throw(impact_error) */;
 
-        void associate(struct networking::netinterface iface)
+        void attach(std::string interface_name)
             /* throw(impact_error) */;
 
-        const struct networking::netinterface& iface() const noexcept;
-        int allignment() const noexcept;
-
-        std::shared_ptr<void> m_pcap_descriptor_;
+        std::string interface_name() const noexcept;
 
     private:
-        struct networking::netinterface m_interface_;
-        size_t m_buffer_align_size_;
+        std::string m_interface_name_;
 
     #if defined HAVE_NPCAP
         // using void* in header to hide library-specific dependencies
-        bool _M_iterative_find(const struct networking::netinterface&,
-            const void*,std::string*);
+        std::shared_ptr<void> m_pcap_descriptor_;
     #else
         #if defined __OS_LINUX__
         basic_socket m_socket_;
@@ -52,10 +47,11 @@ namespace experimental {
         #else
         // OSX and BSD systems use BPF devices for raw networking 
         int m_bpf_descriptor_;
+        std::vector<unsigned char> aligned_buffer;
         #endif
     #endif
     
-        void _M_associate(const char*);
+        void _M_attach(const char*);
     };
 }}
 

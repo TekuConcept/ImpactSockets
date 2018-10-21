@@ -32,6 +32,7 @@ namespace networking {
 
     typedef struct netinterface {
         std::string                      name;
+        std::string                      friendly_name;
         interface_type                   type;
         unsigned int                     flags;
         std::shared_ptr<struct sockaddr> address;
@@ -44,12 +45,6 @@ namespace networking {
     } NetworkInterface;
 
 
-    std::string byte_address_to_string(
-        std::vector<unsigned char> address)
-        /* throw(impact_error) */;
-    std::vector<unsigned char> string_to_byte_address(
-        socket_domain domain, std::string address)
-        /* throw(impact_error) */;
     std::string sockaddr_to_string(const struct sockaddr* address);
 
 

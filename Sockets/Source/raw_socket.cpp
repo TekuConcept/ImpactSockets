@@ -5,14 +5,15 @@
 
 #include "sockets/raw_socket.h"
 
+#include <algorithm>
+
 #if defined(__OS_APPLE__)
     #include <fcntl.h>
     #include <net/bpf.h>
-    #include <algorithm> /* std::min */
 #elif defined(__OS_LINUX__)
     #include <linux/if_packet.h>
     #include <net/ethernet.h>
-    #include <string.h>
+    #include <cstring>
 #elif defined(__OS_WINDOWS__)
     #include <tchar.h>
 #endif
@@ -24,7 +25,6 @@
 
 #if defined HAVE_NPCAP
     #include <pcap.h>
-    #include <algorithm>
 #endif
 
 using namespace impact;
@@ -34,17 +34,10 @@ using namespace experimental;
 #define VERBOSE(x) std::cout << x << std::endl
 
 
-const struct networking::netinterface&
-raw_socket::iface() const noexcept
+std::string
+raw_socket::interface_name() const noexcept
 {
-    return m_interface_;
-}
-
-
-int
-raw_socket::allignment() const noexcept
-{
-    return m_buffer_align_size_;
+    return m_interface_name_;
 }
 
 
@@ -53,7 +46,6 @@ raw_socket::allignment() const noexcept
 /////////////////////////////////////////////////////////////////////
 
 raw_socket::raw_socket()
-: m_buffer_align_size_(2048)
 {
 #if defined __OS_WINDOWS__
     static bool dll_loaded = false;
@@ -80,6 +72,7 @@ raw_socket::send(
     const void* __buffer,
     int         __length)
 {
+    if (__length <= 0) return 0;
     pcap_t* handle = (pcap_t*)m_pcap_descriptor_.get();
 
     auto status = pcap_sendpacket(
@@ -100,7 +93,7 @@ raw_socket::recv(
     void* __buffer,
     int   __length)
 {
-    if (__length < 0) return 0;
+    if (__length <= 0) return 0;
 
     struct pcap_pkthdr* pcap_header;
     const unsigned char* packet_data;
@@ -123,80 +116,24 @@ raw_socket::recv(
 
 
 void
-raw_socket::associate(struct networking::netinterface __iface)
-{
-    if (__iface.address->sa_family != AF_INET &&
-        __iface.address->sa_family != AF_INET6)
-        throw impact_error(error_string(imperr::ADDRESS_FAMILY));
-
-    pcap_if_t *alldevs;
-    char errbuf[PCAP_ERRBUF_SIZE];
-    if (pcap_findalldevs(&alldevs, errbuf) == -1)
-        throw impact_error(errbuf);
-    std::shared_ptr<pcap_if_t> all_devices =
-    std::shared_ptr<pcap_if_t>(alldevs, [](pcap_if_t* ptr) {
-        pcap_freealldevs(ptr); /* fix-it-n-forget-it */
-    });
-    
-    std::string iface_name;
-    auto status = _M_iterative_find(
-        __iface,
-        all_devices.get(),
-        &iface_name);
-
-    if (status == false)
-        throw impact_error("No pcap devices found for the interface");
-
-    try { _M_associate(iface_name.c_str()); } catch (...) { throw; }
-    m_interface_ = __iface;
-}
-
-
-bool
-raw_socket::_M_iterative_find(
-    const struct networking::netinterface& __iface,
-    const void*                            __start_device,
-    std::string*                           __iface_name)
-{
-    bool found = false;
-    for (pcap_if_t* device = (pcap_if_t*)__start_device;
-        device; device = device->next) {
-        for (pcap_addr* address = device->addresses;
-            address; address = address->next) {
-            if (address->addr->sa_family != __iface.address->sa_family) continue;
-            switch (address->addr->sa_family) {
-            case AF_INET:
-                found =
-                    ((struct sockaddr_in*)(__iface.address.get()))
-                        ->sin_addr.S_un.S_addr ==
-                    ((struct sockaddr_in*)address->addr)
-                        ->sin_addr.S_un.S_addr;
-                break;
-            case AF_INET6: {
-                struct sockaddr_in6& target =
-                    *((struct sockaddr_in6*)__iface.address.get());
-                struct sockaddr_in6& source =
-                    *((struct sockaddr_in6*)address->addr);
-                bool test = true;
-                for (int i = 0; i < IPV6_ADDRESS_SIZE; i++)
-                    test &= target.sin6_addr.u.Byte[i] ==
-                            source.sin6_addr.u.Byte[i];
-                found = test;
-            } break;
-            }
-        }
-
-        if (found) {
-            __iface_name->assign(device->name);
-            break;
-        }
+raw_socket::attach(std::string __iface_name) {
+    try {
+#if defined __OS_WINDOWS__
+        // NOTE: "\Device\NPF_" prefix is for npcap
+        // running in WinPcap compatibility mode.
+        std::string prefixed_name = "\\Device\\NPF_" + __iface_name;
+#else
+        std::string& prefixed_name = __iface_name;
+#endif
+        m_interface_name_ = prefixed_name;
+        _M_attach(prefixed_name.c_str());
     }
-    return found;
+    catch (...) { throw; }
 }
 
 
 void
-raw_socket::_M_associate(const char* __iface_name)
+raw_socket::_M_attach(const char* __iface_name)
 {
     char errbuf[PCAP_ERRBUF_SIZE];
     const int k_max_packet_caputure_size = 65536;
@@ -221,7 +158,6 @@ raw_socket::_M_associate(const char* __iface_name)
 /////////////////////////////////////////////////////////////////////
 
 raw_socket::raw_socket()
-: m_buffer_align_size_(2048)
 {}
 
 
@@ -252,14 +188,14 @@ raw_socket::recv(
 
 
 void
-raw_socket::associate(struct networking::netinterface __iface)
+raw_socket::attach(std::string __iface_name)
 {
-    m_interface_ = __iface;
+    m_interface_name_ = __iface_name;
 }
 
 
 void
-raw_socket::_M_associate(const char* __iface_name)
+raw_socket::_M_attach(const char* __iface_name)
 {
     UNUSED(__iface_name);
 }
@@ -269,7 +205,6 @@ raw_socket::_M_associate(const char* __iface_name)
 /////////////////////////////////////////////////////////////////////
 
 raw_socket::raw_socket()
-: m_buffer_align_size_(4096) /* 4096 is from OSX-BPF */
 {
 #if defined(__OS_LINUX__)
     VERBOSE("Raw: Linux Detected");
@@ -311,6 +246,7 @@ raw_socket::send(
     const void* __buffer,
     int         __length)
 {
+    if (__length <= 0) return 0;
 #if defined(__OS_APPLE__)
     VERBOSE("Raw: [Apple] send");
     auto status = ::write(
@@ -337,7 +273,7 @@ raw_socket::recv(
     void* __buffer,
     int   __length)
 {
-    if (__length <= 0) throw impact_error("invalid length");
+    if (__length <= 0) return 0;
 #if defined(__OS_APPLE__)
     VERBOSE(
         "Raw: [Apple] recv [" <<
@@ -346,9 +282,13 @@ raw_socket::recv(
         m_buffer_align_size_ << "]");
     auto status = ::read(
         m_bpf_descriptor_,
-        __buffer,
-        __length
+        &aligned_buffer[0],
+        aligned_buffer.size()
     );
+    auto berkley_packet_header = (struct bpf_hdr*)&aligned_buffer[0];
+    auto size = std::min((unsigned int)__length, berkley_packet_header->bh_caplen);
+    memcpy(__buffer, &aligned_buffer[0] + berkley_packet_header->bh_hdrlen, size);
+    status = size;
     ASSERT(status != SOCKET_ERROR)
 #else /* __OS_LINUX__ */
     VERBOSE("Raw: [Other] recv");
@@ -365,16 +305,16 @@ raw_socket::recv(
 
 
 void
-raw_socket::associate(struct networking::netinterface __iface)
+raw_socket::attach(std::string __iface_name)
 {
-    m_interface_ = __iface;
-    try { _M_associate(__iface.name.c_str()); }
+    m_interface_name_ = __iface_name;
+    try { _M_attach(__iface_name.c_str()); }
     catch (...) { throw; }
 }
 
 
 void
-raw_socket::_M_associate(const char* __interface_name)
+raw_socket::_M_attach(const char* __interface_name)
 {
     struct ifreq ifr;
     strncpy(
@@ -398,8 +338,9 @@ raw_socket::_M_associate(const char* __interface_name)
     if (status < 0) throw impact_error(
         std::string("ioctl error: ") +
         std::to_string(status));
-    m_buffer_align_size_ = 0; // clear to be rewritten
-    status = ::ioctl(m_bpf_descriptor_, BIOCGBLEN, &m_buffer_align_size_);
+    unsigned int buffer_align_size = 0;
+    status = ::ioctl(m_bpf_descriptor_, BIOCGBLEN, &buffer_align_size);
+    aligned_buffer.resize(buffer_align_size);
     if (status < 0) throw impact_error(
         std::string("ioctl error: ") +
         std::to_string(status));

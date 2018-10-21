@@ -106,62 +106,6 @@ netinterface::netinterface()
 
 
 std::string
-networking::byte_address_to_string(std::vector<unsigned char> __address)
-{
-    std::string result;
-
-    if (__address.size() == IPV4_ADDRESS_SIZE) {
-        result.resize(INET_ADDRSTRLEN);
-        struct in_addr byte_address;
-        byte_address.S_un.S_un_b.s_b1 = __address[0];
-        byte_address.S_un.S_un_b.s_b2 = __address[1];
-        byte_address.S_un.S_un_b.s_b3 = __address[2];
-        byte_address.S_un.S_un_b.s_b4 = __address[3];
-        inet_ntop(AF_INET, &byte_address, &result[0], INET_ADDRSTRLEN);
-    }
-    else if (__address.size() == IPV6_ADDRESS_SIZE) {
-        result.resize(INET6_ADDRSTRLEN);
-        struct in6_addr byte_address;
-        for (int i = 0; i < IPV6_ADDRESS_SIZE; i++)
-            byte_address.u.Byte[i] = __address[i];
-        inet_ntop(AF_INET6, &byte_address, &result[0], INET6_ADDRSTRLEN);
-    }
-    else throw impact_error(error_string(imperr::ADDRESS_SIZE));
-
-    return result;
-}
-
-
-std::vector<unsigned char>
-networking::string_to_byte_address(
-    socket_domain __domain,
-    std::string   __address)
-{
-    std::vector<unsigned char> result;
-    
-    if (__domain == socket_domain::INET) {
-        result.resize(IPV4_ADDRESS_SIZE);
-        struct in_addr byte_address;
-        inet_pton(AF_INET, &__address[0], &byte_address);
-        result[0] = byte_address.S_un.S_un_b.s_b1;
-        result[1] = byte_address.S_un.S_un_b.s_b2;
-        result[2] = byte_address.S_un.S_un_b.s_b3;
-        result[3] = byte_address.S_un.S_un_b.s_b4;
-    }
-    else if (__domain == socket_domain::INET6) {
-        result.resize(IPV6_ADDRESS_SIZE);
-        struct in6_addr byte_address;
-        inet_pton(AF_INET6, &__address[0], &byte_address);
-        for (int i = 0; i < IPV6_ADDRESS_SIZE; i++)
-            result[i] = byte_address.u.Byte[i];
-    }
-    else throw impact_error(error_string(imperr::ADDRESS_FAMILY));
-
-    return result;
-}
-
-
-std::string
 networking::sockaddr_to_string(const struct sockaddr* __address)
 {
     if (__address == NULL) return "[no address]";
@@ -268,9 +212,10 @@ internal::traverse_adapters(
         adapter != NULL;
         adapter = adapter->Next) {
         netinterface token;
-        token.name  = to_narrow_string(adapter->FriendlyName);
-        token.type  = get_interface_type(adapter->IfType);
-        token.flags = (unsigned int)adapter->Flags;
+        token.name          = adapter->AdapterName;
+        token.friendly_name = to_narrow_string(adapter->FriendlyName);
+        token.type          = get_interface_type(adapter->IfType);
+        token.flags         = (unsigned int)adapter->Flags;
 
         if (adapter->PhysicalAddressLength != 0) {
             token.mac.resize(adapter->PhysicalAddressLength);
@@ -438,12 +383,13 @@ internal::traverse_links(
     for (auto target = __addresses; target != NULL; target = target->ifa_next) {
         netinterface token;
 
-        token.flags      = target->ifa_flags;
-        token.name       = std::string(target->ifa_name);
-        token.address    = sock_addr_string(target->ifa_addr);
-        token.netmask    = sock_addr_string(target->ifa_netmask);
-        token.broadcast  = sock_addr_string(target->ifa_broadaddr);
-        token.ipv4       = (target->ifa_addr != NULL) ?
+        token.flags         = target->ifa_flags;
+        token.name          = std::string(target->ifa_name);
+        token.friendly_name = token.name;
+        token.address       = sock_addr_string(target->ifa_addr);
+        token.netmask       = sock_addr_string(target->ifa_netmask);
+        token.broadcast     = sock_addr_string(target->ifa_broadaddr);
+        token.ipv4          = (target->ifa_addr != NULL) ?
             (target->ifa_addr->sa_family == AF_INET) : false;
 
 #if defined(__OS_APPLE__)

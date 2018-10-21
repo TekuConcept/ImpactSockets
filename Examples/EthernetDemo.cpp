@@ -21,9 +21,9 @@ int main() {
     networking::netinterface selected_iface;
     for (const auto& iface : interfaces) {
         if (!iface.ipv4) continue; /* select IPv4 only */
-        if (iface.name == "WiFi" || iface.name == "Wi-Fi" ||
-            iface.name == "wlan0" || iface.name == "eth0" ||
-            iface.name == "en1") {
+        if (iface.friendly_name == "WiFi"  || iface.friendly_name == "Wi-Fi" ||
+            iface.friendly_name == "wlan0" || iface.friendly_name == "eth0" ||
+            iface.friendly_name == "en1") {
             selected_iface = iface;
             break;
         }
@@ -34,14 +34,14 @@ int main() {
         return 1;
     }
     VERBOSE("Selecting Interface: " << selected_iface.name <<
-        "\t" << networking::sockaddr_to_string(selected_iface.address.get()));
+        " (" << selected_iface.friendly_name << ")");
 
 
     /* create and associate raw socket to interface */
     experimental::raw_socket raw;
-    raw.associate(selected_iface);
+    raw.attach(selected_iface.name);
     std::vector<unsigned char> buffer;
-    buffer.resize(raw.allignment());
+    buffer.resize(2048);
     VERBOSE("Buffer size: " << buffer.size());
 
 
