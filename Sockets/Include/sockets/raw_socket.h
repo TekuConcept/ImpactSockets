@@ -47,7 +47,7 @@ namespace experimental {
         #else
         // OSX and BSD systems use BPF devices for raw networking 
         int m_bpf_descriptor_;
-        std::vector<unsigned char> aligned_buffer;
+        std::vector<unsigned char> m_aligned_buffer_;
         #endif
     #endif
     

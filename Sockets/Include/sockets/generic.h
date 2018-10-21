@@ -27,16 +27,6 @@ namespace internal {
         const std::string& host, const unsigned short port,
         std::shared_ptr<struct sockaddr>* result)
         /* throw(impact_error) */;
-    void fill_address(const std::vector<unsigned char>& address,
-        const unsigned short port,
-        std::shared_ptr<struct sockaddr>* result)
-        /* throw(impact_error) */;
-
-    std::vector<unsigned char> sock_addr_byte_array(
-        const struct sockaddr* address)
-        /* throw(impact_error) */;
-
-    std::string sock_addr_string(const struct sockaddr* address);
 
 #if defined(__OS_WINDOWS__)
     std::string to_narrow_string(const wchar_t* original, char unknown = '?',

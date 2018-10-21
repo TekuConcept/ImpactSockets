@@ -59,9 +59,7 @@ basic_socket::bind(
 
 
 void
-basic_socket::bind(
-    const sockaddr* __address,
-    unsigned short  __port)
+basic_socket::bind(const sockaddr* __address)
 {
     ASSERT_MOVED
 

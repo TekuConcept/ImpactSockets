@@ -230,11 +230,9 @@ raw_socket::raw_socket()
 raw_socket::~raw_socket()
 {
 #if defined (__OS_APPLE__)
-    VERBOSE("Raw: [Apple] dtor");
     if (m_bpf_descriptor_ != -1)
         ::close(m_bpf_descriptor_);
 #else
-    VERBOSE("Raw: [Other] dtor");
     try { m_socket_.close(); }
     catch (...) { /* silently ignore errors */ }
 #endif
@@ -248,14 +246,12 @@ raw_socket::send(
 {
     if (__length <= 0) return 0;
 #if defined(__OS_APPLE__)
-    VERBOSE("Raw: [Apple] send");
     auto status = ::write(
         m_bpf_descriptor_,
         __buffer,
         __length
     );
 #else /* __OS_LINUX__ */
-    VERBOSE("Raw: [Other] send");
     auto status = ::send(
         m_socket_.get(),
         (CCHAR_PTR)__buffer,
@@ -275,23 +271,19 @@ raw_socket::recv(
 {
     if (__length <= 0) return 0;
 #if defined(__OS_APPLE__)
-    VERBOSE(
-        "Raw: [Apple] recv [" <<
-        m_bpf_descriptor_ << ", " <<
-        __buffer << ", " <<
-        m_buffer_align_size_ << "]");
     auto status = ::read(
         m_bpf_descriptor_,
-        &aligned_buffer[0],
-        aligned_buffer.size()
+        &m_aligned_buffer_[0],
+        m_aligned_buffer_.size()
     );
-    auto berkley_packet_header = (struct bpf_hdr*)&aligned_buffer[0];
-    auto size = std::min((unsigned int)__length, berkley_packet_header->bh_caplen);
-    memcpy(__buffer, &aligned_buffer[0] + berkley_packet_header->bh_hdrlen, size);
+    auto berkley_packet_header = (struct bpf_hdr*)&m_aligned_buffer_[0];
+    auto size = std::min((unsigned int)__length,
+        berkley_packet_header->bh_caplen);
+    memcpy(__buffer, &m_aligned_buffer_[0] + berkley_packet_header->bh_hdrlen,
+        size);
     status = size;
     ASSERT(status != SOCKET_ERROR)
 #else /* __OS_LINUX__ */
-    VERBOSE("Raw: [Other] recv");
     auto status = ::recv(
         m_socket_.get(),
         (CHAR_PTR)__buffer,
@@ -323,7 +315,6 @@ raw_socket::_M_attach(const char* __interface_name)
         sizeof(ifr.ifr_name) - 1);
 
 #if defined(__OS_APPLE__)
-    VERBOSE("Raw: [Apple] associated");
     unsigned int enabled = 1;
     auto target = m_bpf_descriptor_;
     auto status = ::ioctl(target, BIOCSETIF, &ifr);
@@ -340,14 +331,13 @@ raw_socket::_M_attach(const char* __interface_name)
         std::to_string(status));
     unsigned int buffer_align_size = 0;
     status = ::ioctl(m_bpf_descriptor_, BIOCGBLEN, &buffer_align_size);
-    aligned_buffer.resize(buffer_align_size);
+    m_aligned_buffer_.resize(buffer_align_size);
     if (status < 0) throw impact_error(
         std::string("ioctl error: ") +
         std::to_string(status));
-    VERBOSE("Raw: [Apple] buffer alignment " << m_buffer_align_size_);
+    VERBOSE("Raw: [Apple] buffer alignment " << m_aligned_buffer_.size());
 
 #elif defined(__LINUX__)
-    VERBOSE("Raw: [Linux] associated");
     auto status = ::ioctl(m_socket_.get(), SIOCGIFINDEX, &ifr);
     if (status < 0) throw impact_error(
         std::string("ioctl error: ") +

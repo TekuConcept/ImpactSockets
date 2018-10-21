@@ -76,12 +76,14 @@ using interface_type = impact::networking::interface_type;
 
 namespace impact {
 namespace internal {
+    std::shared_ptr<struct sockaddr> copy_sockaddr_to_ptr(
+        const struct sockaddr*);
 #if defined(__OS_WINDOWS__)
     void traverse_adapters(std::vector<netinterface>&, PIP_ADAPTER_ADDRESSES);
     void traverse_unicast(std::vector<netinterface>&, netinterface,
         PIP_ADAPTER_UNICAST_ADDRESS);
-    void set_ipv4_interface(const struct sockaddr*, unsigned char, netinterface*);
-    void set_ipv6_interface(const struct sockaddr*, unsigned char, netinterface*);
+    void set_ipv4_interface(const struct sockaddr*,unsigned char,netinterface*);
+    void set_ipv6_interface(const struct sockaddr*,unsigned char,netinterface*);
     interface_type get_interface_type(unsigned int);
 #else /* NIX */
     void traverse_links(const struct ifaddrs*, std::vector<netinterface>*);
@@ -113,37 +115,78 @@ networking::sockaddr_to_string(const struct sockaddr* __address)
     std::string result;
     if (__address->sa_family == AF_INET) {
         result.resize(INET_ADDRSTRLEN);
-        auto status = inet_ntop(AF_INET, &((struct sockaddr_in*)__address)->sin_addr,
+        auto status = inet_ntop(AF_INET,
+            &((struct sockaddr_in*)__address)->sin_addr,
             &result[0], sizeof(struct sockaddr_in));
         if (status == NULL) {
             std::ostringstream os;
             struct sockaddr_in& copy = *(struct sockaddr_in*)__address;
+        #if defined __OS_WINDOWS__
             os << copy.sin_addr.S_un.S_un_b.s_b1 << ".";
             os << copy.sin_addr.S_un.S_un_b.s_b1 << ".";
             os << copy.sin_addr.S_un.S_un_b.s_b3 << ".";
             os << copy.sin_addr.S_un.S_un_b.s_b4;
+        #else
+            os << (int)(0xFF & (copy.sin_addr.s_addr >> 24)) << ".";
+            os << (int)(0xFF & (copy.sin_addr.s_addr >> 16)) << ".";
+            os << (int)(0xFF & (copy.sin_addr.s_addr >>  8)) << ".";
+            os << (int)(0xFF & (copy.sin_addr.s_addr      ));
+        #endif
             return os.str();
         }
     }
     else if (__address->sa_family == AF_INET6) {
         result.resize(INET6_ADDRSTRLEN);
-        auto status = inet_ntop(AF_INET6, &((struct sockaddr_in6*)__address)->sin6_addr,
+        auto status = inet_ntop(AF_INET6,
+            &((struct sockaddr_in6*)__address)->sin6_addr,
             &result[0], sizeof(struct sockaddr_in6));
         if (status == NULL) {
             std::ostringstream os;
             struct sockaddr_in6& copy = *(struct sockaddr_in6*)__address;
             os << std::hex << std::setfill('0');
+        #if defined __OS_WINDOWS__
             for (int i = 0; i < IPV6_ADDRESS_SIZE - 2; i += 2)
                 os << std::setw(2) << (int)copy.sin6_addr.u.Byte[i]   <<
                       std::setw(2) << (int)copy.sin6_addr.u.Byte[i+1] << ":";
-            os << (int)copy.sin6_addr.u.Byte[IPV6_ADDRESS_SIZE - 2] <<
-                  (int)copy.sin6_addr.u.Byte[IPV6_ADDRESS_SIZE - 1];
+            os<<std::setw(2)<<(int)copy.sin6_addr.u.Byte[IPV6_ADDRESS_SIZE-2] <<
+                std::setw(2)<<(int)copy.sin6_addr.u.Byte[IPV6_ADDRESS_SIZE-1];
+        #else
+            for (int i = 0; i < IPV6_ADDRESS_SIZE - 2; i += 2)
+                os << std::setw(2) << (int)copy.sin6_addr.s6_addr[i] <<
+                      std::setw(2) << (int)copy.sin6_addr.s6_addr[i+1] << ":";
+            os<<std::setw(2)<<(int)copy.sin6_addr.s6_addr[IPV6_ADDRESS_SIZE-2]<<
+                std::setw(2)<<(int)copy.sin6_addr.s6_addr[IPV6_ADDRESS_SIZE-1];
+        #endif
             os << std::dec << std::setfill(' ');
             return os.str();
         }
     }
     else return "[unrecognized address family]";
 
+    return result;
+}
+
+
+std::shared_ptr<struct sockaddr>
+internal::copy_sockaddr_to_ptr(const struct sockaddr* __address)
+{
+    if (__address == NULL) return nullptr;
+    
+    std::shared_ptr<struct sockaddr> result;
+    switch (__address->sa_family) {
+    case AF_INET: {
+        struct sockaddr_in* address = new struct sockaddr_in;
+        memcpy(address, __address, sizeof(struct sockaddr_in));
+        result = std::shared_ptr<struct sockaddr>((struct sockaddr*)address);
+    } break;
+    case AF_INET6: {
+        struct sockaddr_in6* address = new struct sockaddr_in6;
+        memcpy(address, __address, sizeof(struct sockaddr_in6));
+        result = std::shared_ptr<struct sockaddr>((struct sockaddr*)address);
+    } break;
+    default: return nullptr;
+    }
+    
     return result;
 }
 
@@ -249,9 +292,11 @@ internal::traverse_unicast(
         auto socket_address = address->Address.lpSockaddr;
 
         if (socket_address->sa_family == AF_INET)
-            set_ipv4_interface(socket_address, address->OnLinkPrefixLength, &token);
+            set_ipv4_interface(socket_address,
+                address->OnLinkPrefixLength, &token);
         else if (socket_address->sa_family == AF_INET6)
-            set_ipv6_interface(socket_address, address->OnLinkPrefixLength, &token);
+            set_ipv6_interface(socket_address,
+                address->OnLinkPrefixLength, &token);
         // don't add link interfaces to interface list
         else if (socket_address->sa_family == AF_LINK) continue;
 
@@ -285,7 +330,8 @@ internal::set_ipv4_interface(
         *(unsigned long*)&((struct sockaddr_in*)__socket_address)->sin_addr;
     unsigned long C = (A&B | ~A);
     broadcast->sin_addr = *(struct in_addr*)&C;
-    __token->broadcast = std::shared_ptr<struct sockaddr>((struct sockaddr*)broadcast);
+    __token->broadcast =
+        std::shared_ptr<struct sockaddr>((struct sockaddr*)broadcast);
 }
 
 
@@ -325,7 +371,8 @@ internal::set_ipv6_interface(
         auto B = addr->sin6_addr.u.Byte[i];
         broadcast->sin6_addr.u.Byte[i] = (A & B | ~A);
     }
-    __token->broadcast = std::shared_ptr<struct sockaddr>((struct sockaddr*)broadcast);
+    __token->broadcast =
+        std::shared_ptr<struct sockaddr>((struct sockaddr*)broadcast);
 }
 
 
@@ -386,9 +433,10 @@ internal::traverse_links(
         token.flags         = target->ifa_flags;
         token.name          = std::string(target->ifa_name);
         token.friendly_name = token.name;
-        token.address       = sock_addr_string(target->ifa_addr);
-        token.netmask       = sock_addr_string(target->ifa_netmask);
-        token.broadcast     = sock_addr_string(target->ifa_broadaddr);
+        
+        token.address       = copy_sockaddr_to_ptr(target->ifa_addr);
+        token.netmask       = copy_sockaddr_to_ptr(target->ifa_netmask);
+        token.broadcast     = copy_sockaddr_to_ptr(target->ifa_broadaddr);
         token.ipv4          = (target->ifa_addr != NULL) ?
             (target->ifa_addr->sa_family == AF_INET) : false;
 

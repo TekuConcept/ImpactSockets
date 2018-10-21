@@ -21,6 +21,9 @@
 
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#if defined LITTLE_ENDIAN
+    #undef LITTLE_ENDIAN /* defined in "i386/endian.h" */
+#endif
 #include "configure.h"
 
 #define UNUSED(x) (void)x
