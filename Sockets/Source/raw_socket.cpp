@@ -334,7 +334,6 @@ raw_socket::_M_attach(const char* __interface_name)
     if (status < 0) throw impact_error(
         std::string("ioctl error: ") +
         std::to_string(status));
-    VERBOSE("Raw: [Apple] buffer alignment " << m_aligned_buffer_.size());
 
 #elif defined(__OS_LINUX__)
     auto status = ::ioctl(m_socket_.get(), SIOCGIFINDEX, &ifr);
