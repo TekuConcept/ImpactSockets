@@ -207,14 +207,12 @@ raw_socket::_M_attach(const char* __iface_name)
 raw_socket::raw_socket()
 {
 #if defined(__OS_LINUX__)
-    VERBOSE("Raw: Linux Detected");
     m_socket_ = make_socket(
         socket_domain::PACKET,
         socket_type::RAW,
         (socket_protocol)htons(ETH_P_ALL)
     );
 #else /* __OS_APPLE__ */
-    VERBOSE("Raw: Apple Detected");
     std::string file_name;
     for (auto i = 0; i < 255; i++) {
         file_name = std::string("/dev/bpf") + std::to_string(i);
@@ -309,6 +307,7 @@ void
 raw_socket::_M_attach(const char* __interface_name)
 {
     struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
     strncpy(
         ifr.ifr_name,
         __interface_name,
@@ -337,16 +336,16 @@ raw_socket::_M_attach(const char* __interface_name)
         std::to_string(status));
     VERBOSE("Raw: [Apple] buffer alignment " << m_aligned_buffer_.size());
 
-#elif defined(__LINUX__)
+#elif defined(__OS_LINUX__)
     auto status = ::ioctl(m_socket_.get(), SIOCGIFINDEX, &ifr);
     if (status < 0) throw impact_error(
         std::string("ioctl error: ") +
         std::to_string(status));
     struct sockaddr_ll sll;
     memset(&sll, 0, sizeof(sll));
-    sll.sll_family = PF_PACKET;
+    sll.sll_family   = AF_PACKET;
     sll.sll_protocol = htons(ETH_P_ALL);
-    sll.sll_ifindex = ifr.ifr_ifindex;
+    sll.sll_ifindex  = ifr.ifr_ifindex;
     status = ::bind(m_socket_.get(), (struct sockaddr*)&sll, sizeof(sll));
     ASSERT(status != SOCKET_ERROR)
 #endif

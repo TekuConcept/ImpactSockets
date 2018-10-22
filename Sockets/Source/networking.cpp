@@ -171,7 +171,7 @@ std::shared_ptr<struct sockaddr>
 internal::copy_sockaddr_to_ptr(const struct sockaddr* __address)
 {
     if (__address == NULL) return nullptr;
-    
+
     std::shared_ptr<struct sockaddr> result;
     switch (__address->sa_family) {
     case AF_INET: {
@@ -186,7 +186,7 @@ internal::copy_sockaddr_to_ptr(const struct sockaddr* __address)
     } break;
     default: return nullptr;
     }
-    
+
     return result;
 }
 
@@ -433,7 +433,7 @@ internal::traverse_links(
         token.flags         = target->ifa_flags;
         token.name          = std::string(target->ifa_name);
         token.friendly_name = token.name;
-        
+
         token.address       = copy_sockaddr_to_ptr(target->ifa_addr);
         token.netmask       = copy_sockaddr_to_ptr(target->ifa_netmask);
         token.broadcast     = copy_sockaddr_to_ptr(target->ifa_broadaddr);
@@ -458,8 +458,12 @@ internal::traverse_links(
 #endif
 
         if (target->ifa_addr != NULL) {
-            // don't add LINK interfaces to list
+            // don't add LINK or PACKET interfaces to list
+        #if defined __OS_APPLE__
             if (target->ifa_addr->sa_family != AF_LINK)
+        #else /* __OS_LINUX__ */
+            if (target->ifa_addr->sa_family != AF_PACKET)
+        #endif
                 __list->push_back(token);
         }
         else __list->push_back(token);
@@ -540,7 +544,7 @@ internal::set_interface_type_mac(
     __token->type = interface_type::OTHER;
     __token->mac.resize(6);
     std::memset(&(__token->mac)[0], 0, __token->mac.size());
-    
+
     if (__target->ifa_addr != NULL) {
         if (__target->ifa_addr->sa_family == AF_LINK) {
             struct sockaddr_dl* sdl = (struct sockaddr_dl*)__target->ifa_addr;
@@ -554,15 +558,15 @@ internal::set_interface_type_mac(
                     __token->mac.size()
                 );
             }
-            
+
             (*__hardware)[__token->name] = *__token;
         }
         else goto iface_history;
     }
     else goto iface_history;
-    
+
     return;
-    
+
     iface_history: {
         // WARNING:
         // - this assumes a link token comes first

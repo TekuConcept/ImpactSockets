@@ -23,7 +23,7 @@ int main() {
         if (!iface.ipv4) continue; /* select IPv4 only */
         if (iface.friendly_name == "WiFi"  || iface.friendly_name == "Wi-Fi" ||
             iface.friendly_name == "wlan0" || iface.friendly_name == "eth0" ||
-            iface.friendly_name == "en1") {
+            iface.friendly_name == "en1"   || iface.friendly_name == "enp0s3") {
             selected_iface = iface;
             break;
         }
@@ -51,7 +51,7 @@ int main() {
         buffer[i] = 0x01; /* destination mac address */
     for (int i = 6; i < 12; i++)
         buffer[i] = 0x02; /* source mac address */
-    buffer[12] = 0xC0; buffer[13] = 0xD0; /* packet type */ 
+    buffer[12] = 0xC0; buffer[13] = 0xD0; /* packet type */
     /* 64 bytes is the minimum ether packet size */
     for (int i = 14; i < 64; i++)
         buffer[i] = 0x00;
