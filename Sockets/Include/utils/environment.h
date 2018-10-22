@@ -24,7 +24,7 @@
 #if defined LITTLE_ENDIAN
     #undef LITTLE_ENDIAN /* defined in "i386/endian.h" */
 #endif
-#include "configure.h"
+#include "sockets/configure.h"
 
 #define UNUSED(x) (void)x
 #define UNUSED_FUNCTION(x)
