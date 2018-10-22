@@ -14,7 +14,7 @@ INCLUDE(${CMAKE_MODULES_DIR}/Dependencies.cmake)
 INCLUDE(${CMAKE_MODULES_DIR}/Functions.cmake)
 INCLUDE(${CMAKE_MODULES_DIR}/Configuration.cmake)
 
-CONFIGURE_FILE(${CMAKE_MODULES_DIR}/configure.h.in sockets/configure.h @ONLY)
+CONFIGURE_FILE(${CMAKE_MODULES_DIR}/configure.h.in utils/configure.h @ONLY)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 # LIBRARY MODULES                                         #
@@ -51,8 +51,8 @@ INSTALL (
     FILES_MATCHING PATTERN "*"
 )
 INSTALL (
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/sockets/configure.h
-    DESTINATION include/sockets
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/utils/configure.h
+    DESTINATION include/sockets/utils
 )
 
 
