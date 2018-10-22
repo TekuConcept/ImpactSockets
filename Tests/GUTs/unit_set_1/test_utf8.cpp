@@ -34,15 +34,15 @@ using namespace impact;
 
 TEST(test_utf8, size_estimate_char) {
     using test = test_utf8_c;
-    EXPECT_EQ(test::estimate_buf_size(0x00), 1);
-    EXPECT_EQ(test::estimate_buf_size('\0'), 1);
-    EXPECT_EQ(test::estimate_buf_size('\x7F'), 1);
+    EXPECT_EQ(test::estimate_buf_size(0x00), 1U);
+    EXPECT_EQ(test::estimate_buf_size('\0'), 1U);
+    EXPECT_EQ(test::estimate_buf_size('\x7F'), 1U);
     // NOTE: '\xFF' requires a 32-bit mask
-    EXPECT_EQ(test::estimate_buf_size(u'\u00FF'), 2);
-    EXPECT_EQ(test::estimate_buf_size(u'\u07FF'), 2);
-    EXPECT_EQ(test::estimate_buf_size(U'\U0000FFFF'), 3);
-    EXPECT_EQ(test::estimate_buf_size(U'\U0010FFFF'), 4);
-    EXPECT_EQ(test::estimate_buf_size(0x00110000), -1);
+    EXPECT_EQ(test::estimate_buf_size(u'\u00FF'), 2U);
+    EXPECT_EQ(test::estimate_buf_size(u'\u07FF'), 2U);
+    EXPECT_EQ(test::estimate_buf_size(U'\U0000FFFF'), 3U);
+    EXPECT_EQ(test::estimate_buf_size(U'\U0010FFFF'), 4U);
+    EXPECT_EQ(test::estimate_buf_size(0x00110000), -1U);
 
     /*
     0xD800 - 0xDFFF are reserved unicode values
@@ -52,7 +52,7 @@ TEST(test_utf8, size_estimate_char) {
     into account.
     */
     char16_t c4 = 0xDFFF;
-    EXPECT_EQ(test::estimate_buf_size(c4), -1);
+    EXPECT_EQ(test::estimate_buf_size(c4), -1U);
 }
 
 
