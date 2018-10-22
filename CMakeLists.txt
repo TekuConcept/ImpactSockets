@@ -50,6 +50,10 @@ INSTALL (
     DESTINATION include/sockets
     FILES_MATCHING PATTERN "*"
 )
+INSTALL (
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/configure.h
+    DESTINATION include/sockets
+)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
