@@ -49,7 +49,7 @@ namespace impact {
         void bind(unsigned short port) /* throw(impact_error) */;
         void bind(std::string address, unsigned short port = 0)
             /* throw(impact_error) */;
-        void bind(const sockaddr* address)
+        void bind(const struct sockaddr& address)
             /* throw(impact_error) */;
         void connect(unsigned short port,
             std::string address = "localhost")

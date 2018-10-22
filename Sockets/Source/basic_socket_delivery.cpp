@@ -59,13 +59,13 @@ basic_socket::bind(
 
 
 void
-basic_socket::bind(const sockaddr* __address)
+basic_socket::bind(const struct sockaddr& __address)
 {
     ASSERT_MOVED
 
     auto status = ::bind(
         m_info_->descriptor,
-        __address,
+        &__address,
         sizeof(__address)
     );
 
