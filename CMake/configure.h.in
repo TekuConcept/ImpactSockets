@@ -1,0 +1,25 @@
+#ifndef _IMPACT_CONFIGURE_H_
+#define _IMPACT_CONFIGURE_H_
+
+#cmakedefine __OS_APPLE__
+#cmakedefine __OS_LINUX__
+#cmakedefine __OS_WINDOWS__
+/* not tested on unix or solaris systems */
+
+#cmakedefine BIG_ENDIAN
+#cmakedefine LITTLE_ENDIAN
+
+#cmakedefine HAS_FALLTHROUGH_ATTRIBUTE /* C++17 feature: [[fallthrough]] */
+
+#cmakedefine HAVE_UINT8_T
+#cmakedefine HAVE_UINT16_T
+#cmakedefine HAVE_UINT32_T
+#cmakedefine HAVE_UINT64_T
+#cmakedefine HAVE_INT8_T
+#cmakedefine HAVE_INT16_T
+#cmakedefine HAVE_INT32_T
+#cmakedefine HAVE_INT64_T
+
+#cmakedefine HAVE_NPCAP
+
+#endif

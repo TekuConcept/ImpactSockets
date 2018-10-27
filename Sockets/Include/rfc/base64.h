@@ -16,7 +16,7 @@ namespace impact {
     class base64 {
     public:
         static bool encode(const std::string& data, std::string* result);
-		static bool decode(const std::string& data, std::string* result);
+        static bool decode(const std::string& data, std::string* result);
 
     private:
         static const std::string   k_alphabet;

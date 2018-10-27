@@ -121,7 +121,7 @@ int main() {
     
     VERBOSE("> 2. Starting socket server");
     basic_socket server = impact::make_tcp_socket();
-    server.bind(0);
+    server.bind((int)0);
     server.listen();
     VERBOSE("> 3. Server running");
     
