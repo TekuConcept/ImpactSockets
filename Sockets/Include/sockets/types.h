@@ -75,7 +75,7 @@ namespace impact {
     } SocketChannel;
 
 
-    typedef enum class socket_domain {
+    typedef enum class address_family {
         // !- CROSS-PLATFORM DOMAINS    -!
         UNSPECIFIED = AF_UNSPEC,   // Address is unspecified
         INET        = AF_INET,     // IPv4 Internet protocols
@@ -97,7 +97,7 @@ namespace impact {
         CRYPTO      = AF_ALG,      // interface to kernel crypto API
         PACKET      = AF_PACKET,
     #endif
-    } SocketDomain;
+    } SocketDomain, AddressFamily;
 
 
     /*
@@ -134,7 +134,7 @@ namespace impact {
     } SocketType;
 
 
-    typedef enum class socket_protocol {
+    typedef enum class internet_protocol {
         // !-- CROSS-PLATFORM PROTOCOL SUPPORT --!
         DEFAULT = 0,
 
@@ -258,7 +258,7 @@ namespace impact {
         // MPLS          = IPPROT_MPLS,      /* Multi-Protocol Label Switching in IP */
         // IPV6_MH       = IPPROT_MH,        /* IPv6 Mobility Header */
     #endif
-    } SocketProtocol;
+    } SocketProtocol, InternetProtocol;
 
 
     typedef enum class message_flags {

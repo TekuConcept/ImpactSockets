@@ -38,12 +38,12 @@ namespace impact {
             /* throw(impact_error) */;
 
         // observers
-        long use_count()           const noexcept;
-        int get()                  const noexcept;
-        socket_domain domain()     const noexcept;
-        socket_type type()         const noexcept;
-        socket_protocol protocol() const noexcept;
-        explicit operator bool()   const noexcept;
+        long use_count()             const noexcept;
+        int get()                    const noexcept;
+        address_family domain()      const noexcept;
+        socket_type type()           const noexcept;
+        internet_protocol protocol() const noexcept;
+        explicit operator bool()     const noexcept;
 
         // communication / delivery
         void bind(unsigned short port) /* throw(impact_error) */;
@@ -90,17 +90,17 @@ namespace impact {
             /* throw(impact_error) */;
 
         friend basic_socket make_socket(
-            socket_domain, socket_type, socket_protocol);
+            address_family, socket_type, internet_protocol);
         friend basic_socket make_tcp_socket();
         friend basic_socket make_udp_socket();
 
     private:
         struct basic_socket_info {
-            bool            wsa;
-            int             descriptor;
-            socket_domain   domain;
-            socket_type     type;
-            socket_protocol protocol;
+            bool              wsa;
+            int               descriptor;
+            address_family    domain;
+            socket_type       type;
+            internet_protocol protocol;
         };
 
         std::shared_ptr<basic_socket_info> m_info_;
@@ -113,8 +113,8 @@ namespace impact {
         void _M_dtor();
     };
 
-    basic_socket make_socket(socket_domain domain, socket_type type,
-        socket_protocol proto) /* throw(impact_error) */;
+    basic_socket make_socket(address_family domain, socket_type type,
+        internet_protocol proto)   /* throw(impact_error) */;
     basic_socket make_tcp_socket() /* throw(impact_error) */;
     basic_socket make_udp_socket() /* throw(impact_error) */;
 }

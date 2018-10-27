@@ -63,9 +63,9 @@ basic_socket::basic_socket()
     m_info_              = std::make_shared<basic_socket_info>();
     m_info_->wsa         = false;
     m_info_->descriptor  = INVALID_SOCKET;
-    m_info_->domain      = socket_domain::UNSPECIFIED;
+    m_info_->domain      = address_family::UNSPECIFIED;
     m_info_->type        = socket_type::RAW;
-    m_info_->protocol    = socket_protocol::DEFAULT;
+    m_info_->protocol    = internet_protocol::DEFAULT;
 }
 
 
@@ -83,9 +83,9 @@ basic_socket::basic_socket(basic_socket&& __rvalue)
 
 basic_socket
 impact::make_socket(
-    socket_domain   __domain,
-    socket_type     __type,
-    socket_protocol __proto)
+    address_family    __domain,
+    socket_type       __type,
+    internet_protocol __proto)
 {
     basic_socket result;
     #if defined(__OS_WINDOWS__)
@@ -108,9 +108,9 @@ impact::make_tcp_socket()
 {
     CATCH_ASSERT(
         return make_socket(
-            socket_domain::INET,
+            address_family::INET,
             socket_type::STREAM,
-            socket_protocol::TCP
+            internet_protocol::TCP
         );
     )
 }
@@ -121,9 +121,9 @@ impact::make_udp_socket()
 {
     CATCH_ASSERT(
         return make_socket(
-            socket_domain::INET,
+            address_family::INET,
             socket_type::DATAGRAM,
-            socket_protocol::UDP
+            internet_protocol::UDP
         );
     )
 }
@@ -186,11 +186,11 @@ basic_socket::get() const noexcept
 }
 
 
-socket_domain
+address_family
 basic_socket::domain() const noexcept
 {
     if (m_info_) return m_info_->domain;
-    else return socket_domain::UNSPECIFIED;
+    else return address_family::UNSPECIFIED;
 }
 
 
@@ -202,11 +202,11 @@ basic_socket::type() const noexcept
 }
 
 
-socket_protocol
+internet_protocol
 basic_socket::protocol() const noexcept
 {
     if (m_info_) return m_info_->protocol;
-    else return socket_protocol::DEFAULT;
+    else return internet_protocol::DEFAULT;
 }
 
 

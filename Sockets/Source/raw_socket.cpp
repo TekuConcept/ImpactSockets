@@ -104,19 +104,22 @@ raw_socket::recv(
         &pcap_header,
         &packet_data);
 
-    if (status == 0) return 0; /* read timeout */
-    else if (status == -1)
-        throw impact_error(pcap_geterr(handle));
+    if (status > 0) {
+        int size = std::min((unsigned int)__length, pcap_header->caplen);
+        memcpy(__buffer, packet_data, size);
+        return size;
+    }
+    else if (status ==  0) return 0; /* read timeout */
+    else if (status == -1) throw impact_error(pcap_geterr(handle));
+    else throw impact_error(error_string(imperr::UNKNOWN));
 
-    int size = std::min((unsigned int)__length, pcap_header->caplen);
-    memcpy(__buffer, packet_data, size);
-
-    return size;
+    return -1;
 }
 
 
 void
-raw_socket::attach(std::string __iface_name) {
+raw_socket::attach(std::string __iface_name)
+{
     try {
 #if defined __OS_WINDOWS__
         // NOTE: "\Device\NPF_" prefix is for npcap
@@ -145,8 +148,7 @@ raw_socket::_M_attach(const char* __iface_name)
         k_promiscuous_mode,
         k_timeout_ms,
         errbuf);
-    if (handle == NULL)
-        throw impact_error(errbuf);
+    if (handle == NULL) throw impact_error(errbuf);
 
     m_pcap_descriptor_ = std::shared_ptr<void>((void*)handle, [](void* ptr) {
         pcap_close((pcap_t*)ptr);
@@ -208,9 +210,9 @@ raw_socket::raw_socket()
 {
 #if defined(__OS_LINUX__)
     m_socket_ = make_socket(
-        socket_domain::PACKET,
+        address_family::PACKET,
         socket_type::RAW,
-        (socket_protocol)htons(ETH_P_ALL)
+        (internet_protocol)htons(ETH_P_ALL)
     );
 #else /* __OS_APPLE__ */
     std::string file_name;
@@ -274,13 +276,12 @@ raw_socket::recv(
         &m_aligned_buffer_[0],
         m_aligned_buffer_.size()
     );
+    ASSERT(status != SOCKET_ERROR)
     auto berkley_packet_header = (struct bpf_hdr*)&m_aligned_buffer_[0];
     auto size = std::min((unsigned int)__length,
         berkley_packet_header->bh_caplen);
-    memcpy(__buffer, &m_aligned_buffer_[0] + berkley_packet_header->bh_hdrlen,
-        size);
-    status = size;
-    ASSERT(status != SOCKET_ERROR)
+    memcpy(__buffer, &m_aligned_buffer_[0] +
+        berkley_packet_header->bh_hdrlen, size);
 #else /* __OS_LINUX__ */
     auto status = ::recv(
         m_socket_.get(),
@@ -306,6 +307,7 @@ raw_socket::attach(std::string __iface_name)
 void
 raw_socket::_M_attach(const char* __interface_name)
 {
+    std::string ioctl_error("ioctl error: ");
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     strncpy(
@@ -317,29 +319,19 @@ raw_socket::_M_attach(const char* __interface_name)
     unsigned int enabled = 1;
     auto target = m_bpf_descriptor_;
     auto status = ::ioctl(target, BIOCSETIF, &ifr);
-    if (status < 0) throw impact_error(
-        std::string("ioctl error: ") +
-        std::to_string(status));
+    ASSERT(status != SOCKET_ERROR)
     status = ::ioctl(target, BIOCSHDRCMPLT, &enabled);
-    if (status < 0) throw impact_error(
-        std::string("ioctl error: ") +
-        std::to_string(status));
+    ASSERT(status != SOCKET_ERROR)
     status = ::ioctl(target, BIOCIMMEDIATE, &enabled);
-    if (status < 0) throw impact_error(
-        std::string("ioctl error: ") +
-        std::to_string(status));
+    ASSERT(status != SOCKET_ERROR)
     unsigned int buffer_align_size = 0;
     status = ::ioctl(m_bpf_descriptor_, BIOCGBLEN, &buffer_align_size);
+    ASSERT(status != SOCKET_ERROR)
     m_aligned_buffer_.resize(buffer_align_size);
-    if (status < 0) throw impact_error(
-        std::string("ioctl error: ") +
-        std::to_string(status));
 
 #elif defined(__OS_LINUX__)
     auto status = ::ioctl(m_socket_.get(), SIOCGIFINDEX, &ifr);
-    if (status < 0) throw impact_error(
-        std::string("ioctl error: ") +
-        std::to_string(status));
+    ASSERT(status != SOCKET_ERROR)
     struct sockaddr_ll sll;
     memset(&sll, 0, sizeof(sll));
     sll.sll_family   = AF_PACKET;

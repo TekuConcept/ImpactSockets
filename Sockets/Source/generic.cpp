@@ -75,9 +75,9 @@ internal::error_message()
 // TODO: Support IPv6
 size_t
 internal::fill_address(
-    socket_domain                     __domain,
+    address_family                    __domain,
     socket_type                       __type,
-    socket_protocol                   __protocol,
+    internet_protocol                 __protocol,
     const std::string&                __address,
     const unsigned short              __port,
     std::shared_ptr<struct sockaddr>* __socket_address_info)
