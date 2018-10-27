@@ -30,7 +30,7 @@
 #define UNUSED_FUNCTION(x)
 #define DEREF(p) (*p)
 
-#if defined(HAS_FALLTHROUGH_ATTRIBUTE)
+#if defined HAVE_FALLTHROUGH_ATTRIBUTE
     #define FALLTHROUGH [[fallthrough]]
 #else
     #define FALLTHROUGH

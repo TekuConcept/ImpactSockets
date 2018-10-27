@@ -479,9 +479,9 @@ internal::set_interface_type_mac(netinterface* __token)
     basic_socket handle;
     CATCH_ASSERT(
         handle = make_socket(
-            socket_domain::INET,
+            address_family::INET,
             socket_type::DATAGRAM,
-            socket_protocol::DEFAULT
+            internet_protocol::DEFAULT
         );
     )
 

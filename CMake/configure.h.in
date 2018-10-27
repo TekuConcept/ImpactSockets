@@ -9,7 +9,7 @@
 #cmakedefine BIG_ENDIAN
 #cmakedefine LITTLE_ENDIAN
 
-#cmakedefine HAS_FALLTHROUGH_ATTRIBUTE /* C++17 feature: [[fallthrough]] */
+#cmakedefine HAVE_FALLTHROUGH_ATTRIBUTE /* C++17 feature: [[fallthrough]] */
 
 #cmakedefine HAVE_UINT8_T
 #cmakedefine HAVE_UINT16_T
