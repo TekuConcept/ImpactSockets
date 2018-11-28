@@ -25,19 +25,27 @@
     #pragma comment (lib, "IPHLPAPI.lib")
     #pragma comment (lib, "Ws2_32.lib")
 #else /* NIX */
-    #include <ifaddrs.h>          // getifaddrs(), freeifaddrs()
-    #include <sys/ioctl.h>        // ioctl()
-    #include <net/if.h>           // ifconf
-    #include <arpa/inet.h>        // inet_ntop(), inet_pton
-    #include <netinet/in.h>       // INET_ADDRSTRLEN, INET6_ADDRSTRLEN
+    #include <ifaddrs.h>             // getifaddrs(), freeifaddrs()
+    #include <sys/ioctl.h>           // ioctl()
+    #include <net/if.h>              // ifconf
+    #include <arpa/inet.h>           // inet_ntop(), inet_pton
+    #include <netinet/in.h>          // INET_ADDRSTRLEN, INET6_ADDRSTRLEN
     #if defined(__OS_APPLE__)
-        #include <net/if_types.h> // IFT_XXX
-        #include <net/if_dl.h>    // sockaddr_dl
+        #include <net/if_types.h>    // IFT_XXX
+        #include <net/if_dl.h>       // sockaddr_dl
     #endif /* __APPLE__ */
     #if defined(__OS_LINUX__)
-        #include <net/if_arp.h>   // ARPHRD_XXX
+        #include <net/if.h>          // if_indextoname()
+        #include <net/if_arp.h>      // ARPHRD_XXX
+        #include <linux/netlink.h>   // NLM_F_DUMP, NLM_F_REQUEST, NLM_F_MULTI, ...
+        #include <linux/rtnetlink.h> // RTM_GETROUTE
+        #include <unistd.h>          // getpid()
     #endif /* __LINUX__ */
 #endif /* __WINDOWS__ */
+
+
+#include <iostream>
+#define VERBOSE(x) std::cout << x << std::endl
 
 #if defined(__OS_APPLE__)
     // some apple sources are incomplete
@@ -90,6 +98,8 @@ namespace internal {
     interface_type get_interface_type(unsigned short);
 #if defined(__OS_LINUX__)
     void set_interface_type_mac(netinterface*);
+    int read_netlink_socket(basic_socket*, char*, unsigned int, unsigned int,
+        unsigned int);
 #else /* __OS_APPLE__ */
     void set_interface_type_mac(const struct ifaddrs*, netinterface*,
         std::map<std::string,netinterface>*);
@@ -389,6 +399,15 @@ internal::get_interface_type(unsigned int __code)
     }
 }
 
+
+struct networking::netinterface
+networking::find_default_route()
+{
+    // https://docs.microsoft.com/en-us/windows/desktop/api/iphlpapi/nf-iphlpapi-getipforwardtable
+    struct netinterface result;
+    return result;
+}
+
 #else /* NIX */
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
@@ -529,6 +548,139 @@ internal::get_interface_type(unsigned short __family)
     }
 }
 
+
+struct networking::netroute
+networking::find_default_route()
+{
+    // Linux: https://stackoverflow.com/questions/15668653/how-to-find-the-default-networking-interface-in-linux
+    basic_socket kernel_socket;
+    CATCH_ASSERT(
+        kernel_socket = make_socket(
+            address_family::NETLINK,
+            socket_type::DATAGRAM,
+            internet_protocol::ROUTE
+        );
+    )
+    
+    auto pid = getpid();
+    unsigned int message_sequence = 0;
+    std::vector<char> message_buffer(8192, '\0');
+    struct nlmsghdr* netlink_message_header =
+        reinterpret_cast<struct nlmsghdr*>(&message_buffer[0]);
+    netlink_message_header->nlmsg_len   = NLMSG_LENGTH(sizeof(struct rtmsg));
+    netlink_message_header->nlmsg_type  = RTM_GETROUTE;
+    netlink_message_header->nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
+    netlink_message_header->nlmsg_seq   = message_sequence++;
+    netlink_message_header->nlmsg_pid   = pid;
+
+    CATCH_ASSERT(
+        kernel_socket.send(
+            netlink_message_header,
+            netlink_message_header->nlmsg_len
+        );
+    )
+
+    int length;
+    CATCH_ASSERT(
+        length = internal::read_netlink_socket(
+            &kernel_socket,
+            &message_buffer[0],
+            message_buffer.size(),
+            message_sequence,
+            pid
+        );
+    )
+    
+    CATCH_ASSERT(kernel_socket.close();)
+
+    struct netroute result;
+    for(; NLMSG_OK(netlink_message_header,length);
+        netlink_message_header = NLMSG_NEXT(netlink_message_header,length)) {
+        
+        char ifname[IF_NAMESIZE];
+        u_int source_a = 0, gateway_a = 0, destination_a = 0;
+        struct rtmsg* route_message = (struct rtmsg*)NLMSG_DATA(netlink_message_header);
+    
+        if((route_message->rtm_family != AF_INET) ||
+            (route_message->rtm_table != RT_TABLE_MAIN)) break;
+    
+        struct rtattr* route_attribute = (struct rtattr*)RTM_RTA(route_message);
+        int route_length = RTM_PAYLOAD(netlink_message_header);
+        for (; RTA_OK(route_attribute,route_length);
+            route_attribute = RTA_NEXT(route_attribute,route_length)) {
+            switch(route_attribute->rta_type) {
+            case RTA_OIF: if_indextoname(*(int*)RTA_DATA(route_attribute), ifname); break;
+            case RTA_GATEWAY: gateway_a     = *(u_int*)RTA_DATA(route_attribute); break;
+            case RTA_PREFSRC: source_a      = *(u_int*)RTA_DATA(route_attribute); break;
+            case RTA_DST:     destination_a = *(u_int*)RTA_DATA(route_attribute); break;
+            }
+        }
+        
+        if (destination_a == 0) {
+            auto source                  = new struct sockaddr_in;
+            auto gateway                 = new struct sockaddr_in;
+            auto destination             = new struct sockaddr_in;
+            source->sin_family           = route_message->rtm_family;
+            gateway->sin_family          = route_message->rtm_family;
+            destination->sin_family      = route_message->rtm_family;
+            source->sin_port             = 0;
+            gateway->sin_port            = 0;
+            destination->sin_port        = 0;
+            source->sin_addr.s_addr      = source_a;
+            gateway->sin_addr.s_addr     = gateway_a;
+            destination->sin_addr.s_addr = destination_a;
+            result.name                  = std::string(ifname);
+            result.source                = std::shared_ptr<struct sockaddr>((struct sockaddr*)source);
+            result.gateway               = std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
+            result.destination           = std::shared_ptr<struct sockaddr>((struct sockaddr*)destination);
+            break;
+        }
+    }
+
+    return result;
+}
+
+
+int
+internal::read_netlink_socket(
+    basic_socket* __kernel_socket,
+    char*         __buffer,
+    unsigned int  __buffer_length,
+    unsigned int  __sequence,
+    unsigned int  __pid)
+{
+    struct nlmsghdr* netlink_message_header;
+    int received = 0, message_length = 0;
+    do {
+        CATCH_ASSERT(
+            received = __kernel_socket->recv(
+                __buffer,
+                __buffer_length - message_length
+            );
+        )
+        netlink_message_header = (struct nlmsghdr*)__buffer;
+        if (NLMSG_OK(netlink_message_header, received) == 0)
+            throw impact_error("Netlink Error: Corrupt Message");
+        else if ((netlink_message_header->nlmsg_type) == NLMSG_ERROR) {
+            struct nlmsgerr* netlink_message_error =
+                reinterpret_cast<struct nlmsgerr*>(
+                    NLMSG_DATA(netlink_message_header));
+            throw impact_error(std::string("Netlink Error: ") +
+                std::to_string(netlink_message_error->error));
+        }
+        
+        if (netlink_message_header->nlmsg_type == NLMSG_DONE) break;
+        else {
+            __buffer       += received;
+            message_length += received;
+            if ((netlink_message_header->nlmsg_flags & NLM_F_MULTI) == 0) break;
+        }
+    }
+    while((netlink_message_header->nlmsg_seq != __sequence) ||
+          (netlink_message_header->nlmsg_pid != __pid));
+    return message_length;
+}
+
 #endif /* __OS_LINUX__ */
 
 
@@ -600,6 +752,16 @@ internal::get_interface_type(unsigned short __family)
     case IFT_ATM:       return interface_type::ATM;
     default:            return interface_type::OTHER;
     }
+}
+
+
+struct networking::netinterface
+networking::find_default_route()
+{
+    // OSX:   https://www.freebsd.org/cgi/man.cgi?query=route&apropos=0&sektion=4&manpath=FreeBSD%208.2-RELEASE&arch=default&format=html
+    //        https://stackoverflow.com/questions/7639451/reading-the-route-table-on-freebsd
+    struct netinterface result;
+    return result;
 }
 
 #endif /* __OS_APPLE__ */

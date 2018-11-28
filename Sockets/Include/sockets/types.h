@@ -22,6 +22,7 @@
     #include <errno.h>
 #if defined(__OS_LINUX__)
     #include <linux/version.h>
+    #include <linux/netlink.h>
 #endif
 #endif
 
@@ -244,7 +245,7 @@ namespace impact {
         // APES          = IPPROTO_APES,     /* Any Private Encryption Scheme */
         // GMTP          = IPPROTO_GMTP,     /* Graphical Media Transfer Protocol */
         // IPCOMP        = IPPROTO_IPCOMP,   /* Payload Compression (IPComp) */
-    #else /* linux */
+    #else /* __OS_LINUX__ */
         // IPIP          = IPPROT_IPIP,      /*m IPIP tunnels */
         // TP            = IPPROT_TP,        /*m SO Transport Protocol Class 4 */
         // DCCP          = IPPROT_DCCP,      /* Datagram Congestion Control Protocol */
@@ -257,6 +258,7 @@ namespace impact {
         // UDPLITE       = IPPROT_UDPLITE,   /* UDP-Lite Protocol */
         // MPLS          = IPPROT_MPLS,      /* Multi-Protocol Label Switching in IP */
         // IPV6_MH       = IPPROT_MH,        /* IPv6 Mobility Header */
+        ROUTE         = NETLINK_ROUTE,    /* Receives routing and link updates */
     #endif
     } SocketProtocol, InternetProtocol;
 

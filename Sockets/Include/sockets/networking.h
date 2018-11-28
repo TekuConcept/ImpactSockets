@@ -43,12 +43,22 @@ namespace networking {
         bool                             ipv6;
         netinterface();
     } NetworkInterface;
+    
+    
+    typedef struct netroute {
+        std::string name;
+        std::shared_ptr<struct sockaddr> source;
+        std::shared_ptr<struct sockaddr> gateway;
+        std::shared_ptr<struct sockaddr> destination;
+    } NetRoute;
 
 
     std::string sockaddr_to_string(const struct sockaddr* address);
 
 
     std::vector<struct netinterface> find_network_interfaces()
+        /* throw(impact_error) */;
+    struct netroute find_default_route()
         /* throw(impact_error) */;
 }}
 
