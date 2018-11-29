@@ -312,12 +312,12 @@ internal::traverse_unicast(
 		if (socket_address->sa_family == AF_INET) {
 			set_ipv4_interface(socket_address,
 				address->OnLinkPrefixLength, &token);
-			token.index = __index[0];
+			token.iface_index = __index[0];
 		}
 		else if (socket_address->sa_family == AF_INET6) {
 			set_ipv6_interface(socket_address,
 				address->OnLinkPrefixLength, &token);
-			token.index = __index[1];
+			token.iface_index = __index[1];
 		}
         // don't add link interfaces to interface list
         else if (socket_address->sa_family == AF_LINK) continue;
@@ -497,7 +497,7 @@ internal::traverse_links(
 
         token.name          = std::string(target->ifa_name);
         token.friendly_name = token.name;
-        token.index         = if_nametoindex(target->ifa_name);
+        token.iface_index   = if_nametoindex(target->ifa_name);
         token.flags         = target->ifa_flags;
 
         token.address       = copy_sockaddr_to_ptr(target->ifa_addr);

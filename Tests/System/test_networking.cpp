@@ -15,7 +15,7 @@ print_interfaces(const std::vector<netinterface>& list)
     for (const auto& iface : list) {
         VERBOSE("Name:      " << iface.name);
 		VERBOSE("Friendly:  " << iface.friendly_name);
-		VERBOSE("Index:     " << iface.index);
+		VERBOSE("Index:     " << iface.iface_index);
         VERBOSE("Address:   " << networking::sockaddr_to_string(iface.address.get()));
         VERBOSE("Netmask:   " << networking::sockaddr_to_string(iface.netmask.get()));
         VERBOSE("Broadcast: " << networking::sockaddr_to_string(iface.broadcast.get()));

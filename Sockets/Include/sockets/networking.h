@@ -34,7 +34,7 @@ namespace networking {
         std::string                      name;
         std::string                      friendly_name;
         interface_type                   type;
-		unsigned int                     index;
+		unsigned int                     iface_index;
         unsigned int                     flags;
         std::shared_ptr<struct sockaddr> address;
         std::shared_ptr<struct sockaddr> netmask;
