@@ -271,7 +271,7 @@ internal::traverse_adapters(
         token.friendly_name = to_narrow_string(adapter->FriendlyName);
         token.type          = get_interface_type(adapter->IfType);
         token.flags         = (unsigned int)adapter->Flags;
-		token.index         = (unsigned int)adapter->IfIndex;
+		token.iface_index   = (unsigned int)adapter->IfIndex;
 
         if (adapter->PhysicalAddressLength != 0) {
             token.mac.resize(adapter->PhysicalAddressLength);
