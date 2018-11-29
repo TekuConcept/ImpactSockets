@@ -20,6 +20,7 @@
 #endif
 
 #if defined(__OS_WINDOWS__)
+	#include <winsock2.h>
     #include <iphlpapi.h>
     #include <ws2tcpip.h>
     #pragma comment (lib, "IPHLPAPI.lib")
@@ -401,11 +402,47 @@ internal::get_interface_type(unsigned int __code)
 }
 
 
-struct networking::netinterface
+struct networking::netroute
 networking::find_default_route()
 {
     // https://docs.microsoft.com/en-us/windows/desktop/api/iphlpapi/nf-iphlpapi-getipforwardtable
-    struct netinterface result;
+
+	DWORD dwSize = 0;
+	PMIB_IPFORWARDTABLE pIpForwardTable = (MIB_IPFORWARDTABLE*)malloc(sizeof(MIB_IPFORWARDTABLE));
+	if (pIpForwardTable == NULL) throw impact_error("Memory allocation error: MIB_IPFORWARDTABLE");
+	if (GetIpForwardTable(pIpForwardTable, &dwSize, 0) == ERROR_INSUFFICIENT_BUFFER) {
+		free(pIpForwardTable);
+		pIpForwardTable = (MIB_IPFORWARDTABLE*)malloc(dwSize);
+		if (pIpForwardTable == NULL) throw impact_error("Memory allocation error: MIB_IPFORWARDTABLE");
+	}
+
+	DWORD status = 0;
+	struct netroute result;
+	if ((status = GetIpForwardTable(pIpForwardTable, &dwSize, 0)) == NO_ERROR) {
+		for (int i = 0; i < (int)pIpForwardTable->dwNumEntries; i++) {
+			if ((u_long)pIpForwardTable->table[i].dwForwardDest == 0) {
+				struct sockaddr_in* gateway = new struct sockaddr_in;
+				memset(gateway, 0, sizeof(struct sockaddr_in));
+				gateway->sin_family = AF_INET;
+				gateway->sin_addr.S_un.S_addr = (u_long)pIpForwardTable->table[i].dwForwardNextHop;
+
+				char ifname[IF_NAMESIZE];
+				unsigned int iface_id = pIpForwardTable->table[i].dwForwardIfIndex;
+				if_indextoname(pIpForwardTable->table[i].dwForwardIfIndex, ifname);
+
+				result.name        = std::string(ifname);
+				result.iface_index = iface_id;
+				result.gateway     = std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
+				break;
+			}
+		}
+		free(pIpForwardTable);
+	}
+	else {
+		free(pIpForwardTable);
+		throw impact_error(internal::win_error_message(status));
+	}
+
     return result;
 }
 
@@ -598,7 +635,7 @@ networking::find_default_route()
         netlink_message_header = NLMSG_NEXT(netlink_message_header,length)) {
         
         char ifname[IF_NAMESIZE];
-        u_int source_a = 0, gateway_a = 0, destination_a = 0;
+        u_int gateway_a = 0, destination_a = 0, iface_index = 0;
         struct rtmsg* route_message = (struct rtmsg*)NLMSG_DATA(netlink_message_header);
     
         if((route_message->rtm_family != AF_INET) ||
@@ -609,30 +646,24 @@ networking::find_default_route()
         for (; RTA_OK(route_attribute,route_length);
             route_attribute = RTA_NEXT(route_attribute,route_length)) {
             switch(route_attribute->rta_type) {
-            case RTA_OIF: if_indextoname(*(int*)RTA_DATA(route_attribute), ifname); break;
+            case RTA_OIF:
+				iface_index = *(int*)RTA_DATA(route_attribute);
+				if_indextoname(iface_index, ifname);
+				break;
             case RTA_GATEWAY: gateway_a     = *(u_int*)RTA_DATA(route_attribute); break;
-            case RTA_PREFSRC: source_a      = *(u_int*)RTA_DATA(route_attribute); break;
+            case RTA_PREFSRC: /* ignore */ break;
             case RTA_DST:     destination_a = *(u_int*)RTA_DATA(route_attribute); break;
             }
         }
         
         if (destination_a == 0) {
-            auto source                  = new struct sockaddr_in;
-            auto gateway                 = new struct sockaddr_in;
-            auto destination             = new struct sockaddr_in;
-            source->sin_family           = route_message->rtm_family;
-            gateway->sin_family          = route_message->rtm_family;
-            destination->sin_family      = route_message->rtm_family;
-            source->sin_port             = 0;
-            gateway->sin_port            = 0;
-            destination->sin_port        = 0;
-            source->sin_addr.s_addr      = source_a;
-            gateway->sin_addr.s_addr     = gateway_a;
-            destination->sin_addr.s_addr = destination_a;
-            result.name                  = std::string(ifname);
-            result.source                = std::shared_ptr<struct sockaddr>((struct sockaddr*)source);
-            result.gateway               = std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
-            result.destination           = std::shared_ptr<struct sockaddr>((struct sockaddr*)destination);
+            auto gateway             = new struct sockaddr_in;
+			memset(gateway, 0, sizeof(struct sockaddr_in));
+            gateway->sin_family      = route_message->rtm_family;
+            gateway->sin_addr.s_addr = gateway_a;
+            result.name              = std::string(ifname);
+			result.iface_index       = iface_index;
+            result.gateway           = std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
             break;
         }
     }
@@ -834,14 +865,9 @@ networking::find_default_route()
     struct netroute result;
     char ifname[IF_NAMESIZE];
     if_indextoname(route_message_header->rtm_index, ifname);
-    result.name = std::string(ifname);
+    result.name        = std::string(ifname);
+	result.iface_index = route_message_header->rtm_index;
 
-    struct sockaddr_in* source = new struct sockaddr_in;
-    memset(source, 0, sizeof(struct sockaddr_in));
-    source->sin_family       = AF_INET;
-    source->sin_addr.s_addr  = 0;
-    result.source = std::shared_ptr<struct sockaddr>((struct sockaddr*)source);
-    
     if ((socket_address = rti_info[RTAX_GATEWAY]) != NULL) {
         struct sockaddr_in* gateway = new struct sockaddr_in;
         memset(gateway, 0, sizeof(struct sockaddr_in));
@@ -850,16 +876,6 @@ networking::find_default_route()
             = ((struct sockaddr_in*)socket_address)->sin_addr.s_addr;
         result.gateway =
             std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
-    }
-
-    if ((socket_address = rti_info[RTAX_DST]) != NULL) {
-        struct sockaddr_in* destination = new struct sockaddr_in;
-        memset(destination, 0, sizeof(struct sockaddr_in));
-        destination->sin_family = AF_INET;
-        destination->sin_addr.s_addr
-            = ((struct sockaddr_in*)socket_address)->sin_addr.s_addr;
-        result.destination =
-            std::shared_ptr<struct sockaddr>((struct sockaddr*)destination);
     }
 
     return result;

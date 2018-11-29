@@ -76,10 +76,9 @@ test_find_default_route()
 {
     VERBOSE("[Testing] Find Default Route");
     struct netroute route = networking::find_default_route();
-    VERBOSE("Interface Name: " << route.name);
-    VERBOSE("Source:         " << networking::sockaddr_to_string(route.source.get()));
-    VERBOSE("Gateway:        " << networking::sockaddr_to_string(route.gateway.get()));
-    VERBOSE("Destination:    " << networking::sockaddr_to_string(route.destination.get()));
+    VERBOSE("Interface Name:  " << route.name);
+	VERBOSE("Interface Index: " << route.iface_index);
+    VERBOSE("Gateway:         " << networking::sockaddr_to_string(route.gateway.get()));
 }
 
 

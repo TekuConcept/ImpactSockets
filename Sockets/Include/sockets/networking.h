@@ -47,9 +47,8 @@ namespace networking {
     
     typedef struct netroute {
         std::string name;
-        std::shared_ptr<struct sockaddr> source;
+		unsigned int iface_index;
         std::shared_ptr<struct sockaddr> gateway;
-        std::shared_ptr<struct sockaddr> destination;
     } NetRoute;
 
 
