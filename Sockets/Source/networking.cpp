@@ -495,9 +495,10 @@ internal::traverse_links(
     for (auto target = __addresses; target != NULL; target = target->ifa_next) {
         netinterface token;
 
-        token.flags         = target->ifa_flags;
         token.name          = std::string(target->ifa_name);
         token.friendly_name = token.name;
+        token.index         = if_nametoindex(target->ifa_name);
+        token.flags         = target->ifa_flags;
 
         token.address       = copy_sockaddr_to_ptr(target->ifa_addr);
         token.netmask       = copy_sockaddr_to_ptr(target->ifa_netmask);
