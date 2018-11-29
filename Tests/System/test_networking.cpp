@@ -9,9 +9,13 @@
 using namespace impact;
 using namespace networking;
 
-void print_interfaces(const std::vector<netinterface>& list) {
+void
+print_interfaces(const std::vector<netinterface>& list)
+{
     for (const auto& iface : list) {
         VERBOSE("Name:      " << iface.name);
+		VERBOSE("Friendly:  " << iface.friendly_name);
+		VERBOSE("Index:     " << iface.iface_index);
         VERBOSE("Address:   " << networking::sockaddr_to_string(iface.address.get()));
         VERBOSE("Netmask:   " << networking::sockaddr_to_string(iface.netmask.get()));
         VERBOSE("Broadcast: " << networking::sockaddr_to_string(iface.broadcast.get()));
@@ -28,6 +32,7 @@ void print_interfaces(const std::vector<netinterface>& list) {
         VERBOSE(std::dec);
 
         VERBOSE("IPv4:      " << (iface.ipv4 ? "true" : "false"));
+		VERBOSE("IPv6:      " << (iface.ipv6 ? "true" : "false"));
 
         switch (iface.type) {
         case interface_type::OTHER:
@@ -50,9 +55,11 @@ void print_interfaces(const std::vector<netinterface>& list) {
     }
 }
 
-int main() {
-    VERBOSE("- BEGIN NETWORKING TEST -");
 
+void
+test_find_network_interfaces()
+{
+    VERBOSE("[Testing] Find Network Interface");
     try {
         std::vector<netinterface> list =
             networking::find_network_interfaces();
@@ -64,6 +71,25 @@ int main() {
     catch (...) {
         VERBOSE("Unexpected error");
     }
+}
+
+
+void
+test_find_default_route()
+{
+    VERBOSE("[Testing] Find Default Route");
+    struct netroute route = networking::find_default_route();
+    VERBOSE("Interface Name:  " << route.name);
+	VERBOSE("Interface Index: " << route.iface_index);
+    VERBOSE("Gateway:         " << networking::sockaddr_to_string(route.gateway.get()));
+}
+
+
+int main() {
+    VERBOSE("- BEGIN NETWORKING TEST -");
+
+    test_find_network_interfaces();
+    test_find_default_route();
 
     VERBOSE("- END OF LINE -");
     return 0;

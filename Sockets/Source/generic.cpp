@@ -170,6 +170,14 @@ internal::win_error_message(unsigned long __code)
             "operation.";
     case ERROR_NO_DATA:
         return "No addresses were found for the requested parameters.";
+	case ERROR_INSUFFICIENT_BUFFER:
+		return "The buffer pointed to by the pIpForwardTable parameter is not large "
+			"enough. The required size is returned in the DWORD variable pointed to "
+			"by the pdwSize parameter.";
+	case ERROR_NOT_SUPPORTED:
+		return "This function is not supported on the operating system in use on the "
+			"local system. This error is returned if there is no IP stack installed "
+			"on the local computer.";
     default:
         std::string data(128, '\0');
 

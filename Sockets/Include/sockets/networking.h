@@ -34,6 +34,7 @@ namespace networking {
         std::string                      name;
         std::string                      friendly_name;
         interface_type                   type;
+		unsigned int                     iface_index;
         unsigned int                     flags;
         std::shared_ptr<struct sockaddr> address;
         std::shared_ptr<struct sockaddr> netmask;
@@ -43,12 +44,21 @@ namespace networking {
         bool                             ipv6;
         netinterface();
     } NetworkInterface;
+    
+    
+    typedef struct netroute {
+        std::string name;
+		unsigned int iface_index;
+        std::shared_ptr<struct sockaddr> gateway;
+    } NetRoute;
 
 
     std::string sockaddr_to_string(const struct sockaddr* address);
 
 
     std::vector<struct netinterface> find_network_interfaces()
+        /* throw(impact_error) */;
+    struct netroute find_default_route()
         /* throw(impact_error) */;
 }}
 
