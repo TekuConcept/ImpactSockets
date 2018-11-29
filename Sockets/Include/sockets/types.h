@@ -91,6 +91,7 @@ namespace impact {
         ISO         = AF_ISO,      // ISO protocols
         LINK        = AF_LINK,     // link layer interface
         SYSTEM      = AF_SYSTEM,   // kernel event messages
+        ROUTE       = AF_ROUTE,    // kernel routing tables
     #else /* linux */
         // see <bits/socket.h> for more address families
         UNIX        = AF_UNIX,     // local communication (AF_LOCAL)

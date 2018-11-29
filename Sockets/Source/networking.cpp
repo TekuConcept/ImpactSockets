@@ -15,7 +15,7 @@
 #include "sockets/generic.h"
 #include "sockets/types.h"
 
-#if defined(__OS_LINUX__)
+#ifndef __OS_WINDOWS__
     #include "sockets/basic_socket.h"
 #endif
 
@@ -30,16 +30,17 @@
     #include <net/if.h>              // ifconf
     #include <arpa/inet.h>           // inet_ntop(), inet_pton
     #include <netinet/in.h>          // INET_ADDRSTRLEN, INET6_ADDRSTRLEN
+    #include <unistd.h>              // getpid()
     #if defined(__OS_APPLE__)
         #include <net/if_types.h>    // IFT_XXX
         #include <net/if_dl.h>       // sockaddr_dl
+        #include <net/route.h>
     #endif /* __APPLE__ */
     #if defined(__OS_LINUX__)
         #include <net/if.h>          // if_indextoname()
         #include <net/if_arp.h>      // ARPHRD_XXX
         #include <linux/netlink.h>   // NLM_F_DUMP, NLM_F_REQUEST, NLM_F_MULTI, ...
         #include <linux/rtnetlink.h> // RTM_GETROUTE
-        #include <unistd.h>          // getpid()
     #endif /* __LINUX__ */
 #endif /* __WINDOWS__ */
 
@@ -552,7 +553,6 @@ internal::get_interface_type(unsigned short __family)
 struct networking::netroute
 networking::find_default_route()
 {
-    // Linux: https://stackoverflow.com/questions/15668653/how-to-find-the-default-networking-interface-in-linux
     basic_socket kernel_socket;
     CATCH_ASSERT(
         kernel_socket = make_socket(
@@ -755,13 +755,117 @@ internal::get_interface_type(unsigned short __family)
 }
 
 
-struct networking::netinterface
+struct networking::netroute
 networking::find_default_route()
 {
     // OSX:   https://www.freebsd.org/cgi/man.cgi?query=route&apropos=0&sektion=4&manpath=FreeBSD%208.2-RELEASE&arch=default&format=html
     //        https://stackoverflow.com/questions/7639451/reading-the-route-table-on-freebsd
-    struct netinterface result;
+    //        https://stackoverflow.com/questions/5390164/getting-routing-table-on-macosx-programmatically
+    #define ROUNDUP(a, size) (((a) & ((size)-1)) ? (1 + ((a) | ((size)-1))) : (a))
+    #define NEXT_SA(ap)	ap = (struct sockaddr *) \
+	((caddr_t) ap + (ap->sa_len ? ROUNDUP(ap->sa_len, sizeof (u_long)) : \
+									sizeof(u_long)))
+	
+    basic_socket kernel_socket;
+    CATCH_ASSERT(
+        kernel_socket = make_socket(
+            address_family::ROUTE,
+            socket_type::RAW,
+            internet_protocol::DEFAULT
+        );
+    )
+    
+    std::vector<char> buffer((sizeof(struct rt_msghdr) + 512), '\0');
+    
+    const unsigned int sequence = 1;
+    pid_t pid = getpid();
+    struct rt_msghdr* route_message_header =
+        reinterpret_cast<struct rt_msghdr*>(&buffer[0]);
+    route_message_header->rtm_msglen       =
+        sizeof(struct rt_msghdr) + sizeof(struct sockaddr_in);
+    route_message_header->rtm_version      = RTM_VERSION;
+    route_message_header->rtm_type         = RTM_GET;
+    route_message_header->rtm_addrs        = RTA_DST;
+    route_message_header->rtm_pid          = pid;
+    route_message_header->rtm_seq          = sequence;
+    struct sockaddr_in* socket_address_in  =
+        (struct sockaddr_in*)(route_message_header + 1);
+    socket_address_in->sin_len             = sizeof(struct sockaddr_in);
+    socket_address_in->sin_family          = AF_INET;
+    socket_address_in->sin_addr.s_addr     = 0; /* 0.0.0.0 */
+    
+    CATCH_ASSERT(
+        kernel_socket.send(
+            route_message_header,
+            route_message_header->rtm_msglen
+        );
+    )
+    
+    ssize_t received;
+    do {
+        received = kernel_socket.recv(
+            route_message_header,
+            buffer.size()
+        );
+    }
+    while (
+        (route_message_header->rtm_type != RTM_GET) ||
+        (route_message_header->rtm_seq  != sequence) ||
+        (route_message_header->rtm_pid  != pid)
+    );
+    
+    CATCH_ASSERT(kernel_socket.close();)
+    
+    route_message_header->rtm_msglen =
+        sizeof(struct rt_msghdr) + sizeof(struct sockaddr_in);
+    struct sockaddr* socket_address =
+        reinterpret_cast<struct sockaddr*>(route_message_header + 1);
+
+    struct sockaddr* rti_info[RTAX_MAX];
+    for (int i = 0; i < RTAX_MAX; i++) {
+		if (route_message_header->rtm_addrs & (1 << i)) {
+			rti_info[i] = socket_address;
+			NEXT_SA(socket_address);
+		}
+		else rti_info[i] = NULL;
+	}
+    
+    /* - save results into return variable - */
+    struct netroute result;
+    char ifname[IF_NAMESIZE];
+    if_indextoname(route_message_header->rtm_index, ifname);
+    result.name = std::string(ifname);
+
+    struct sockaddr_in* source = new struct sockaddr_in;
+    memset(source, 0, sizeof(struct sockaddr_in));
+    source->sin_family       = AF_INET;
+    source->sin_addr.s_addr  = 0;
+    result.source = std::shared_ptr<struct sockaddr>((struct sockaddr*)source);
+    
+    if ((socket_address = rti_info[RTAX_GATEWAY]) != NULL) {
+        struct sockaddr_in* gateway = new struct sockaddr_in;
+        memset(gateway, 0, sizeof(struct sockaddr_in));
+        gateway->sin_family = AF_INET;
+        gateway->sin_addr.s_addr
+            = ((struct sockaddr_in*)socket_address)->sin_addr.s_addr;
+        result.gateway =
+            std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
+    }
+
+    if ((socket_address = rti_info[RTAX_DST]) != NULL) {
+        struct sockaddr_in* destination = new struct sockaddr_in;
+        memset(destination, 0, sizeof(struct sockaddr_in));
+        destination->sin_family = AF_INET;
+        destination->sin_addr.s_addr
+            = ((struct sockaddr_in*)socket_address)->sin_addr.s_addr;
+        result.destination =
+            std::shared_ptr<struct sockaddr>((struct sockaddr*)destination);
+    }
+
     return result;
+    
+    #undef NEXT_SA
+    #undef ROUNDUP
 }
 
 #endif /* __OS_APPLE__ */
