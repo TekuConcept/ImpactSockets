@@ -14,6 +14,8 @@ print_interfaces(const std::vector<netinterface>& list)
 {
     for (const auto& iface : list) {
         VERBOSE("Name:      " << iface.name);
+		VERBOSE("Friendly:  " << iface.friendly_name);
+		VERBOSE("Index:     " << iface.index);
         VERBOSE("Address:   " << networking::sockaddr_to_string(iface.address.get()));
         VERBOSE("Netmask:   " << networking::sockaddr_to_string(iface.netmask.get()));
         VERBOSE("Broadcast: " << networking::sockaddr_to_string(iface.broadcast.get()));
@@ -30,6 +32,7 @@ print_interfaces(const std::vector<netinterface>& list)
         VERBOSE(std::dec);
 
         VERBOSE("IPv4:      " << (iface.ipv4 ? "true" : "false"));
+		VERBOSE("IPv6:      " << (iface.ipv6 ? "true" : "false"));
 
         switch (iface.type) {
         case interface_type::OTHER:
@@ -85,7 +88,7 @@ test_find_default_route()
 int main() {
     VERBOSE("- BEGIN NETWORKING TEST -");
 
-    // test_find_network_interfaces();
+    test_find_network_interfaces();
     test_find_default_route();
 
     VERBOSE("- END OF LINE -");

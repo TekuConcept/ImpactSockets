@@ -91,7 +91,7 @@ namespace internal {
 #if defined(__OS_WINDOWS__)
     void traverse_adapters(std::vector<netinterface>&, PIP_ADAPTER_ADDRESSES);
     void traverse_unicast(std::vector<netinterface>&, netinterface,
-        PIP_ADAPTER_UNICAST_ADDRESS);
+        PIP_ADAPTER_UNICAST_ADDRESS, unsigned int[2]);
     void set_ipv4_interface(const struct sockaddr*,unsigned char,netinterface*);
     void set_ipv6_interface(const struct sockaddr*,unsigned char,netinterface*);
     interface_type get_interface_type(unsigned int);
@@ -271,6 +271,7 @@ internal::traverse_adapters(
         token.friendly_name = to_narrow_string(adapter->FriendlyName);
         token.type          = get_interface_type(adapter->IfType);
         token.flags         = (unsigned int)adapter->Flags;
+		token.index         = (unsigned int)adapter->IfIndex;
 
         if (adapter->PhysicalAddressLength != 0) {
             token.mac.resize(adapter->PhysicalAddressLength);
@@ -284,8 +285,12 @@ internal::traverse_adapters(
             std::memset(&token.mac[0], 0, token.mac.size());
         }
 
-        traverse_unicast(__list, token, adapter->FirstUnicastAddress);
-        __list.push_back(token);
+		unsigned int indicies[2] = {
+			adapter->IfIndex,
+			adapter->Ipv6IfIndex
+		};
+        traverse_unicast(__list, token,
+			adapter->FirstUnicastAddress, indicies);
     }
 }
 
@@ -294,7 +299,8 @@ void
 internal::traverse_unicast(
     std::vector<netinterface>&  __list,
     netinterface                __token,
-    PIP_ADAPTER_UNICAST_ADDRESS __addresses)
+    PIP_ADAPTER_UNICAST_ADDRESS __addresses,
+	unsigned int                __index[2])
 {
     for (PIP_ADAPTER_UNICAST_ADDRESS address = __addresses;
         address != NULL;
@@ -303,12 +309,16 @@ internal::traverse_unicast(
         netinterface token = __token; // clone
         auto socket_address = address->Address.lpSockaddr;
 
-        if (socket_address->sa_family == AF_INET)
-            set_ipv4_interface(socket_address,
-                address->OnLinkPrefixLength, &token);
-        else if (socket_address->sa_family == AF_INET6)
-            set_ipv6_interface(socket_address,
-                address->OnLinkPrefixLength, &token);
+		if (socket_address->sa_family == AF_INET) {
+			set_ipv4_interface(socket_address,
+				address->OnLinkPrefixLength, &token);
+			token.index = __index[0];
+		}
+		else if (socket_address->sa_family == AF_INET6) {
+			set_ipv6_interface(socket_address,
+				address->OnLinkPrefixLength, &token);
+			token.index = __index[1];
+		}
         // don't add link interfaces to interface list
         else if (socket_address->sa_family == AF_LINK) continue;
 
@@ -405,8 +415,6 @@ internal::get_interface_type(unsigned int __code)
 struct networking::netroute
 networking::find_default_route()
 {
-    // https://docs.microsoft.com/en-us/windows/desktop/api/iphlpapi/nf-iphlpapi-getipforwardtable
-
 	DWORD dwSize = 0;
 	PMIB_IPFORWARDTABLE pIpForwardTable = (MIB_IPFORWARDTABLE*)malloc(sizeof(MIB_IPFORWARDTABLE));
 	if (pIpForwardTable == NULL) throw impact_error("Memory allocation error: MIB_IPFORWARDTABLE");
