@@ -20,7 +20,7 @@
 #endif
 
 #if defined(__OS_WINDOWS__)
-	#include <winsock2.h>
+    #include <winsock2.h>
     #include <iphlpapi.h>
     #include <ws2tcpip.h>
     #pragma comment (lib, "IPHLPAPI.lib")
@@ -271,7 +271,7 @@ internal::traverse_adapters(
         token.friendly_name = to_narrow_string(adapter->FriendlyName);
         token.type          = get_interface_type(adapter->IfType);
         token.flags         = (unsigned int)adapter->Flags;
-		token.iface_index   = (unsigned int)adapter->IfIndex;
+        token.iface_index   = (unsigned int)adapter->IfIndex;
 
         if (adapter->PhysicalAddressLength != 0) {
             token.mac.resize(adapter->PhysicalAddressLength);
@@ -285,12 +285,12 @@ internal::traverse_adapters(
             std::memset(&token.mac[0], 0, token.mac.size());
         }
 
-		unsigned int indicies[2] = {
-			adapter->IfIndex,
-			adapter->Ipv6IfIndex
-		};
+        unsigned int indicies[2] = {
+            adapter->IfIndex,
+            adapter->Ipv6IfIndex
+        };
         traverse_unicast(__list, token,
-			adapter->FirstUnicastAddress, indicies);
+            adapter->FirstUnicastAddress, indicies);
     }
 }
 
@@ -300,7 +300,7 @@ internal::traverse_unicast(
     std::vector<netinterface>&  __list,
     netinterface                __token,
     PIP_ADAPTER_UNICAST_ADDRESS __addresses,
-	unsigned int                __index[2])
+    unsigned int                __index[2])
 {
     for (PIP_ADAPTER_UNICAST_ADDRESS address = __addresses;
         address != NULL;
@@ -309,16 +309,16 @@ internal::traverse_unicast(
         netinterface token = __token; // clone
         auto socket_address = address->Address.lpSockaddr;
 
-		if (socket_address->sa_family == AF_INET) {
-			set_ipv4_interface(socket_address,
-				address->OnLinkPrefixLength, &token);
-			token.iface_index = __index[0];
-		}
-		else if (socket_address->sa_family == AF_INET6) {
-			set_ipv6_interface(socket_address,
-				address->OnLinkPrefixLength, &token);
-			token.iface_index = __index[1];
-		}
+        if (socket_address->sa_family == AF_INET) {
+            set_ipv4_interface(socket_address,
+                address->OnLinkPrefixLength, &token);
+            token.iface_index = __index[0];
+        }
+        else if (socket_address->sa_family == AF_INET6) {
+            set_ipv6_interface(socket_address,
+                address->OnLinkPrefixLength, &token);
+            token.iface_index = __index[1];
+        }
         // don't add link interfaces to interface list
         else if (socket_address->sa_family == AF_LINK) continue;
 
@@ -415,41 +415,41 @@ internal::get_interface_type(unsigned int __code)
 struct networking::netroute
 networking::find_default_route()
 {
-	DWORD dwSize = 0;
-	PMIB_IPFORWARDTABLE pIpForwardTable = (MIB_IPFORWARDTABLE*)malloc(sizeof(MIB_IPFORWARDTABLE));
-	if (pIpForwardTable == NULL) throw impact_error("Memory allocation error: MIB_IPFORWARDTABLE");
-	if (GetIpForwardTable(pIpForwardTable, &dwSize, 0) == ERROR_INSUFFICIENT_BUFFER) {
-		free(pIpForwardTable);
-		pIpForwardTable = (MIB_IPFORWARDTABLE*)malloc(dwSize);
-		if (pIpForwardTable == NULL) throw impact_error("Memory allocation error: MIB_IPFORWARDTABLE");
-	}
+    DWORD dwSize = 0;
+    PMIB_IPFORWARDTABLE pIpForwardTable = (MIB_IPFORWARDTABLE*)malloc(sizeof(MIB_IPFORWARDTABLE));
+    if (pIpForwardTable == NULL) throw impact_error("Memory allocation error: MIB_IPFORWARDTABLE");
+    if (GetIpForwardTable(pIpForwardTable, &dwSize, 0) == ERROR_INSUFFICIENT_BUFFER) {
+        free(pIpForwardTable);
+        pIpForwardTable = (MIB_IPFORWARDTABLE*)malloc(dwSize);
+        if (pIpForwardTable == NULL) throw impact_error("Memory allocation error: MIB_IPFORWARDTABLE");
+    }
 
-	DWORD status = 0;
-	struct netroute result;
-	if ((status = GetIpForwardTable(pIpForwardTable, &dwSize, 0)) == NO_ERROR) {
-		for (int i = 0; i < (int)pIpForwardTable->dwNumEntries; i++) {
-			if ((u_long)pIpForwardTable->table[i].dwForwardDest == 0) {
-				struct sockaddr_in* gateway = new struct sockaddr_in;
-				memset(gateway, 0, sizeof(struct sockaddr_in));
-				gateway->sin_family = AF_INET;
-				gateway->sin_addr.S_un.S_addr = (u_long)pIpForwardTable->table[i].dwForwardNextHop;
+    DWORD status = 0;
+    struct netroute result;
+    if ((status = GetIpForwardTable(pIpForwardTable, &dwSize, 0)) == NO_ERROR) {
+        for (int i = 0; i < (int)pIpForwardTable->dwNumEntries; i++) {
+            if ((u_long)pIpForwardTable->table[i].dwForwardDest == 0) {
+                struct sockaddr_in* gateway = new struct sockaddr_in;
+                memset(gateway, 0, sizeof(struct sockaddr_in));
+                gateway->sin_family = AF_INET;
+                gateway->sin_addr.S_un.S_addr = (u_long)pIpForwardTable->table[i].dwForwardNextHop;
 
-				char ifname[IF_NAMESIZE];
-				unsigned int iface_id = pIpForwardTable->table[i].dwForwardIfIndex;
-				if_indextoname(pIpForwardTable->table[i].dwForwardIfIndex, ifname);
+                char ifname[IF_NAMESIZE];
+                unsigned int iface_id = pIpForwardTable->table[i].dwForwardIfIndex;
+                if_indextoname(pIpForwardTable->table[i].dwForwardIfIndex, ifname);
 
-				result.name        = std::string(ifname);
-				result.iface_index = iface_id;
-				result.gateway     = std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
-				break;
-			}
-		}
-		free(pIpForwardTable);
-	}
-	else {
-		free(pIpForwardTable);
-		throw impact_error(internal::win_error_message(status));
-	}
+                result.name        = std::string(ifname);
+                result.iface_index = iface_id;
+                result.gateway     = std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
+                break;
+            }
+        }
+        free(pIpForwardTable);
+    }
+    else {
+        free(pIpForwardTable);
+        throw impact_error(internal::win_error_message(status));
+    }
 
     return result;
 }
@@ -656,9 +656,9 @@ networking::find_default_route()
             route_attribute = RTA_NEXT(route_attribute,route_length)) {
             switch(route_attribute->rta_type) {
             case RTA_OIF:
-				iface_index = *(int*)RTA_DATA(route_attribute);
-				if_indextoname(iface_index, ifname);
-				break;
+                iface_index = *(int*)RTA_DATA(route_attribute);
+                if_indextoname(iface_index, ifname);
+                break;
             case RTA_GATEWAY: gateway_a     = *(u_int*)RTA_DATA(route_attribute); break;
             case RTA_PREFSRC: /* ignore */ break;
             case RTA_DST:     destination_a = *(u_int*)RTA_DATA(route_attribute); break;
@@ -667,11 +667,11 @@ networking::find_default_route()
         
         if (destination_a == 0) {
             auto gateway             = new struct sockaddr_in;
-			memset(gateway, 0, sizeof(struct sockaddr_in));
+            memset(gateway, 0, sizeof(struct sockaddr_in));
             gateway->sin_family      = route_message->rtm_family;
             gateway->sin_addr.s_addr = gateway_a;
             result.name              = std::string(ifname);
-			result.iface_index       = iface_index;
+            result.iface_index       = iface_index;
             result.gateway           = std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
             break;
         }
@@ -802,10 +802,10 @@ networking::find_default_route()
     //        https://stackoverflow.com/questions/7639451/reading-the-route-table-on-freebsd
     //        https://stackoverflow.com/questions/5390164/getting-routing-table-on-macosx-programmatically
     #define ROUNDUP(a, size) (((a) & ((size)-1)) ? (1 + ((a) | ((size)-1))) : (a))
-    #define NEXT_SA(ap)	ap = (struct sockaddr *) \
-	((caddr_t) ap + (ap->sa_len ? ROUNDUP(ap->sa_len, sizeof (u_long)) : \
-									sizeof(u_long)))
-	
+    #define NEXT_SA(ap) ap = (struct sockaddr *) \
+        ((caddr_t) ap + (ap->sa_len ? \
+        ROUNDUP(ap->sa_len, sizeof (u_long)) : sizeof(u_long)))
+    
     basic_socket kernel_socket;
     CATCH_ASSERT(
         kernel_socket = make_socket(
@@ -817,29 +817,56 @@ networking::find_default_route()
     
     std::vector<char> buffer((sizeof(struct rt_msghdr) + 512), '\0');
     
-    const unsigned int sequence = 1;
-    pid_t pid = getpid();
+    pid_t pid                              = getpid();
+    const unsigned int sequence            = 1;
     struct rt_msghdr* route_message_header =
         reinterpret_cast<struct rt_msghdr*>(&buffer[0]);
-    route_message_header->rtm_msglen       =
-        sizeof(struct rt_msghdr) + sizeof(struct sockaddr_in);
     route_message_header->rtm_version      = RTM_VERSION;
     route_message_header->rtm_type         = RTM_GET;
     route_message_header->rtm_addrs        = RTA_DST;
     route_message_header->rtm_pid          = pid;
     route_message_header->rtm_seq          = sequence;
-    struct sockaddr_in* socket_address_in  =
-        (struct sockaddr_in*)(route_message_header + 1);
-    socket_address_in->sin_len             = sizeof(struct sockaddr_in);
-    socket_address_in->sin_family          = AF_INET;
-    socket_address_in->sin_addr.s_addr     = 0; /* 0.0.0.0 */
-    
-    CATCH_ASSERT(
+
+    int address_family;
+    try {
+        address_family = AF_INET;
+        route_message_header->rtm_msglen =
+            sizeof(struct rt_msghdr) + sizeof(struct sockaddr_in);
+        /* 0.0.0.0 */
+        struct sockaddr_in* socket_address_in  =
+            (struct sockaddr_in*)(route_message_header + 1);
+        socket_address_in->sin_len = sizeof(struct sockaddr_in);
+        socket_address_in->sin_family = address_family;
         kernel_socket.send(
             route_message_header,
             route_message_header->rtm_msglen
         );
-    )
+    }
+    catch (...) {
+        VERBOSE("Route IPv4 Failed");
+        // Try IPv6
+        address_family = AF_INET6;
+        route_message_header->rtm_msglen =
+            sizeof(struct rt_msghdr) + sizeof(struct sockaddr_in6);
+        // ::/0
+        struct sockaddr_in6* socket_address_in6 =
+            (struct sockaddr_in6*)(route_message_header + 1);
+        // reset memory since it was set for IPv4
+        memset(socket_address_in6, 0, sizeof(struct sockaddr_in6));
+        socket_address_in6->sin6_len = sizeof(struct sockaddr_in6);
+        socket_address_in6->sin6_family = address_family;
+        try {
+            kernel_socket.send(
+                route_message_header,
+                route_message_header->rtm_msglen
+            );
+        }
+        catch (...) {
+            VERBOSE("Route IPv6 Failed");
+            throw;
+        }
+    }
+    
     
     ssize_t received;
     do {
@@ -856,35 +883,42 @@ networking::find_default_route()
     
     CATCH_ASSERT(kernel_socket.close();)
     
-    route_message_header->rtm_msglen =
-        sizeof(struct rt_msghdr) + sizeof(struct sockaddr_in);
+    route_message_header->rtm_msglen = sizeof(struct rt_msghdr) + (
+            (address_family == AF_INET) ?
+            sizeof(struct sockaddr_in) :
+            sizeof(struct sockaddr_in6)
+    );
     struct sockaddr* socket_address =
         reinterpret_cast<struct sockaddr*>(route_message_header + 1);
 
     struct sockaddr* rti_info[RTAX_MAX];
     for (int i = 0; i < RTAX_MAX; i++) {
-		if (route_message_header->rtm_addrs & (1 << i)) {
-			rti_info[i] = socket_address;
-			NEXT_SA(socket_address);
-		}
-		else rti_info[i] = NULL;
-	}
+        if (route_message_header->rtm_addrs & (1 << i)) {
+            rti_info[i] = socket_address;
+            NEXT_SA(socket_address);
+        }
+        else rti_info[i] = NULL;
+    }
     
     /* - save results into return variable - */
     struct netroute result;
     char ifname[IF_NAMESIZE];
     if_indextoname(route_message_header->rtm_index, ifname);
     result.name        = std::string(ifname);
-	result.iface_index = route_message_header->rtm_index;
+    result.iface_index = route_message_header->rtm_index;
 
     if ((socket_address = rti_info[RTAX_GATEWAY]) != NULL) {
-        struct sockaddr_in* gateway = new struct sockaddr_in;
-        memset(gateway, 0, sizeof(struct sockaddr_in));
-        gateway->sin_family = AF_INET;
-        gateway->sin_addr.s_addr
-            = ((struct sockaddr_in*)socket_address)->sin_addr.s_addr;
-        result.gateway =
-            std::shared_ptr<struct sockaddr>((struct sockaddr*)gateway);
+        struct sockaddr* gateway;
+        switch (address_family) {
+        case AF_INET: {
+            gateway = (struct sockaddr*)(new struct sockaddr_in);
+            memcpy(gateway, socket_address, sizeof(struct sockaddr_in));
+        }
+        case AF_INET6: {
+            gateway = (struct sockaddr*)(new struct sockaddr_in6);
+            memcpy(gateway, socket_address, sizeof(struct sockaddr_in6));
+        }}
+        result.gateway = std::shared_ptr<struct sockaddr>(gateway);
     }
 
     return result;

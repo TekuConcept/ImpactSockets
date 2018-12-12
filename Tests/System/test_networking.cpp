@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include <networking>
+#include <impact_error>
 
 #define VERBOSE(x) std::cout << x << std::endl
 
@@ -14,8 +15,8 @@ print_interfaces(const std::vector<netinterface>& list)
 {
     for (const auto& iface : list) {
         VERBOSE("Name:      " << iface.name);
-		VERBOSE("Friendly:  " << iface.friendly_name);
-		VERBOSE("Index:     " << iface.iface_index);
+        VERBOSE("Friendly:  " << iface.friendly_name);
+        VERBOSE("Index:     " << iface.iface_index);
         VERBOSE("Address:   " << networking::sockaddr_to_string(iface.address.get()));
         VERBOSE("Netmask:   " << networking::sockaddr_to_string(iface.netmask.get()));
         VERBOSE("Broadcast: " << networking::sockaddr_to_string(iface.broadcast.get()));
@@ -32,7 +33,7 @@ print_interfaces(const std::vector<netinterface>& list)
         VERBOSE(std::dec);
 
         VERBOSE("IPv4:      " << (iface.ipv4 ? "true" : "false"));
-		VERBOSE("IPv6:      " << (iface.ipv6 ? "true" : "false"));
+        VERBOSE("IPv6:      " << (iface.ipv6 ? "true" : "false"));
 
         switch (iface.type) {
         case interface_type::OTHER:
@@ -65,7 +66,7 @@ test_find_network_interfaces()
             networking::find_network_interfaces();
         print_interfaces(list);
     }
-    catch (std::runtime_error e) {
+    catch (impact_error e) {
         VERBOSE(e.what());
     }
     catch (...) {
@@ -78,10 +79,18 @@ void
 test_find_default_route()
 {
     VERBOSE("[Testing] Find Default Route");
-    struct netroute route = networking::find_default_route();
-    VERBOSE("Interface Name:  " << route.name);
-	VERBOSE("Interface Index: " << route.iface_index);
-    VERBOSE("Gateway:         " << networking::sockaddr_to_string(route.gateway.get()));
+    try {
+        struct netroute route = networking::find_default_route();
+        VERBOSE("Interface Name:  " << route.name);
+        VERBOSE("Interface Index: " << route.iface_index);
+        VERBOSE("Gateway:         " << networking::sockaddr_to_string(route.gateway.get()));
+    }
+    catch (impact_error e) {
+        VERBOSE(e.what());
+    }
+    catch (...) {
+        VERBOSE("Unexpected error");
+    }
 }
 
 
