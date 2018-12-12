@@ -52,18 +52,18 @@ namespace impact {
                 0001 0000-0010 FFFF | 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
             */
             if (__symbol <= 0x00007F) {
-                __result->push_back(__symbol);
+                __result->push_back(static_cast<char>(__symbol));
                 return;
             }
             if (__symbol <= 0x0007FF) {
-                __result->push_back(0xC0|(__symbol>>6));
+                __result->push_back(static_cast<char>(0xC0|(__symbol>>6)));
                 goto tail_a;
             }
             if (__symbol <= 0x00FFFF) {
-                __result->push_back(0xE0|(__symbol>>12));
+                __result->push_back(static_cast<char>(0xE0|(__symbol>>12)));
                 goto tail_b;
             }
-            __result->push_back(0xF0|(__symbol>>18));
+            __result->push_back(static_cast<char>(0xF0|(__symbol>>18)));
             __result->push_back(0x80|((__symbol>>12)&0x3F));
             tail_b: __result->push_back(0x80|((__symbol>>6)&0x3F));
             tail_a: __result->push_back(0x80|(__symbol&0x3F));

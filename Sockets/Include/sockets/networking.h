@@ -8,34 +8,58 @@
 #include <string>
 #include <vector>
 
+#include "utils/environment.h"
+#include "sockets/types.h"
+
+#if defined(__OS_WINDOWS__)
+    #include <winsock2.h> /* sockaddr */
+#else
+    #include <netinet/in.h> /* sockaddr */
+#endif
+
 namespace impact {
 namespace networking {
-	typedef enum class interface_type {
-		// !- CROSS-PLATFORM TYPES    -!
-		OTHER,
-		ETHERNET,
-		WIFI,
-		FIREWIRE,
-		PPP,
-		ATM
-	} InterfaceType;
+    typedef enum class interface_type {
+        // !- CROSS-PLATFORM TYPES    -!
+        OTHER,
+        ETHERNET,
+        WIFI,
+        FIREWIRE,
+        PPP,
+        ATM
+    } InterfaceType;
 
 
-	typedef struct netinterface {
-		unsigned int               flags;
-		std::string                name;
-		std::string                address;
-		std::string                netmask;
-		std::string                broadcast;
-		interface_type             type;
-		std::vector<unsigned char> mac;
-		bool                       ipv4; // TODO: use union for ipv4,ipv6,other
-		netinterface();
-	} NetworkInterface;
+    typedef struct netinterface {
+        std::string                      name;
+        std::string                      friendly_name;
+        interface_type                   type;
+		unsigned int                     iface_index;
+        unsigned int                     flags;
+        std::shared_ptr<struct sockaddr> address;
+        std::shared_ptr<struct sockaddr> netmask;
+        std::shared_ptr<struct sockaddr> broadcast;
+        std::vector<unsigned char>       mac;
+        bool                             ipv4;
+        bool                             ipv6;
+        netinterface();
+    } NetworkInterface;
+    
+    
+    typedef struct netroute {
+        std::string name;
+		unsigned int iface_index;
+        std::shared_ptr<struct sockaddr> gateway;
+    } NetRoute;
 
 
-	std::vector<struct netinterface> find_network_interfaces()
-		/* throw(std::runtime_error) */;
+    std::string sockaddr_to_string(const struct sockaddr* address);
+
+
+    std::vector<struct netinterface> find_network_interfaces()
+        /* throw(impact_error) */;
+    struct netroute find_default_route()
+        /* throw(impact_error) */;
 }}
 
 #undef MAC_ADDRESS_LENGTH

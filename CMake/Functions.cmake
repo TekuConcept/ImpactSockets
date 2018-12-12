@@ -2,12 +2,12 @@
 # Functions                                                                   #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-function(x_add_executable)
-  #message("Executable Traget: ${ARGV0}")
-  add_executable(${ARGV})
-endfunction()
+FUNCTION (x_add_executable)
+    # MESSAGE("Executable Traget: ${ARGV0}")
+    ADD_EXECUTABLE(${ARGV})
+ENDFUNCTION ()
 
-function(x_add_library)
-  #message("Library Target: ${ARGV0}")
-  add_library(${ARGV})
-endfunction()
+FUNCTION (x_add_library)
+    # MESSAGE("Library Target: ${ARGV0}")
+    ADD_LIBRARY(${ARGV})
+ENDFUNCTION ()
