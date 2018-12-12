@@ -86,6 +86,10 @@ socketstream::underflow()
 
         if (status == 0)
             return EOF; // timeout
+        else if (status < 0) {
+            setstate(std::ios_base::failbit);
+            return EOF;
+        }
 
         short flags = m_poll_handle_[0].return_events;
         m_poll_handle_[0].return_events = 0;
@@ -106,7 +110,10 @@ socketstream::underflow()
             return *eback();
         }
     }
-    catch (...) { return EOF; }
+    catch (...) {
+        setstate(std::ios_base::failbit);
+        return EOF;
+    }
 
     return EOF;
 }
@@ -151,5 +158,5 @@ socketstream::hup() const noexcept
 void
 socketstream::set_timeout(int __milliseconds) noexcept
 {
-    m_timeout_ = __milliseconds<-1?-1:__milliseconds;
+    m_timeout_ = __milliseconds < -1 ? -1 : __milliseconds;
 }

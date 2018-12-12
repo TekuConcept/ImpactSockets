@@ -44,7 +44,6 @@ namespace impact {
         case imperr::URI_MULTI_AT:        return "More than one '@' found in auth name";
         case imperr::URI_MULTI_IP_LIT:    return "More than one IP literal identifier found in auth name";
         case imperr::URI_IP_LIT_MISMATCH: return "'[' and ']' IP literal identifiers missing or out of order";
-        case imperr::URI_USERINFO:        return "Bad uri userinfo";
         case imperr::URI_USERINFO_SYM:    return "Unexpected character or symbol in userinfo";
         case imperr::URI_HOST:            return "Bad uri host";
         case imperr::URI_HOST_SYM:        return "Unexpected character or symbol in host";

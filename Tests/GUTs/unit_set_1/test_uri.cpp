@@ -209,6 +209,14 @@ TEST(test_uri, normalize) {
     // normalized scheme to lower
     EXPECT_TRUE(uri::parse("FoO:", &u));
     EXPECT_EQ(u.scheme(), "foo");
+
+    // normalized host to lower
+    EXPECT_TRUE(uri::parse("foo://BaR", &u));
+    EXPECT_EQ(u.host(), "bar");
+    
+    // path not normalized to lower
+    EXPECT_TRUE(uri::parse("foo:/Path/TO/File", &u));
+    EXPECT_EQ(u.path(), "/Path/TO/File");
     
     // normalized host to lower
     EXPECT_TRUE(uri::parse("foo://BaR", &u));
