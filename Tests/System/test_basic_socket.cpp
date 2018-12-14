@@ -96,7 +96,7 @@ test_sigpipe()
         const char* buffer = NULL;
         socket.send(buffer, 0, message_flags::NONE);
     }
-    catch (impact_error e) {
+    catch (impact_error& e) {
         VERBOSE("IO Error: " << e.message());
         assert(true);
     }

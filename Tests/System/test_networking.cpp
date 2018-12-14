@@ -66,7 +66,7 @@ test_find_network_interfaces()
             networking::find_network_interfaces();
         print_interfaces(list);
     }
-    catch (impact_error e) {
+    catch (impact_error& e) {
         VERBOSE(e.what());
     }
     catch (...) {
@@ -85,7 +85,7 @@ test_find_default_route()
         VERBOSE("Interface Index: " << route.iface_index);
         VERBOSE("Gateway:         " << networking::sockaddr_to_string(route.gateway.get()));
     }
-    catch (impact_error e) {
+    catch (impact_error& e) {
         VERBOSE(e.what());
     }
     catch (...) {

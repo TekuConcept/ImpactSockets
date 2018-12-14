@@ -39,7 +39,7 @@ int main() {
 
         socket.close();
     }
-    catch (std::exception e) {
+    catch (std::exception& e) {
         VERBOSE("- Error: " << e.what());
     }
 

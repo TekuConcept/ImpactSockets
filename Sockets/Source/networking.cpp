@@ -72,7 +72,7 @@
 
 #define CATCH_ASSERT(code)\
     try { code }\
-    catch (impact_error e) { throw; }\
+    catch (impact_error& e) { throw; }\
     catch (...) { throw impact_error(error_string(imperr::UNKNOWN)); }
 
 #define ASSERT(cond)\
@@ -470,7 +470,7 @@ networking::find_network_interfaces()
     ASSERT(status != -1)
 
     try { internal::traverse_links(addresses, &list); }
-    catch (impact_error) {
+    catch (impact_error&) {
         freeifaddrs(addresses);
         throw;
     }

@@ -26,7 +26,7 @@ void test_message() {
         throw impact_error("Hello World");
         assert(false);
     }
-    catch (impact_error e) {
+    catch (impact_error& e) {
         VERBOSE("Message: " << e.message());
         assert(true);
     }
@@ -41,7 +41,7 @@ void test_trace() {
         obj.helper_stack_A();
         assert(false);
     }
-    catch (impact_error e) {
+    catch (impact_error& e) {
         VERBOSE(e.trace());
         assert(true);
     }
@@ -56,7 +56,7 @@ void test_what() {
         obj.helper_stack_A();
         assert(false);
     }
-    catch (impact_error e) {
+    catch (impact_error& e) {
         VERBOSE(e.what());
         assert(true);
     }
