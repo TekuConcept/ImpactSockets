@@ -89,7 +89,7 @@ void sendMessage(basic_socket& socket, std::vector<Interface> list) {
             }
         }
     }
-    catch (impact_error e) {
+    catch (impact_error& e) {
         VERBOSE(e.what());
         throw;
     }
@@ -163,7 +163,7 @@ void runClient() {
         VERBOSE("> Done!");
         socket.close();
     }
-    catch (impact_error e) { VERBOSE("CLIENT: " << e.what()); }
+    catch (impact_error& e) { VERBOSE("CLIENT: " << e.what()); }
     catch (...) { VERBOSE("CLIENT: Unknown error"); }
 }
 

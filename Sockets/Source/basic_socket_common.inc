@@ -76,7 +76,7 @@
 
 #define CATCH_ASSERT(code)\
     try { code }\
-    catch (impact_error) { throw; }\
+    catch (impact_error&) { throw; }\
     catch (...) { throw impact_error("Unknown internal error"); }
 
 #define WIN_ASSERT(cond,error,fin)\

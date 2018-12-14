@@ -154,7 +154,7 @@ int main() {
                     VERBOSE(">> [Client] EOF");
                     return async_option::QUIT;
                 }
-            } catch (impact::impact_error e) {
+            } catch (impact::impact_error& e) {
                 VERBOSE(">> [Client] " << e.message());
             }
         }
