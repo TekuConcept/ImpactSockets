@@ -156,6 +156,7 @@ int main() {
                 }
             } catch (impact::impact_error& e) {
                 VERBOSE(">> [Client] " << e.message());
+				UNUSED(e);
             }
         }
         
