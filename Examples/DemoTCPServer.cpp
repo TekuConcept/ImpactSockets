@@ -49,11 +49,11 @@ int main() {
         try { client.close(); }
         catch (...) { VERBOSE("+ Client error on close"); }
         try { server.close(); }
-        catch (impact_error e) {
+        catch (impact_error& e) {
             VERBOSE("+ Server close error " << e.what());
         }
     }
-    catch (impact_error e) { VERBOSE("+ Error: " << e.what()); }
+    catch (impact_error& e) { VERBOSE("+ Error: " << e.what()); }
     catch (...) { VERBOSE("Unknown internal error"); }
 
     VERBOSE("- END OF TCP DEMO -");
