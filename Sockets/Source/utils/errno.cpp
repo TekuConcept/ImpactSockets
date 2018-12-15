@@ -21,6 +21,7 @@ namespace impact {
         switch (__code) {
         case imperr::SUCCESS:             return "Success";
         case imperr::UNKNOWN:             return "Unknown internal error";
+        case imperr::INVALID_ARGUMENT:    return "Invalid argument was given";
 
         case imperr::ADDRESS_SIZE:        return "Unsupported address size";
         case imperr::ADDRESS_FAMILY:      return "Unsupported address family";
@@ -52,6 +53,8 @@ namespace impact {
         case imperr::URI_INVL_IP_LIT:     return "Invalid IP literal";
         case imperr::URI_SCHEME_RSV:      return "Scheme already reserved (permanent scheme)";
         case imperr::URI_SCHEME_NOTFOUND: return "Registered scheme not found";
+        
+        case imperr::HTTP_BAD_MATCH:      return "HTTP line doesn't match the target pattern";
         default:                          return "Unknown impact error";
         }
     }

@@ -11,6 +11,7 @@ namespace impact {
     enum class imperr {
         SUCCESS          = 0,
         UNKNOWN             , /* Unknown internal error */
+        INVALID_ARGUMENT    , /* Invalid argument was given */
 
         ADDRESS_SIZE        , /* Unsupported address size */
         ADDRESS_FAMILY      , /* Unsupported address family */
@@ -42,6 +43,8 @@ namespace impact {
         URI_INVL_IP_LIT     , /* Invalid IP literal */
         URI_SCHEME_RSV      , /* Scheme already reserved (permanent scheme) */
         URI_SCHEME_NOTFOUND , /* Registered scheme not found */
+        
+        HTTP_BAD_MATCH      , /* HTTP line doesn't match the target pattern */
     };
 
     namespace internal {
