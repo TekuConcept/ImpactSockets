@@ -3,6 +3,7 @@
  */
 
 #include <string>
+#include <sstream>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -11,7 +12,7 @@
 
 using namespace impact;
 
-TEST(test_http_parser, parse_start_line)
+TEST(test_http_messenger, parse_start_line)
 {
     std::string input;
     struct http::start_line start_line;
@@ -65,7 +66,7 @@ TEST(test_http_parser, parse_start_line)
 }
 
 
-TEST(test_http_parser, parse_header_line)
+TEST(test_http_messenger, parse_header_line)
 {
     std::string input;
     std::pair<std::string,std::string> header_line;
@@ -102,7 +103,7 @@ TEST(test_http_parser, parse_header_line)
 }
 
 
-TEST(test_http_parser, message_passing)
+TEST(test_http_messenger, create_request)
 {
     /*
     message = http::create_request(method, url);
@@ -117,6 +118,17 @@ TEST(test_http_parser, message_passing)
     message = http::create_response(code);
     */
     
-    struct http::message message = http::create_request();
-    UNUSED(message);
+    http::request_message message("POST", "www.example.com");
+    EXPECT_EQ(message.type(), http::message_type::REQUEST);
+    EXPECT_EQ(message.http_major(), 1);
+    EXPECT_EQ(message.http_minor(), 1);
+    EXPECT_EQ(message.method(), "POST");
+    EXPECT_EQ(message.target(), "www.example.com");
+}
+
+
+TEST(test_http_messenger, send)
+{
+    http::request_message message("POST", "www.example.com");
+    message.send(&std::cout);
 }
