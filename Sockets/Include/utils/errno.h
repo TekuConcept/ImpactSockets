@@ -50,7 +50,7 @@ namespace impact {
     namespace internal {
         imperr& imp_errno_f();
     }
-    #define imp_errno internal::imp_errno_f()
+    #define imp_errno ::impact::internal::imp_errno_f()
 
     std::string error_string(imperr code);
 }
