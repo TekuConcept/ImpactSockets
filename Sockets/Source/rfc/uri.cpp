@@ -28,14 +28,15 @@ using namespace impact;
 using namespace internal; /* abnf_ops */
 
 uri::uri()
-: m_port_(-1), m_has_auth_(false), m_has_default_port_(false)
-{}
+: m_has_auth_(false), m_has_default_port_(false)
+{
+    m_resource_.authority.port = -1;
+}
 
 
 uri::uri(std::string __value)
+: uri()
 {
-    UNUSED(__value);
-    
     struct parser_context context;
     context.current_idx = 0;
     context.data        = &__value;
@@ -50,13 +51,8 @@ uri::~uri() {}
 
 
 uri::uri(uri&& __value)
-: m_scheme_  (std::move(__value.m_scheme_  )),
-  m_userinfo_(std::move(__value.m_userinfo_)),
-  m_host_    (std::move(__value.m_host_    )),
-  m_path_    (std::move(__value.m_path_    )),
-  m_query_   (std::move(__value.m_query_   )),
-  m_fragment_(std::move(__value.m_fragment_)),
-  m_port_    (          __value.m_port_     ),
+: m_scheme_  (std::move(__value.m_scheme_   )),
+  m_resource_(std::move(__value.m_resource_)),
   m_has_auth_(          __value.m_has_auth_ ),
   m_has_default_port_(__value.m_has_default_port_)
 {}
@@ -66,12 +62,7 @@ uri&
 uri::operator=(uri&& __rvalue)
 {
     m_scheme_   = std::move(__rvalue.m_scheme_  );
-    m_userinfo_ = std::move(__rvalue.m_userinfo_);
-    m_host_     = std::move(__rvalue.m_host_    );
-    m_path_     = std::move(__rvalue.m_path_    );
-    m_query_    = std::move(__rvalue.m_query_   );
-    m_fragment_ = std::move(__rvalue.m_fragment_);
-    m_port_     =           __rvalue.m_port_     ;
+    m_resource_ = std::move(__rvalue.m_resource_);
     m_has_auth_ =           __rvalue.m_has_auth_ ;
     return *this;
 }
@@ -91,23 +82,122 @@ uri::parse(
 }
 
 
-std::string uri::scheme()   const { return m_scheme_;   }
-std::string uri::userinfo() const { return m_userinfo_; }
-std::string uri::host()     const { return m_host_;     }
-int uri::port()             const { return m_port_;     }
-std::string uri::path()     const { return m_path_;     }
-std::string uri::query()    const { return m_query_;    }
-std::string uri::fragment() const { return m_fragment_; }
+bool
+uri::parse_authority(
+    std::string    __value,
+    uri_authority* __result)
+{
+    if (__value.size() == 0) {
+        if (__result) {
+            __result->userinfo = "";
+            __result->host     = "";
+            __result->port     = -1;
+        }
+        return true;
+    }
+    
+    // pad with ' ' to avoid integer wrap
+    std::string data = " " + __value;
+    struct parser_context context;
+    context.current_idx = 1;
+    context.data        = &data;
+    
+    uri uri_result;
+    if (__result)
+         context.result = &uri_result;
+    else context.result = NULL;
+    
+    auto success = _S_parse_authority(&context);
+    if (success) {
+        if (context.current_idx < data.size()) return false;
+        if (__result) {
+            __result->userinfo = uri_result.m_resource_.authority.userinfo;
+            __result->host     = uri_result.m_resource_.authority.host;
+            __result->port     = uri_result.m_resource_.authority.port;
+        }
+    }
+    return success;
+}
 
-std::string uri::norm_hier_part() const { return _S_percent_decode(hier_part()); }
-std::string uri::norm_authority() const { return _S_percent_decode(authority()); }
-std::string uri::norm_str()       const { return _S_percent_decode(str());       }
-std::string uri::norm_abs_str()   const { return _S_percent_decode(abs_str());   }
-std::string uri::norm_userinfo()  const { return _S_percent_decode(m_userinfo_); }
-std::string uri::norm_host()      const { return _S_percent_decode(m_host_);     }
-std::string uri::norm_path()      const { return _S_percent_decode(m_path_);     }
-std::string uri::norm_query()     const { return _S_percent_decode(m_query_);    }
-std::string uri::norm_fragment()  const { return _S_percent_decode(m_fragment_); }
+
+bool
+uri::parse_resource(
+    std::string   __value,
+    uri_resource* __result)
+{
+    if (__value.size() == 0) {
+        if (__result) {
+            __result->authority.userinfo = "";
+            __result->authority.host     = "";
+            __result->authority.port     = -1;
+            __result->path               = "";
+            __result->query              = "";
+            __result->fragment           = "";
+        }
+        return true;
+    }
+    
+    struct parser_context context;
+    context.current_idx = 0;
+    context.data        = &__value;
+    
+    uri uri_result;
+    if (__result)
+         context.result = &uri_result;
+    else context.result = NULL;
+    
+    // WARNING: this snippet is a copy-paste of the
+    // _S_parse_uri code without any scheme parsing
+    
+    if (!_S_parse_hier_part(&context))
+        // impact_errno: see parse_heir_part()
+        return false; // bad authority or path
+    if ((context.current_idx < __value.size()) &&
+        (__value[context.current_idx] == '?')) {
+        context.current_idx++;
+        if (!_S_parse_query(&context))
+            // impact_errno: see parse_query()
+            return false; // bad query
+    }
+    if ((context.current_idx < __value.size()) &&
+        (__value[context.current_idx] == '#')) {
+        context.current_idx++;
+        if (!_S_parse_fragment(&context))
+            // impact_errno: see parse_fragment()
+            return false; // bad fragment
+    }
+    _S_path_normalize(&uri_result.m_resource_.path);
+    
+    if (__result) {
+        __result->authority.userinfo = uri_result.m_resource_.authority.userinfo;
+        __result->authority.host     = uri_result.m_resource_.authority.host;
+        __result->authority.port     = uri_result.m_resource_.authority.port;
+        __result->path               = uri_result.m_resource_.path;
+        __result->query              = uri_result.m_resource_.query;
+        __result->fragment           = uri_result.m_resource_.fragment;
+    }
+    
+    return true;
+}
+
+
+std::string uri::scheme()   const { return m_scheme_;                      }
+std::string uri::userinfo() const { return m_resource_.authority.userinfo; }
+std::string uri::host()     const { return m_resource_.authority.host;     }
+int uri::port()             const { return m_resource_.authority.port;     }
+std::string uri::path()     const { return m_resource_.path;               }
+std::string uri::query()    const { return m_resource_.query;              }
+std::string uri::fragment() const { return m_resource_.fragment;           }
+
+std::string uri::norm_hier_part() const { return _S_percent_decode(hier_part());                    }
+std::string uri::norm_authority() const { return _S_percent_decode(authority());                    }
+std::string uri::norm_str()       const { return _S_percent_decode(str());                          }
+std::string uri::norm_abs_str()   const { return _S_percent_decode(abs_str());                      }
+std::string uri::norm_userinfo()  const { return _S_percent_decode(m_resource_.authority.userinfo); }
+std::string uri::norm_host()      const { return _S_percent_decode(m_resource_.authority.host);     }
+std::string uri::norm_path()      const { return _S_percent_decode(m_resource_.path);               }
+std::string uri::norm_query()     const { return _S_percent_decode(m_resource_.query);              }
+std::string uri::norm_fragment()  const { return _S_percent_decode(m_resource_.fragment);           }
 
 std::string
 uri::hier_part() const
@@ -120,11 +210,11 @@ uri::hier_part() const
         result.append(auth);
         
         // RFC3986-3.3, Paragraph 2
-        if (m_path_.size())
+        if (m_resource_.path.size())
             result.append("/");
     }
     
-    result.append(m_path_);
+    result.append(m_resource_.path);
     
     return result;
 }
@@ -135,21 +225,22 @@ uri::authority() const
 {
     // authority = [ userinfo "@" ] host [ ":" port ]
     std::string result;
-    result.reserve(m_userinfo_.size() + m_host_.size() + 7);
+    result.reserve(m_resource_.authority.userinfo.size() +
+        m_resource_.authority.host.size() + 7);
     
-    if (m_userinfo_.size()) {
-        result.append(m_userinfo_);
+    if (m_resource_.authority.userinfo.size()) {
+        result.append(m_resource_.authority.userinfo);
         result.append("@");
     }
     
-    result.append(m_host_);
+    result.append(m_resource_.authority.host);
     
     // port = *DIGIT
     // which means 0 is a valid uri port number
     // -1 will represent an undetermined / unknown port
-    if (m_port_ >= 0 && !m_has_default_port_) {
+    if (m_resource_.authority.port >= 0 && !m_has_default_port_) {
         result.append(":");
-        result.append(std::to_string(m_port_));
+        result.append(std::to_string(m_resource_.authority.port));
     }
     
     return result;
@@ -162,9 +253,9 @@ uri::str() const
     // RFC3986-5.3:  Component Recomposition
     std::string result = abs_str();
 
-    if (m_fragment_.size()) {
+    if (m_resource_.fragment.size()) {
         result.append("#");
-        result.append(m_fragment_);
+        result.append(m_resource_.fragment);
     }
 
     return result;
@@ -187,15 +278,15 @@ uri::abs_str() const
         result.append(auth);
         
         // RFC3986-3.3, Paragraph 2
-        if (m_path_.size() && (m_path_[0] != '/'))
+        if (m_resource_.path.size() && (m_resource_.path[0] != '/'))
             result.append("/");
     }
     
-    result.append(m_path_);
+    result.append(m_resource_.path);
     
-    if (m_query_.size()) {
+    if (m_resource_.query.size()) {
         result.append("?");
-        result.append(m_query_);
+        result.append(m_resource_.query);
     }
     
     return result;
@@ -248,16 +339,17 @@ uri::_S_sub_delims(char __c)
 
 
 void
-uri::_S_clear(struct parser_context* __context) {
+uri::_S_clear(struct parser_context* __context)
+{
     if (__context->result) {
-        __context->result->m_scheme_   = "";
-        __context->result->m_userinfo_ = "";
-        __context->result->m_host_     = "";
-        __context->result->m_path_     = "";
-        __context->result->m_query_    = "";
-        __context->result->m_fragment_ = "";
-        __context->result->m_port_     = -1;
-        __context->result->m_has_auth_ = false;
+        __context->result->m_scheme_                      = "";
+        __context->result->m_resource_.authority.userinfo = "";
+        __context->result->m_resource_.authority.host     = "";
+        __context->result->m_resource_.path               = "";
+        __context->result->m_resource_.query              = "";
+        __context->result->m_resource_.fragment           = "";
+        __context->result->m_resource_.authority.port     = -1;
+        __context->result->m_has_auth_                    = false;
     }
 }
 
@@ -328,9 +420,9 @@ uri::_S_post_parse(struct parser_context* __context)
             __context->result->m_scheme_.end(),
             __context->result->m_scheme_.begin(),
             ::tolower);
-        _S_path_normalize(&__context->result->m_path_);
+        _S_path_normalize(&__context->result->m_resource_.path);
         
-        auto& port             = __context->result->m_port_;
+        auto& port             = __context->result->m_resource_.authority.port;
         auto scheme            = __context->result->m_scheme_;
         auto& has_default_port = __context->result->m_has_default_port_;
         
@@ -354,7 +446,8 @@ uri::_S_post_parse(struct parser_context* __context)
 
 
 std::string
-uri::_S_percent_decode(const std::string& __str) {
+uri::_S_percent_decode(const std::string& __str)
+{
     std::string result;
     result.reserve(__str.size());
     
@@ -596,7 +689,7 @@ uri::_S_parse_hier_part(struct parser_context* __context)
         current_idx++;
         if (current_idx >= data.size()) {
             if (__context->result)
-                __context->result->m_path_.push_back('/');
+                __context->result->m_resource_.path.push_back('/');
             return true; // path-absolute
         }
         else if (data[current_idx] == '/') {
@@ -609,7 +702,7 @@ uri::_S_parse_hier_part(struct parser_context* __context)
         }
         else {
             if (__context->result)
-                __context->result->m_path_.push_back('/');
+                __context->result->m_resource_.path.push_back('/');
             // impact_errno: see parse_path()
             return _S_parse_path(__context, false, true);
         }
@@ -659,7 +752,7 @@ uri::_S_parse_path(
             current_idx++;
             if (current_idx >= data.size()) {
                 if (__context->result)
-                    __context->result->m_path_.assign("/");
+                    __context->result->m_resource_.path.assign("/");
                 return true; // empty root
             }
         }
@@ -707,7 +800,7 @@ uri::_S_parse_path(
     bool success = _S_percent_decode(&path, false);
     
     if (__context->result)
-        __context->result->m_path_.append(path);
+        __context->result->m_resource_.path.append(path);
     
     return success;
 }
@@ -718,7 +811,7 @@ uri::_S_parse_authority(struct parser_context* __context)
 {
     std::string& data = *__context->data;
     auto& current_idx = __context->current_idx;
-    size_t last_idx = current_idx;
+    size_t last_idx   = current_idx;
     
     auto at_count          = 0;
     auto colon_count_after = 0;
@@ -872,7 +965,7 @@ uri::_S_parse_userinfo(struct parser_context* __context)
     bool success = _S_percent_decode(&data, false);
     
     if (__context->result)
-        __context->result->m_userinfo_ = data;
+        __context->result->m_resource_.authority.userinfo = data;
     
     return success;
 }
@@ -916,7 +1009,7 @@ uri::_S_parse_host(struct parser_context* __context)
     bool success = _S_percent_decode(&data, true);
 
     if (__context->result)
-        __context->result->m_host_ = data;
+        __context->result->m_resource_.authority.host = data;
     
     return success;
 }
@@ -948,7 +1041,7 @@ uri::_S_parse_port(struct parser_context* __context)
     }
     
     if (__context->result && data.size()) {
-        __context->result->m_port_ = std::stoi(data);
+        __context->result->m_resource_.authority.port = std::stoi(data);
     }
     
     return true;
@@ -1236,7 +1329,7 @@ uri::_S_parse_query(struct parser_context* __context)
     bool success = _S_percent_decode(&result, false);
     
     if (__context->result)
-        __context->result->m_query_.assign(result);
+        __context->result->m_resource_.query.assign(result);
     
     return success;
 }
@@ -1262,7 +1355,7 @@ uri::_S_parse_fragment(struct parser_context* __context)
         success = _S_percent_decode(&result, false);
         
         if (__context->result)
-            __context->result->m_fragment_.assign(result);
+            __context->result->m_resource_.fragment.assign(result);
     }
     
     return success;
@@ -1270,7 +1363,7 @@ uri::_S_parse_fragment(struct parser_context* __context)
 
 
 typedef std::pair<std::string,int> scheme_port;
-std::map<std::string,int> uri::s_scheme_port_dictionary_{
+std::map<std::string,int> uri::s_scheme_port_dictionary_ {
     scheme_port("aaa"  ,         3868), // Diameter Protocol
     scheme_port("aaas" ,         5658), // Diameter Protocol with Secure Transport
     scheme_port("about",         2019), // about

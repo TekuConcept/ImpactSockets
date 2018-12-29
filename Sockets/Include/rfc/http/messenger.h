@@ -14,117 +14,13 @@
 #include <vector>
 #include <set>
 #include "utils/case_string.h"
+#include "utils/impact_error.h"
 #include "rfc/http/types.h"
+
+#include "rfc/http/TX/transfer_encoding.h"
 
 namespace impact {
 namespace http {
-    
-    enum class message_type { REQUEST, RESPONSE };
-    
-    class transfer_encoding {
-    public:
-        transfer_encoding(std::string name,
-            std::function<std::string(const std::string&)> encoder);
-        ~transfer_encoding();
-        const case_string& name() const noexcept;
-        static transfer_encoding chunked();
-        
-    private:
-        case_string m_name_;
-        std::function<std::string(const std::string&)> m_encode_;
-    
-    public:
-        inline std::string
-        encode(const std::string& __) const
-        { return m_encode_(__); }
-        
-        struct less {
-            bool operator() (const transfer_encoding& lhs,
-                const transfer_encoding& rhs) const;
-        };
-        
-        typedef std::set<transfer_encoding, less> set;
-    };
-    
-    class message_header {
-    public:
-        message_header(std::string name, std::string value);
-        ~message_header();
-        const std::string& field_name() const noexcept;
-        const std::string& field_value() const noexcept;
-    
-    private:
-        std::string m_field_name_;
-        std::string m_field_value_;
-    };
-    
-    class message {
-    public:
-        message() = delete;
-        virtual ~message();
-        message_type type() const noexcept;
-        
-        void send(std::ostream& stream);
-    
-    protected:
-        message(message_type type);
-        message(message_type type,
-            transfer_encoding::set,
-            std::function<void(std::string*)>);
-        
-    private:
-        message_type m_type_;
-        int m_http_major_;
-        int m_http_minor_;
-        
-        std::vector<message_header> m_headers_;
-        
-        bool m_has_body_;
-        bool m_is_fixed_body_;
-        transfer_encoding::set m_transfer_encodings_;
-        std::function<void(std::string*)> m_data_callback_;
-        std::string m_data_buffer_;
-    };
-    
-    class request_message : public message {
-    public:
-        virtual ~request_message();
-        
-        static std::shared_ptr<request_message>
-            create(std::string method, std::string target);
-        static std::shared_ptr<request_message>
-            create(std::string method, std::string target,
-            transfer_encoding::set encodings,
-            std::function<void(std::string*)> data_callback);
-        
-        const std::string& method() const noexcept;
-        const std::string& target() const noexcept;
-
-    private:
-        std::string m_method_;
-        std::string m_target_;
-        
-        request_message();
-        request_message(transfer_encoding::set,
-            std::function<void(std::string*)>);
-    };
-    
-    class response_message : public message {
-    public:
-        virtual ~response_message();
-        
-        static std::shared_ptr<response_message>
-            create(int code, std::string status);
-        
-        int code() const noexcept;
-        const std::string& status() const noexcept;
-        
-    private:
-        int m_code_;
-        std::string m_status_;
-        
-        response_message();
-    };
 
     // void
     // send(

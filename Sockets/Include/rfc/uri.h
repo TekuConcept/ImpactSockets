@@ -17,6 +17,19 @@ namespace impact {
         std::string fragment;
         bool        has_authority;
     } UriOptions;
+
+    typedef struct uri_authority {
+        std::string userinfo;
+        std::string host;
+        int port;
+    } URIAuthority;
+    
+    typedef struct uri_resource {
+        struct uri_authority authority;
+        std::string path;
+        std::string query;
+        std::string fragment;
+    } URIResource;
     
     class uri {
     public:
@@ -30,6 +43,9 @@ namespace impact {
         static bool register_scheme_port(std::string scheme, int port);
         static bool deregister_scheme_port(std::string scheme);
         static bool parse(std::string value, uri* result);
+        
+        static bool parse_authority(std::string value, uri_authority* result);
+        static bool parse_resource(std::string value, uri_resource* result);
         
         std::string scheme()         const;
         std::string hier_part()      const;
@@ -60,15 +76,10 @@ namespace impact {
             uri*               result;
         };
         
-        std::string  m_scheme_;
-        std::string  m_userinfo_;
-        std::string  m_host_;
-        std::string  m_path_;
-        std::string  m_query_;
-        std::string  m_fragment_;
-        int          m_port_;
-        bool         m_has_auth_;
-        bool         m_has_default_port_;
+        std::string         m_scheme_;
+        struct uri_resource m_resource_;
+        bool                m_has_auth_;
+        bool                m_has_default_port_;
         
         // Based on IANA Registered URI Schemes 08/03/2018 (permanent)
         static std::map<std::string,int> s_scheme_port_dictionary_;

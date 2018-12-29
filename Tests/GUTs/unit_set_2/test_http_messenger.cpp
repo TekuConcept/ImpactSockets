@@ -12,40 +12,150 @@
 
 using namespace impact;
 
-TEST(test_http_messenger, send_request)
-{
-    std::shared_ptr<http::request_message> request;
+#define NO_THROW(code) try { {code} } catch (...) { FAIL(); }
+#define THROW(code)    try { {code} FAIL(); } catch (...) { }
+
+// TEST(test_http_messenger, request_valid_method)
+// {
+//     //  method = token
+//     //  token  = 1*tchar
+//     //  tchar  = "!" / "#" / "$" / "%" / "&" / "'" / "*"
+//     //            / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
+//     //            / DIGIT / ALPHA
+//     std::shared_ptr<http::request_message> request;
     
-    request = http::request_message::create("GET", "/");
-    request->send(std::cout);
+//     // [- GOOD -]
     
-    http::transfer_encoding::set encodings = {
-        http::transfer_encoding::chunked(),
-        http::transfer_encoding(
-            "custom",
-            [](const std::string& data) -> std::string {
-                return data;
-            }
-        )
-    };
-    std::function<void(std::string*)> data_callback =
-    [](std::string* next) -> void {
-        static int mod = 1;
-        if (mod) *next = "Hello World!";
-        else *next = "";
-        mod--;
-    };
-    request = http::request_message::create(
-        "GET", "/", encodings, data_callback);
-    request->send(std::cout);
-}
+//     NO_THROW(request = http::request_message::create("GET", "/");)
+    
+//     // [- BAD -]
+    
+//     // no method
+//     THROW(request = http::request_message::create("", "/");)
+//     // invalid method character
+//     THROW(request = http::request_message::create(" ", "/");)
+// }
 
 
-TEST(test_http_messenger, send_response)
-{
-    auto response = http::response_message::create(200, "OK");
-    response->send(std::cout);
-}
+// TEST(test_http_messenger, request_valid_target)
+// {
+//     // request-target = origin-form
+//     //                 / absolute-form
+//     //                 / authority-form
+//     //                 / asterisk-form
+//     // origin-form    = absolute-path [ "?" query ]
+//     // absolute-form  = absolute-URI
+//     // authority-form = authority
+//     // asterisk-form  = "*"
+    
+//     // Examples:
+//     // origin-form:    /where?q=now
+//     // absolute-form:  http://www.example.org/pub/WWW/TheProject.html
+//     // authority-form: www.example.com:80
+//     std::shared_ptr<http::request_message> request;
+    
+//     NO_THROW(request = http::request_message::create("A", "*");)
+//     NO_THROW(request = http::request_message::create("A", "/");)
+//     NO_THROW(request = http::request_message::create("A", "/where?q=now");)
+//     NO_THROW(request = http::request_message::create("A",
+//         "http://www.example.org/pub/WWW/TheProject.html");)
+//     NO_THROW(request = http::request_message::create("A", "www.example.com:80");)
+//     THROW(request = http::request_message::create("A", "//bad/origin");)
+//     THROW(request = http::request_message::create("A", "");)
+//     THROW(request = http::request_message::create("A", " ");)
+// }
+
+
+// TEST(test_http_messenger, transfer_encoding)
+// {
+//     // empty encoding set
+//     // null data callback
+//     // custom encoding
+//     // duplicate chunked encodings
+//     // duplicate other encodings
+//     // custom encoding called "chunked" (hint: check name in ctor)
+// }
+
+
+// TEST(test_http_messenger, fixed_message)
+// {
+//     // create fixed-data message
+// }
+
+
+// TEST(test_http_messenger, headers)
+// {
+//     // generic header format
+//     // add headers to message
+//     // remove headers from message
+//     // access message headers
+//     // handle duplicate headers?
+// }
+
+
+// TEST(test_http_messenger, send_request)
+// {
+//     std::shared_ptr<http::request_message> request;
+//     std::stringstream test_stream;
+//     int finished = 0;
+//     std::function<void(std::string*)> callback = 
+//     [&](std::string* next) -> void {
+//         if (!finished) *next = "Hello World!";
+//         else           *next = "";
+//         finished++;
+//     };
+    
+//     // - basic request (no body) -
+//     request = http::request_message::create("GET", "/");
+//     request->send(test_stream);
+//     EXPECT_EQ(test_stream.str(), "GET / HTTP/1.1\r\n\r\n");
+//     test_stream.clear();
+//     test_stream.str("");
+    
+//     // - advanced request (no body) -
+//     request = http::request_message::create("GET", "/", {}, nullptr);
+//     request->send(test_stream);
+//     EXPECT_EQ(test_stream.str(), "GET / HTTP/1.1\r\n\r\n");
+//     test_stream.clear();
+//     test_stream.str("");
+    
+//     // - chunked body -
+//     request = http::request_message::create("GET", "/", {}, callback);
+//     request->send(test_stream);
+//     EXPECT_EQ(test_stream.str(),
+//         "GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n"
+//         "c\r\nHello World!\r\n0\r\n\r\n");
+//     test_stream.clear();
+//     test_stream.str("");
+//     finished = 0;
+    
+//     // - transfer codings -
+//     http::transfer_encoding custom(
+//         "custom",
+//         [](const std::string& data) -> std::string { return data; }
+//     );
+//     request = http::request_message::create(
+//         "GET", "/",
+//         {
+//             custom,
+//             custom // duplicates allowed (except for chunked)
+//         },
+//         callback
+//     );
+//     request->send(test_stream);
+//     EXPECT_EQ(test_stream.str(),
+//         "GET / HTTP/1.1\r\nTransfer-Encoding: custom, custom, chunked\r\n\r\n"
+//         "c\r\nHello World!\r\n0\r\n\r\n");
+//     test_stream.clear();
+//     test_stream.str("");
+// }
+
+
+// TEST(test_http_messenger, send_response)
+// {
+//     // auto response = http::response_message::create(200, "OK");
+//     // response->send(std::cout);
+// }
 
 
 // TEST(test_http_messenger, parse_start_line)

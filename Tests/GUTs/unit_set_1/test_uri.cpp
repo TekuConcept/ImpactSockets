@@ -63,6 +63,8 @@ TEST(test_uri, authority) {
     EXPECT_EQ(u.str(), "foo://");
     EXPECT_TRUE(uri::parse("foo://bar.baz", &u));
     EXPECT_EQ(u.authority(), "bar.baz");
+    EXPECT_EQ(u.userinfo(), "");
+    EXPECT_EQ(u.port(), -1);
     
     EXPECT_TRUE(uri::parse("foo://bar@baz", &u));
     EXPECT_EQ(u.userinfo(), "bar");
@@ -124,6 +126,65 @@ TEST(test_uri, IPv6) {
     EXPECT_FALSE(uri::parse("foo://:F]", NULL));
     
     EXPECT_FALSE(uri::parse("foo://[0:0.0.0.0]", NULL)); // no placeholder
+}
+
+TEST(test_uri, parse_authority) {
+    struct uri_authority authority;
+    
+    EXPECT_TRUE(uri::parse_authority("", &authority));
+    EXPECT_EQ(authority.userinfo, "");
+    EXPECT_EQ(authority.host, "");
+    EXPECT_EQ(authority.port, -1);
+    
+    EXPECT_TRUE(uri::parse_authority("", NULL));
+    
+    EXPECT_TRUE(uri::parse_authority("usr@foo.bar:80", &authority));
+    EXPECT_EQ(authority.userinfo, "usr");
+    EXPECT_EQ(authority.host, "foo.bar");
+    EXPECT_EQ(authority.port, 80);
+    
+    EXPECT_TRUE(uri::parse_authority("www.example.com", &authority));
+    EXPECT_EQ(authority.userinfo, "");
+    EXPECT_EQ(authority.host, "www.example.com");
+    EXPECT_EQ(authority.port, -1);
+    
+    EXPECT_FALSE(uri::parse_authority("fo[o/b]ar", &authority));
+    EXPECT_FALSE(uri::parse_authority(" ", &authority));
+    EXPECT_FALSE(uri::parse_authority(" ", NULL));
+}
+
+TEST(test_uri, parse_resource) {
+    struct uri_resource resource;
+    
+    EXPECT_TRUE(uri::parse_resource("", &resource));
+    EXPECT_EQ(resource.authority.userinfo, "");
+    EXPECT_EQ(resource.authority.host, "");
+    EXPECT_EQ(resource.authority.port, -1);
+    EXPECT_EQ(resource.path, "");
+    EXPECT_EQ(resource.query, "");
+    EXPECT_EQ(resource.fragment, "");
+    
+    EXPECT_TRUE(uri::parse_resource("", NULL));
+    
+    EXPECT_TRUE(uri::parse_resource("/path/to/resource?query#fragment",
+        &resource));
+    EXPECT_EQ(resource.path, "/path/to/resource");
+    EXPECT_EQ(resource.query, "query");
+    EXPECT_EQ(resource.fragment, "fragment");
+    
+    EXPECT_TRUE(uri::parse_resource("//user@host:20/path/to/resource",
+        &resource));
+    EXPECT_EQ(resource.authority.userinfo, "user");
+    EXPECT_EQ(resource.authority.host, "host");
+    EXPECT_EQ(resource.authority.port, 20);
+    EXPECT_EQ(resource.path, "/path/to/resource");
+    
+    EXPECT_TRUE(uri::parse_resource("path/to/resource", &resource));
+    EXPECT_EQ(resource.path, "path/to/resource");
+    
+    EXPECT_TRUE(uri::parse_resource("/path", NULL));
+    
+    EXPECT_FALSE(uri::parse_resource("path//is/invalid", &resource));
 }
 
 TEST(test_uri, query) {
