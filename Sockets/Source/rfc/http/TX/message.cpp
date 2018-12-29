@@ -2,7 +2,6 @@
  * Created by TekuConcept on December 28, 2018
  */
 
-#include <iomanip>
 #include <sstream>
 #include "rfc/http/TX/message.h"
 #include "rfc/http/TX/request_message.h"
@@ -10,12 +9,6 @@
 
 using namespace impact;
 using namespace http;
-
-
-transfer_encoding_token::transfer_encoding_token(
-    transfer_encoding_list __encodings)
-: transfer_encoding_token(__encodings, nullptr)
-{}
 
 
 transfer_encoding_token::transfer_encoding_token(
@@ -44,7 +37,7 @@ transfer_encoding_token::transfer_encoding_token(
         field_value << token->name();
         i++;
     }
-    m_header_ = message_header("Transfer-Encoding", field_value.str());
+    m_header_ = header_token("Transfer-Encoding", field_value.str());
 }
 
 
@@ -52,16 +45,14 @@ transfer_encoding_token::~transfer_encoding_token()
 {}
 
 
-message::message(message_type __type)
-: m_type_(__type), m_http_major_(1), m_http_minor_(1),
+message::message()
+: m_http_major_(1), m_http_minor_(1),
   m_has_body_(false), m_is_fixed_body_(false), m_data_({},nullptr)
 {}
 
 
-message::message(
-    message_type            __type,
-    transfer_encoding_token __data)
-: m_type_(__type), m_http_major_(1), m_http_minor_(1),
+message::message(transfer_encoding_token __data)
+: m_http_major_(1), m_http_minor_(1),
   m_has_body_(true), m_is_fixed_body_(false), m_data_(__data)
 {
     if (!m_data_.callback) m_has_body_ = false;
@@ -73,29 +64,10 @@ message::~message()
 {}
 
 
-message_type
-message::type() const noexcept
-{
-    return m_type_;
-}
-
-
 void
 message::send(std::ostream& __stream)
 {
-    if (this->m_type_ == message_type::REQUEST) {
-        request_message* start_line = dynamic_cast<request_message*>(this);
-        __stream << start_line->method() << " ";
-        __stream << start_line->target() << " ";
-        __stream << "HTTP/" << m_http_major_ << "." << m_http_minor_ << "\r\n";
-    }
-    else /* (this->m_type_ == message_type::RESPONSE) */ {
-        response_message* start_line = dynamic_cast<response_message*>(this);
-        __stream << "HTTP/" << m_http_major_ << "." << m_http_minor_ << " ";
-        __stream << std::setfill('0') << std::setw(3);
-        __stream << start_line->code() << std::setfill(' ') << " ";
-        __stream << start_line->status() << "\r\n";
-    }
+    __stream << _M_start_line() << "\r\n";
     
     for (const auto& header : m_headers_) {
         __stream << header.field_name() << ": ";

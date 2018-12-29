@@ -9,7 +9,7 @@
 #include <vector>
 #include <functional>
 #include "utils/case_string.h"
-#include "rfc/http/TX/message_header.h"
+#include "rfc/http/TX/header_token.h"
 #include "rfc/http/TX/transfer_encoding.h"
 
 namespace impact {
@@ -20,18 +20,21 @@ namespace http {
     public:
         typedef std::shared_ptr<transfer_encoding> transfer_encoding_ptr;
         typedef std::vector<transfer_encoding_ptr> transfer_encoding_list;
-        transfer_encoding_token(transfer_encoding_list encodings);
+        
         transfer_encoding_token(transfer_encoding_list encodings,
-            std::function<void(std::string*)> callback);
+            std::function<void(std::string*)> callback = nullptr);
         ~transfer_encoding_token();
+        
         std::function<void(std::string*)> callback;
+    
     private:
-        message_header m_header_;
+        header_token m_header_;
         transfer_encoding_list m_transfer_encodings_;
+    
     public:
         inline const transfer_encoding_list& encodings()
         { return m_transfer_encodings_; }
-        inline const message_header& header() { return m_header_; }
+        inline const header_token& header() { return m_header_; }
     };
 
     
@@ -40,22 +43,21 @@ namespace http {
     
     class message {
     public:
-        message() = delete;
         virtual ~message();
-        message_type type() const noexcept;
         
         void send(std::ostream& stream);
+        virtual message_type type() const = 0;
     
     protected:
-        message(message_type type);
-        message(message_type type, transfer_encoding_token data);
-        
-    private:
-        message_type m_type_;
         int m_http_major_;
         int m_http_minor_;
         
-        std::vector<message_header> m_headers_;
+        message();
+        message(transfer_encoding_token data);
+        virtual std::string _M_start_line() = 0;
+        
+    private:
+        std::vector<header_token> m_headers_;
         
         bool                    m_has_body_;
         bool                    m_is_fixed_body_;

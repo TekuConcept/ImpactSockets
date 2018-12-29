@@ -19,6 +19,12 @@ method_token::method_token(std::string __method_name)
 }
 
 
+method_token::method_token(method __id)
+{
+    m_name_ = method_string(__id);
+}
+
+
 method_token::~method_token()
 {}
 
@@ -72,8 +78,7 @@ target_token::_M_valid_target(const std::string& __target) const
 request_message::request_message(
     method_token __method,
     target_token __target)
-: message(message_type::REQUEST),
-  m_method_(__method), m_target_(__target)
+: message(), m_method_(__method), m_target_(__target)
 {}
 
 
@@ -81,8 +86,7 @@ request_message::request_message(
     method_token            __method,
     target_token            __target,
     transfer_encoding_token __data)
-: message(message_type::REQUEST, __data),
-  m_method_(__method), m_target_(__target)
+: message(__data), m_method_(__method), m_target_(__target)
 {}
 
 
@@ -105,3 +109,20 @@ request_message::request_message(
 
 request_message::~request_message()
 {}
+
+
+message_type
+request_message::type() const
+{
+    return message_type::REQUEST;
+}
+
+
+std::string
+request_message::_M_start_line()
+{
+    std::ostringstream os;
+    os << m_method_.name() << " " << m_target_.name() << " ";
+    os << "HTTP/" << m_http_major_ << "." << m_http_minor_;
+    return os.str();
+}

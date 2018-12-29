@@ -21,11 +21,14 @@ namespace http {
         int code() const noexcept;
         const std::string& status() const noexcept;
         
+        message_type type() const;
+        
     private:
         int m_code_;
         std::string m_status_;
         
         response_message();
+        std::string _M_start_line();
     };
 }}
 

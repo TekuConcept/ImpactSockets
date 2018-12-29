@@ -10,6 +10,7 @@
 #include <vector>
 #include <functional>
 #include "utils/case_string.h"
+#include "rfc/http/types.h"
 #include "rfc/http/TX/transfer_encoding.h"
 #include "rfc/http/TX/message.h"
 
@@ -20,6 +21,7 @@ namespace http {
     class method_token {
     public:
         method_token(std::string method_name);
+        method_token(method id);
         ~method_token();
     private:
         std::string m_name_;
@@ -60,10 +62,13 @@ namespace http {
             /* throw impact_error */;
 
         virtual ~request_message();
+        message_type type() const;
 
     private:
         method_token m_method_;
         target_token m_target_;
+        
+        std::string _M_start_line();
     
     public:
         inline const std::string& method() const noexcept

@@ -42,6 +42,12 @@ TEST(test_http_transfer_encoding, custom)
             [](const std::string& data) -> std::string { return data; }
         );
     )
+    THROW( // names must contain VCHARs
+        transfer_encoding coding(
+            " bad ",
+            [](const std::string& data) -> std::string { return data; }
+        );
+    )
 }
 
 
@@ -83,12 +89,12 @@ TEST(test_http_transfer_encoding, chunked_encoding)
         "0;foo=bar;baz=\"qux\"\r\n\r\n");
     
     // - with trailers -
-    std::vector<message_header> header_list = {
-        message_header("foo", "bar"),
-        message_header("baz", "qux")
+    std::vector<header_token> header_list = {
+        header_token("foo", "bar"),
+        header_token("baz", "qux")
     };
     chunked = transfer_encoding::chunked(nullptr,
-    [&](std::vector<message_header>** trailers)->void {
+    [&](std::vector<header_token>** trailers)->void {
         *trailers = &header_list;
     });
     EXPECT_EQ(chunked->encode(""), "0\r\nfoo: bar\r\nbaz: qux\r\n\r\n");
@@ -102,7 +108,7 @@ TEST(test_http_transfer_encoding, chunked_encoding)
     
     // - NULL trailers returned -
     chunked = transfer_encoding::chunked(nullptr,
-    [&](std::vector<message_header>** trailers)->void {
+    [&](std::vector<header_token>** trailers)->void {
         *trailers = NULL;
     });
     EXPECT_EQ(chunked->encode(""), "0\r\n\r\n");

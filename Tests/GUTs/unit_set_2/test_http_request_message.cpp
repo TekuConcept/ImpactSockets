@@ -8,7 +8,6 @@
 
 #include <gtest/gtest.h>
 #include "utils/environment.h"
-#include "rfc/http/messenger.h"
 #include "rfc/http/TX/request_message.h"
 
 using namespace impact;
@@ -40,6 +39,10 @@ TEST(test_http_method_token, method_token)
     NO_THROW(
         method_token token = method_token("GET");
         EXPECT_EQ(token.name(), "GET");
+    )
+    NO_THROW( // skip method name validation check
+        method_token token = method_token(method::CONNECT);
+        EXPECT_EQ(token.name(), "CONNECT");
     )
 }
 
@@ -109,33 +112,6 @@ TEST(test_http_request_message, request_valid_target)
 }
 
 
-TEST(test_http_request_message, transfer_encoding)
-{
-    // empty encoding set
-    // null data callback
-    // custom encoding
-    // duplicate chunked encodings
-    // duplicate other encodings
-    // custom encoding called "chunked" (hint: check name in ctor)
-}
-
-
-TEST(test_http_request_message, fixed_message)
-{
-    // create fixed-data message
-}
-
-
-TEST(test_http_request_message, headers)
-{
-    // generic header format
-    // add headers to message
-    // remove headers from message
-    // access message headers
-    // handle duplicate headers?
-}
-
-
 TEST(test_http_request_message, send_request)
 {
     std::stringstream test_stream;
@@ -171,24 +147,24 @@ TEST(test_http_request_message, send_request)
     test_stream.str("");
     finished = 0;
     
-    // - transfer codings -
-    std::shared_ptr<http::transfer_encoding> custom =
-    std::make_shared<http::transfer_encoding>(
-        "custom",
-        [](const std::string& data) -> std::string { return data; }
-    );
-    request = request_message(
-        "GET", "/",
-        {
-            custom,
-            custom // duplicates allowed (except for chunked)
-        },
-        callback
-    );
-    request.send(test_stream);
-    EXPECT_EQ(test_stream.str(),
-        "GET / HTTP/1.1\r\nTransfer-Encoding: custom, custom, chunked\r\n\r\n"
-        "c\r\nHello World!\r\n0\r\n\r\n");
-    test_stream.clear();
-    test_stream.str("");
+    // // - transfer codings -
+    // std::shared_ptr<http::transfer_encoding> custom =
+    // std::make_shared<http::transfer_encoding>(
+    //     "custom",
+    //     [](const std::string& data) -> std::string { return data; }
+    // );
+    // request = request_message(
+    //     "GET", "/",
+    //     {
+    //         custom,
+    //         custom // duplicates allowed (except for chunked)
+    //     },
+    //     callback
+    // );
+    // request.send(test_stream);
+    // EXPECT_EQ(test_stream.str(),
+    //     "GET / HTTP/1.1\r\nTransfer-Encoding: custom, custom, chunked\r\n\r\n"
+    //     "c\r\nHello World!\r\n0\r\n\r\n");
+    // test_stream.clear();
+    // test_stream.str("");
 }

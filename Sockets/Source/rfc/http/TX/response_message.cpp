@@ -2,22 +2,24 @@
  * Created by TekuConcept on December 28, 2018
  */
 
+#include <iomanip>
 #include <sstream>
 #include "rfc/http/TX/response_message.h"
 
 using namespace impact;
+using namespace http;
 
-http::response_message::response_message()
-: message(message_type::RESPONSE)
+response_message::response_message()
+: message()
 {}
 
 
-http::response_message::~response_message()
+response_message::~response_message()
 {}
 
 
-std::shared_ptr<http::response_message>
-http::response_message::create(
+std::shared_ptr<response_message>
+response_message::create(
     int         __code,
     std::string __status)
 {
@@ -30,14 +32,32 @@ http::response_message::create(
 
 
 int
-http::response_message::code() const noexcept
+response_message::code() const noexcept
 {
     return m_code_;
 }
 
 
 const std::string&
-http::response_message::status() const noexcept
+response_message::status() const noexcept
 {
     return m_status_;
+}
+
+
+message_type
+response_message::type() const
+{
+    return message_type::RESPONSE;
+}
+
+
+std::string
+response_message::_M_start_line()
+{
+    std::ostringstream os;
+    os << "HTTP/" << m_http_major_ << "." << m_http_minor_ << " ";
+    os << std::setfill('0') << std::setw(3);
+    os << m_code_ << std::setfill(' ') << " " << m_status_;
+    return os.str();
 }

@@ -5,11 +5,14 @@
 #include <sstream>
 #include "utils/impact_error.h"
 #include "utils/environment.h"
+#include "utils/abnf_ops.h"
 #include "rfc/http/abnf_ops.h"
 #include "rfc/http/TX/transfer_encoding.h"
 
 using namespace impact;
 using namespace http;
+
+#define VCHAR(c) impact::internal::VCHAR(c)
 
 #include <iostream>
 #define VERBOSE(x) std::cout << x << std::endl
@@ -47,8 +50,11 @@ transfer_encoding::transfer_encoding(std::string __name)
 transfer_encoding::transfer_encoding(
     std::string      __name,
     encoder_callback __encoder)
-: m_encode_(__encoder), m_name_(__name.c_str())
+: m_encode_(__encoder), m_name_(__name.c_str(), __name.size())
 {
+    for (char c : m_name_) {
+        if (!VCHAR(c)) throw impact_error("Invalid name \"" + __name + "\"");
+    }
     if (m_name_ == "chunked")
         throw impact_error("\"" + __name + "\" is reserved");
 }
@@ -98,7 +104,7 @@ chunked_encoding::chunked_encoding(
         if (data.size())
             os << data << "\r\n";
         else {
-            message_header_list* header_list = NULL;
+            header_list* header_list = NULL;
             if (m_trailer_callback_)
                 m_trailer_callback_(&header_list);
             if (header_list) {

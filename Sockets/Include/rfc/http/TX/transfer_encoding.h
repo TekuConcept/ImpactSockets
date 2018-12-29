@@ -10,7 +10,7 @@
 #include <memory>
 #include <functional>
 #include "utils/case_string.h"
-#include "rfc/http/TX/message_header.h"
+#include "rfc/http/TX/header_token.h"
 
 namespace impact {
 namespace http {
@@ -35,8 +35,8 @@ namespace http {
         typedef std::function<std::string(const std::string&)> encoder_callback;
         typedef std::vector<chunk_ext_token> chunk_ext_list;
         typedef std::function<void(chunk_ext_list**)> ext_callback;
-        typedef std::vector<message_header> message_header_list;
-        typedef std::function<void(message_header_list**)> trailer_callback;
+        typedef std::vector<header_token> header_list;
+        typedef std::function<void(header_list**)> trailer_callback;
         
         transfer_encoding(std::string name, encoder_callback encoder);
         virtual ~transfer_encoding();
