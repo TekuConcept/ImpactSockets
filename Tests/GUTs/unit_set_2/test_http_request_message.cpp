@@ -96,7 +96,7 @@ TEST(test_http_target_token, target_token)
 }
 
 
-TEST(test_http_request_message, request_valid_method)
+TEST(test_http_request_message, valid_method)
 {
     // NOTE: See also method_token
     NO_THROW(request_message request = request_message("GET", "/");)
@@ -104,11 +104,31 @@ TEST(test_http_request_message, request_valid_method)
 }
 
 
-TEST(test_http_request_message, request_valid_target)
+TEST(test_http_request_message, valid_target)
 {
     // NOTE: See also target_token
     NO_THROW(request_message request = request_message("_", "/");)
     THROW(request_message request = request_message("_", "//bad/origin");)
+}
+
+
+TEST(test_http_request_message, start_line)
+{
+    NO_THROW(
+        request_message request = request_message("GET", "/");
+        std::stringstream stream;
+        request.send(stream);
+        EXPECT_EQ(stream.str(), "GET / HTTP/1.1\r\n\r\n");
+    )
+}
+
+
+TEST(test_http_request_message, type)
+{
+    NO_THROW(
+        request_message request = request_message("GET", "/");
+        EXPECT_EQ(request.type(), message_type::REQUEST);
+    )
 }
 
 

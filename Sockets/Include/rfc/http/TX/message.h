@@ -54,7 +54,6 @@ namespace http {
         
         message();
         message(transfer_encoding_token data);
-        virtual std::string _M_start_line() = 0;
         
     private:
         std::vector<header_token> m_headers_;
@@ -63,6 +62,10 @@ namespace http {
         bool                    m_is_fixed_body_;
         transfer_encoding_token m_data_;
         std::string             m_data_buffer_;
+        
+        virtual std::string _M_start_line() = 0;
+        friend class request_message;
+        friend class response_message;
     };
 }}
 

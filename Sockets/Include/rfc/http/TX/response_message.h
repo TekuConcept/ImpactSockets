@@ -13,22 +13,23 @@ namespace impact {
 namespace http {
     class response_message : public message {
     public:
+        response_message(int status_code, std::string reason_phrase);
+        response_message(status_code);
         virtual ~response_message();
-        
-        static std::shared_ptr<response_message>
-            create(int code, std::string status);
-        
-        int code() const noexcept;
-        const std::string& status() const noexcept;
-        
         message_type type() const;
         
     private:
-        int m_code_;
-        std::string m_status_;
-        
-        response_message();
+        int m_status_code_;
+        std::string m_reason_phrase_;
         std::string _M_start_line();
+        
+        bool _M_valid_phrase(const std::string&) const;
+    
+    public:
+        inline int status_code() const noexcept
+        { return m_status_code_; }
+        inline const std::string& reason_phrase() const noexcept
+        { return m_reason_phrase_; }
     };
 }}
 

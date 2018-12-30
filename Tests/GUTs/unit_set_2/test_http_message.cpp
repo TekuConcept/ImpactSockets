@@ -21,6 +21,7 @@ TEST(test_http_transfer_encoding_token, transfer_encoding_token)
         auto header = token.header();
         EXPECT_EQ(header.field_name(), "Transfer-Encoding");
         EXPECT_EQ(header.field_value(), "chunked");
+        EXPECT_EQ(token.callback, nullptr);
     }
     
     {
