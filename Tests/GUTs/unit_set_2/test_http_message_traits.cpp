@@ -1,20 +1,17 @@
 /**
- * Created by TekuConcept on December 15, 2018
+ * Created by TekuConcept on December 30, 2018
  */
-
-#include <string>
-#include <sstream>
-#include <vector>
 
 #include <gtest/gtest.h>
 #include "utils/environment.h"
-#include "rfc/http/TX/request_message.h"
+#include "rfc/http/TX/message_traits.h"
 
 using namespace impact;
 using namespace http;
 
 #define NO_THROW(code) try { {code} } catch (...) { FAIL(); }
 #define THROW(code)    try { {code} FAIL(); } catch (...) { }
+
 
 TEST(test_http_method_token, method_token)
 {
@@ -99,26 +96,24 @@ TEST(test_http_target_token, target_token)
 TEST(test_http_request_message, valid_method)
 {
     // NOTE: See also method_token
-    NO_THROW(request_message request = request_message("GET", "/");)
-    THROW(request_message request = request_message("", "/");)
+    NO_THROW(request_traits request = request_traits("GET", "/");)
+    THROW(request_traits request = request_traits("", "/");)
 }
 
 
 TEST(test_http_request_message, valid_target)
 {
     // NOTE: See also target_token
-    NO_THROW(request_message request = request_message("_", "/");)
-    THROW(request_message request = request_message("_", "//bad/origin");)
+    NO_THROW(request_traits request = request_traits("_", "/");)
+    THROW(request_traits request = request_traits("_", "//bad/origin");)
 }
 
 
 TEST(test_http_request_message, start_line)
 {
     NO_THROW(
-        request_message request = request_message("GET", "/");
-        std::stringstream stream;
-        request.send(stream);
-        EXPECT_EQ(stream.str(), "GET / HTTP/1.1\r\n\r\n");
+        request_traits request = request_traits("GET", "/");
+        EXPECT_EQ(request.start_line(), "GET / HTTP/1.1");
     )
 }
 
@@ -126,65 +121,61 @@ TEST(test_http_request_message, start_line)
 TEST(test_http_request_message, type)
 {
     NO_THROW(
-        request_message request = request_message("GET", "/");
+        request_traits request = request_traits("GET", "/");
         EXPECT_EQ(request.type(), message_type::REQUEST);
     )
 }
 
 
-TEST(test_http_request_message, send_request)
+TEST(test_http_response_message, create)
 {
-    std::stringstream test_stream;
-    int finished = 0;
-    std::function<void(std::string*)> callback = 
-    [&](std::string* next) -> void {
-        if (!finished) *next = "Hello World!";
-        else           *next = "";
-        finished++;
-    };
+    NO_THROW( // manually defined code and phrase
+        response_traits response = response_traits(200, "OK");
+        EXPECT_EQ(response.status_code(), 200);
+        EXPECT_EQ(response.reason_phrase(), "OK");
+    )
     
-    // - basic request (no body) -
-    request_message request("GET", "/");
-    request.send(test_stream);
-    EXPECT_EQ(test_stream.str(), "GET / HTTP/1.1\r\n\r\n");
-    test_stream.clear();
-    test_stream.str("");
-    
-    // - advanced request (no body) -
-    request = request_message("GET", "/", {}, nullptr);
-    request.send(test_stream);
-    EXPECT_EQ(test_stream.str(), "GET / HTTP/1.1\r\n\r\n");
-    test_stream.clear();
-    test_stream.str("");
-    
-    // - chunked body -
-    request = request_message("GET", "/", {}, callback);
-    request.send(test_stream);
-    EXPECT_EQ(test_stream.str(),
-        "GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n"
-        "c\r\nHello World!\r\n0\r\n\r\n");
-    test_stream.clear();
-    test_stream.str("");
-    finished = 0;
-    
-    // // - transfer codings -
-    // std::shared_ptr<http::transfer_encoding> custom =
-    // std::make_shared<http::transfer_encoding>(
-    //     "custom",
-    //     [](const std::string& data) -> std::string { return data; }
-    // );
-    // request = request_message(
-    //     "GET", "/",
-    //     {
-    //         custom,
-    //         custom // duplicates allowed (except for chunked)
-    //     },
-    //     callback
-    // );
-    // request.send(test_stream);
-    // EXPECT_EQ(test_stream.str(),
-    //     "GET / HTTP/1.1\r\nTransfer-Encoding: custom, custom, chunked\r\n\r\n"
-    //     "c\r\nHello World!\r\n0\r\n\r\n");
-    // test_stream.clear();
-    // test_stream.str("");
+    NO_THROW( // pre-defined code and phrase
+        response_traits response = response_traits(status_code::OK);
+        EXPECT_EQ(response.status_code(), 200);
+        EXPECT_EQ(response.reason_phrase(), "OK");
+    )
+}
+
+
+TEST(test_http_response_message, start_line)
+{
+    NO_THROW(
+        response_traits response = response_traits(200, "OK");
+        EXPECT_EQ(response.start_line(), "HTTP/1.1 200 OK");
+    )
+}
+
+
+TEST(test_http_response_message, type)
+{
+    NO_THROW(
+        response_traits response = response_traits(200, "OK");
+        EXPECT_EQ(response.type(), message_type::RESPONSE);
+    )
+}
+
+
+TEST(test_http_response_message, valid_status_code)
+{
+    NO_THROW(response_traits response = response_traits(200, "OK");)
+    // status codes must be no more than three digits
+    THROW(response_traits response = response_traits(1000, "OK");)
+}
+
+
+TEST(test_http_response_message, valid_reason_phrase)
+{
+    NO_THROW(response_traits response = response_traits(200, "OK");)
+    // reason phrase must contain characters in the set
+    // { HTAB, SP, VCHAR, OBS_TEXT }
+    THROW(
+        response_traits response =
+            response_traits(200, std::string("\x00\x7F", 2));
+    )
 }

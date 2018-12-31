@@ -11,6 +11,8 @@
 #include "utils/case_string.h"
 #include "rfc/http/TX/header_token.h"
 #include "rfc/http/TX/transfer_encoding.h"
+#include "rfc/http/TX/message_traits.h"
+#include "rfc/http/types.h"
 
 namespace impact {
 namespace http {
@@ -18,54 +20,70 @@ namespace http {
     // (speed up execution by reducing validation checks)
     class transfer_encoding_token {
     public:
-        typedef std::shared_ptr<transfer_encoding> transfer_encoding_ptr;
-        typedef std::vector<transfer_encoding_ptr> transfer_encoding_list;
+        typedef std::vector<transfer_encoding_ptr> list;
         
-        transfer_encoding_token(transfer_encoding_list encodings,
-            std::function<void(std::string*)> callback = nullptr);
+        transfer_encoding_token(list encodings,
+            std::function<void(std::string*)> callback);
         ~transfer_encoding_token();
         
         std::function<void(std::string*)> callback;
     
     private:
         header_token m_header_;
-        transfer_encoding_list m_transfer_encodings_;
+        list m_transfer_encodings_;
+        
+        transfer_encoding_token();
     
     public:
-        inline const transfer_encoding_list& encodings()
+        inline const list& encodings()
         { return m_transfer_encodings_; }
         inline const header_token& header() { return m_header_; }
+        
+        friend class message;
     };
+    
 
-    
-    enum class message_type { REQUEST, RESPONSE };
-    
-    
     class message {
     public:
+        message(message_traits_ptr);
+        message(message_traits_ptr, transfer_encoding_token data);
+        message(message_traits_ptr, std::string data);
+        
+        /* [- request message convinience ctors -] */
+        message(std::string method, std::string target);
+        message(std::string method, std::string target,
+            transfer_encoding_token::list encodings,
+            std::function<void(std::string*)> data_callback);
+        message(method_token method, target_token target,
+            transfer_encoding_token data);
+        message(std::string method, std::string target, std::string data);
+        message(method_token method, target_token target, std::string data);
+        
+        /* [- response message convinience ctors -] */
+        message(int status_code, std::string reason_phrase);
+        message(int status_code, std::string reason_phrase,
+            transfer_encoding_token::list encodings,
+            std::function<void(std::string*)> data_callback);
+        message(int status_code, std::string reason_phrase,
+            transfer_encoding_token data);
+        message(int status_code, std::string reason_phrase, std::string data);
+        
         virtual ~message();
         
         void send(std::ostream& stream);
-        virtual message_type type() const = 0;
-    
-    protected:
-        int m_http_major_;
-        int m_http_minor_;
-        
-        message();
-        message(transfer_encoding_token data);
+        message_type type() const noexcept;
         
     private:
         std::vector<header_token> m_headers_;
+        message_traits_ptr        m_traits_;
         
         bool                    m_has_body_;
         bool                    m_is_fixed_body_;
         transfer_encoding_token m_data_;
         std::string             m_data_buffer_;
         
-        virtual std::string _M_start_line() = 0;
-        friend class request_message;
-        friend class response_message;
+        void _M_initialize(message_traits_ptr,
+            transfer_encoding_token*,std::string*);
     };
 }}
 
