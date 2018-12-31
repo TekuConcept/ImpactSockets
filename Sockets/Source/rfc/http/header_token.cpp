@@ -2,7 +2,9 @@
  * Created by TekuConcept on December 28, 2018
  */
 
-#include "rfc/http/TX/header_token.h"
+#include <iostream>
+#include <regex>
+#include "rfc/http/header_token.h"
 #include "rfc/http/abnf_ops.h"
 #include "utils/abnf_ops.h"
 #include "utils/impact_error.h"
@@ -14,6 +16,62 @@ using namespace http;
 #define VCHAR(c)      impact::internal::VCHAR(c)
 #define SP(c)         impact::internal::SP(c)
 #define HTAB(c)       impact::internal::HTAB(c)
+
+
+header_token::header_token(std::string __line)
+{
+    const std::string grammar_error =
+        "line does not follow grammar rules";
+    /* match indicies
+        0 - full string match
+        1 - field name
+        2 - field value (trimmed)
+    */
+    const std::regex k_header_field_regex(
+        "([!#$%&'*+\\-.^_`|~0-9a-zA-Z]+):"
+        "[ \\t]*((?:[!-~]+)?(?:[ \\t]+[!-~]+)*)[ \\t]*\\r\\n"
+    );
+    /* match indicies
+        0 - full string match
+        1 - field value (trimmed)
+    */
+    const std::regex k_obs_fold_regex(
+        "[ \\t]+((?:[!-~]+)?(?:[ \\t]+[!-~]+)*)[ \\t]*\\r\\n"
+    );
+    
+    if (__line.size() == 0)
+        throw impact_error("no value");
+    
+    auto end = __line.find_first_of("\r\n");
+    if (end == std::string::npos)
+        throw impact_error(grammar_error);
+    end += 2;
+    
+    std::string line = __line.substr(0, end);
+    std::smatch match;
+    if (std::regex_match(line, match, k_header_field_regex)) {
+        if (match.size() != 3) throw impact_error("regex parser error");
+        auto name = match[1].str();
+        m_field_name_.assign(name.c_str(), name.size());
+        m_field_value_.assign(match[2].str());
+    }
+    else throw impact_error(grammar_error);
+    
+    while (end <  __line.size()) {
+        auto begin = end;
+        end = __line.find_first_of("\r\n", begin);
+        if (end == std::string::npos)
+            throw impact_error(grammar_error);
+        end += 2;
+        line = __line.substr(begin, end);
+        if (std::regex_match(line, match, k_obs_fold_regex)) {
+            if (match.size() != 2) throw impact_error("regex parser error");
+            m_field_value_.append(" " + match[1].str());
+        }
+        else throw impact_error(grammar_error);
+    }
+}
+
 
 header_token::header_token(
     std::string __name,

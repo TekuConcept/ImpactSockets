@@ -230,7 +230,7 @@ message::~message()
 void
 message::send(std::ostream& __stream)
 {
-    __stream << m_traits_->start_line() << "\r\n";
+    __stream << m_traits_->start_line();
     
     for (const auto& header : m_headers_) {
         __stream << header.field_name() << ": ";

@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include "utils/environment.h"
-#include "rfc/http/TX/header_token.h"
+#include "rfc/http/header_token.h"
 
 using namespace impact;
 using namespace http;
@@ -30,4 +30,14 @@ TEST(test_http_header_token, header_token)
     )
     THROW(header_token token("/bad", "value");) // TCHAR only
     THROW(header_token token("name", "\x7F");)  // VCHAR only
+    
+    NO_THROW(header_token token("name: value\r\n");)
+    // obsolete line folding
+    NO_THROW(
+        header_token token("name: value,\r\n\tvalue2\r\n");
+        EXPECT_EQ(token.field_name(), "name");
+        EXPECT_EQ(token.field_value(), "value, value2");
+    )
+    THROW(header_token token("name : bad\r\n");)
+    THROW(header_token token("name: bad,\r\nvalue\r\n");)
 }

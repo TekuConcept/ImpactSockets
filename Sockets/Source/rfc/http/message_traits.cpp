@@ -4,11 +4,12 @@
 
 #include <iomanip>
 #include <sstream>
+#include <regex>
 #include "utils/impact_error.h"
 #include "utils/abnf_ops.h"
 #include "rfc/uri.h"
 #include "rfc/http/abnf_ops.h"
-#include "rfc/http/TX/message_traits.h"
+#include "rfc/http/message_traits.h"
 
 using namespace impact;
 using namespace http;
@@ -22,6 +23,10 @@ using namespace http;
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    method_token
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+
+method_token::method_token()
+{}
 
 
 method_token::method_token(std::string __method_name)
@@ -52,6 +57,10 @@ method_token::_M_valid_name(const std::string& __method) const
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    target_token
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+
+target_token::target_token()
+{}
 
 
 target_token::target_token(std::string __target_name)
@@ -98,6 +107,66 @@ target_token::_M_valid_target(const std::string& __target) const
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 
+message_traits_ptr
+message_traits::create(std::string __line)
+{
+    /* match indicies
+        0 - full string match
+        1 - request match
+        2 - request method
+        3 - request target
+        4 - request HTTP version
+        5 - response match
+        6 - response HTTP version
+        7 - response status code
+        8 - response status message
+    */
+    const std::regex k_start_line_regex(
+        "(([!#$%&'*+\\-.^_`|~0-9a-zA-Z]+) ([a-zA-Z0-9+\\-.:\\/_~%!$&'\\(\\)*,;="
+        "@\\[\\]?]+|\\*) (HTTP\\/[0-9]\\.[0-9])\\r\\n)|((HTTP\\/[0-9]\\.[0-9]) "
+        "([0-9][0-9][0-9]) ([\\t \\x21-\\x7E\\x80-\\xFF]*)\\r\\n)");
+    
+    if (__line.size() == 0)
+        throw impact_error("no value");
+    
+    message_traits_ptr result;
+    
+    std::smatch match;
+    if (std::regex_match(__line, match, k_start_line_regex)) {
+        // current assumptions are that given 9 matches,
+        // - four of the matches are blank
+        // - three subsequent match indicies following 1 or 5 are not blank
+        if (match.size() != 9) throw impact_error("regex parser error");
+        
+        // typeof(match[i]) = std::ssub_match
+        std::string http_version;
+        if (match[1].str().size() != 0) {
+            http_version               = match[4].str();
+            request_traits* request    = new request_traits();
+            request->m_method_.m_name_ = match[2].str();
+            // full validation: regex validated target charset,
+            // target_token will validate formatting and id the type
+            request->m_target_         = target_token(match[3].str());
+            result = message_traits_ptr((message_traits*)request);
+        }
+        else if (match[5].str().size() != 0) {
+            http_version               = match[6].str();
+            response_traits* response  = new response_traits();
+            response->m_status_code_   = std::stoi(match[7].str());
+            response->m_reason_phrase_ = match[8].str();
+            result = message_traits_ptr((message_traits*)response);
+        }
+        else throw impact_error("line does not follow grammar rules");
+        
+        result->m_http_major_ = http_version[5] - '0';
+        result->m_http_minor_ = http_version[7] - '0';
+    }
+    else throw impact_error("line does not follow grammar rules");
+    
+    return result;
+}
+
+
 message_traits::~message_traits()
 {}
 
@@ -105,6 +174,10 @@ message_traits::~message_traits()
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    request_traits
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+
+request_traits::request_traits()
+{}
 
 
 request_traits::request_traits(
@@ -146,6 +219,7 @@ request_traits::start_line() const noexcept
     std::ostringstream os;
     os << m_method_.name() << " " << m_target_.name() << " ";
     os << "HTTP/" << m_http_major_ << "." << m_http_minor_;
+    os << "\r\n";
     return os.str();
 }
 
@@ -174,6 +248,10 @@ request_traits::permit_body() const noexcept
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    response_traits
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+
+response_traits::response_traits()
+{}
 
 
 response_traits::response_traits(
@@ -234,7 +312,7 @@ response_traits::start_line() const noexcept
     os << "HTTP/" << m_http_major_ << "." << m_http_minor_ << " ";
     os << std::setfill('0') << std::setw(3);
     os << m_status_code_ << std::setfill(' ');
-    os << " " << m_reason_phrase_;
+    os << " " << m_reason_phrase_ << "\r\n";
     return os.str();
 }
 

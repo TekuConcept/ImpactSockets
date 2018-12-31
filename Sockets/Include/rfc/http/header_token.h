@@ -15,6 +15,7 @@ namespace http {
     // (speed up execution by reducing validation checks)
     class header_token {
     public:
+        header_token(std::string line);
         header_token(std::string name, std::string value);
         header_token(field_name id, std::string value);
         ~header_token();

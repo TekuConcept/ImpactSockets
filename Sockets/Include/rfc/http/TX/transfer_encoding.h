@@ -10,7 +10,7 @@
 #include <memory>
 #include <functional>
 #include "utils/case_string.h"
-#include "rfc/http/TX/header_token.h"
+#include "rfc/http/header_token.h"
 
 namespace impact {
 namespace http {

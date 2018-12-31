@@ -9,9 +9,9 @@
 #include <vector>
 #include <functional>
 #include "utils/case_string.h"
-#include "rfc/http/TX/header_token.h"
+#include "rfc/http/header_token.h"
 #include "rfc/http/TX/transfer_encoding.h"
-#include "rfc/http/TX/message_traits.h"
+#include "rfc/http/message_traits.h"
 #include "rfc/http/types.h"
 
 namespace impact {

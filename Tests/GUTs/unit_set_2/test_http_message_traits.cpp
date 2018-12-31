@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include "utils/environment.h"
-#include "rfc/http/TX/message_traits.h"
+#include "rfc/http/message_traits.h"
 
 using namespace impact;
 using namespace http;
@@ -113,8 +113,20 @@ TEST(test_http_request_message, start_line)
 {
     NO_THROW(
         request_traits request = request_traits("GET", "/");
-        EXPECT_EQ(request.start_line(), "GET / HTTP/1.1");
+        EXPECT_EQ(request.start_line(), "GET / HTTP/1.1\r\n");
     )
+    
+    NO_THROW(
+        auto ptr = message_traits::create("GET / HTTP/1.1\r\n");
+        ASSERT_EQ(ptr->type(), message_type::REQUEST);
+        request_traits& request = *(request_traits*)ptr.get();
+        EXPECT_EQ(request.method(), "GET");
+        EXPECT_EQ(request.target(), "/");
+        EXPECT_EQ(request.http_major(), 1);
+        EXPECT_EQ(request.http_minor(), 1);
+    )
+    
+    THROW(auto ptr = message_traits::create("GET / HTTP");)
 }
 
 
@@ -163,8 +175,20 @@ TEST(test_http_response_message, start_line)
 {
     NO_THROW(
         response_traits response = response_traits(200, "OK");
-        EXPECT_EQ(response.start_line(), "HTTP/1.1 200 OK");
+        EXPECT_EQ(response.start_line(), "HTTP/1.1 200 OK\r\n");
     )
+    
+    NO_THROW(
+        auto ptr = message_traits::create("HTTP/1.1 200 OK\r\n");
+        ASSERT_EQ(ptr->type(), message_type::RESPONSE);
+        response_traits& response = *(response_traits*)ptr.get();
+        EXPECT_EQ(response.status_code(), 200);
+        EXPECT_EQ(response.reason_phrase(), "OK");
+        EXPECT_EQ(response.http_major(), 1);
+        EXPECT_EQ(response.http_minor(), 1);
+    )
+    
+    THROW(auto ptr = message_traits::create("HTTP 200");)
 }
 
 
