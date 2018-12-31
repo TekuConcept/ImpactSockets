@@ -4,6 +4,8 @@
 
 #include <iomanip>
 #include <sstream>
+#include "utils/environment.h"
+#include "utils/impact_error.h"
 #include "rfc/http/TX/message.h"
 
 using namespace impact;
@@ -41,7 +43,7 @@ transfer_encoding_token::transfer_encoding_token(
         field_value << token->name();
         i++;
     }
-    m_header_ = header_token("Transfer-Encoding", field_value.str());
+    m_header_ = header_token(field_name::TRANSFER_ENCODING, field_value.str());
 }
 
 
@@ -55,19 +57,19 @@ transfer_encoding_token::~transfer_encoding_token()
 
 
 message::message(message_traits_ptr __traits)
-{ _M_initialize(__traits, NULL, NULL); }
+{ _M_initialize(&__traits, NULL, NULL); }
 
 
 message::message(
     message_traits_ptr      __traits,
     transfer_encoding_token __data)
-{ _M_initialize(__traits, &__data, NULL); }
+{ _M_initialize(&__traits, &__data, NULL); }
 
 
 message::message(
     message_traits_ptr __traits,
     std::string        __data)
-{ _M_initialize(__traits, NULL, &__data); }
+{ _M_initialize(&__traits, NULL, &__data); }
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
@@ -81,7 +83,7 @@ message::message(
 {
     message_traits_ptr traits((message_traits*)
         (new request_traits(__method, __target)));
-    _M_initialize(traits, NULL, NULL);
+    _M_initialize(&traits, NULL, NULL);
 }
 
 
@@ -94,7 +96,7 @@ message::message(
     message_traits_ptr traits((message_traits*)
         (new request_traits(__method, __target)));
     transfer_encoding_token data(__encodings, __data_callback);
-    _M_initialize(traits, &data, NULL);
+    _M_initialize(&traits, &data, NULL);
 }
 
 
@@ -105,7 +107,7 @@ message::message(
 {
     message_traits_ptr traits((message_traits*)
         (new request_traits(__method, __target)));
-    _M_initialize(traits, &__data, NULL);
+    _M_initialize(&traits, &__data, NULL);
 }
 
 
@@ -116,7 +118,7 @@ message::message(
 {
     message_traits_ptr traits((message_traits*)
         (new request_traits(__method, __target)));
-    _M_initialize(traits, NULL, &__data);
+    _M_initialize(&traits, NULL, &__data);
 }
 
 
@@ -127,7 +129,7 @@ message::message(
 {
     message_traits_ptr traits((message_traits*)
         (new request_traits(__method, __target)));
-    _M_initialize(traits, NULL, &__data);
+    _M_initialize(&traits, NULL, &__data);
 }
 
 
@@ -142,7 +144,7 @@ message::message(
 {
     message_traits_ptr traits((message_traits*)
         (new response_traits(__status_code, __reason_phrase)));
-    _M_initialize(traits, NULL, NULL);
+    _M_initialize(&traits, NULL, NULL);
 }
 
 
@@ -155,7 +157,7 @@ message::message(
     message_traits_ptr traits((message_traits*)
         (new response_traits(__status_code, __reason_phrase)));
     transfer_encoding_token data(__encodings, __data_callback);
-    _M_initialize(traits, &data, NULL);
+    _M_initialize(&traits, &data, NULL);
 }
 
 
@@ -166,7 +168,7 @@ message::message(
 {
     message_traits_ptr traits((message_traits*)
         (new response_traits(__status_code, __reason_phrase)));
-    _M_initialize(traits, &__data, NULL);
+    _M_initialize(&traits, &__data, NULL);
 }
 
 
@@ -177,7 +179,7 @@ message::message(
 {
     message_traits_ptr traits((message_traits*)
         (new response_traits(__status_code, __reason_phrase)));
-    _M_initialize(traits, NULL, &__data);
+    _M_initialize(&traits, NULL, &__data);
 }
 
 
@@ -188,25 +190,28 @@ message::message(
 
 void
 message::_M_initialize(
-    message_traits_ptr       __traits,
+    message_traits_ptr*      __traits,
     transfer_encoding_token* __dynamic,
     std::string*             __fixed)
 {
-    m_traits_ = __traits;
+    if (*__traits == nullptr)
+        throw impact_error("message_traits cannot be NULL");
+    else m_traits_ = *__traits;
     
-    if (__dynamic && __dynamic->callback) {
-        m_has_body_      = true;
+    if (__dynamic && __dynamic->callback &&
+        m_traits_->permit_length_header()) {
+        m_has_body_      = m_traits_->permit_body();
         m_is_fixed_body_ = false;
         m_data_          = *__dynamic;
         m_data_buffer_   = "";
         m_headers_.push_back(m_data_.header());
     }
-    else if (__fixed) {
+    else if (__fixed && m_traits_->permit_length_header()) {
         std::ostringstream os;
         os << std::setfill('0') << std::setw(1) << __fixed->size();
-        header_token header("Content-Length", os.str());
+        header_token header(field_name::CONTENT_LENGTH, os.str());
         m_headers_.push_back(header);
-        m_has_body_      = true;
+        m_has_body_      = m_traits_->permit_body();
         m_is_fixed_body_ = true;
         m_data_buffer_   = *__fixed;
     }
@@ -255,4 +260,40 @@ message_type
 message::type() const noexcept
 {
     return m_traits_->type();
+}
+
+
+const std::vector<header_token>&
+message::headers() const noexcept
+{
+    return m_headers_;
+}
+
+
+void
+message::headers(std::vector<header_token> __list)
+{
+    UNUSED(__list);
+    /*
+    if (m_has_body_) then use predefined length header
+        if (permit_length_header()) {
+            remove all user length headers
+            prepend predefined length header {
+                if (m_is_fixed_body_)
+                    std::ostringstream os;
+                    os << std::setfill('0') << std::setw(1) << __fixed->size();
+                    header_token header(field_name::CONTENT_LENGTH, os.str());
+                    m_headers_.push_back(header);
+                else m_headers_.push_back(m_data_.header());
+            }
+        }
+    else {
+        if (permit_user_length_header()) {
+            throw on duplicate TE or CL headers
+            TE overrides CL header
+        }
+    }
+    
+    append __list to m_headers_
+    */
 }

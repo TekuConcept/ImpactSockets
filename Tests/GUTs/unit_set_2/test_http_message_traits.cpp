@@ -127,6 +127,22 @@ TEST(test_http_request_message, type)
 }
 
 
+TEST(test_http_request_message, permit)
+{
+    request_traits traits("HEAD", "/");
+    EXPECT_TRUE(traits.permit_user_length_header());
+    EXPECT_TRUE(traits.permit_length_header());
+    EXPECT_FALSE(traits.permit_body());
+    traits = request_traits("GET", "/");
+    EXPECT_FALSE(traits.permit_user_length_header());
+    EXPECT_TRUE(traits.permit_length_header());
+    EXPECT_TRUE(traits.permit_body());
+    traits = request_traits("TRACE", "/");
+    EXPECT_TRUE(traits.permit_length_header());
+    EXPECT_FALSE(traits.permit_body());
+}
+
+
 TEST(test_http_response_message, create)
 {
     NO_THROW( // manually defined code and phrase
@@ -178,4 +194,20 @@ TEST(test_http_response_message, valid_reason_phrase)
         response_traits response =
             response_traits(200, std::string("\x00\x7F", 2));
     )
+}
+
+
+TEST(test_http_response_message, permit)
+{
+    response_traits traits(304, "Not Modified");
+    EXPECT_TRUE(traits.permit_user_length_header());
+    EXPECT_FALSE(traits.permit_body());
+    traits = response_traits(200, "OK");
+    EXPECT_FALSE(traits.permit_user_length_header());
+    EXPECT_TRUE(traits.permit_length_header());
+    EXPECT_TRUE(traits.permit_body());
+    traits = response_traits(204, "No Content");
+    EXPECT_FALSE(traits.permit_length_header());
+    traits = response_traits(100, "Continue");
+    EXPECT_FALSE(traits.permit_length_header());
 }

@@ -73,6 +73,9 @@ namespace http {
         void send(std::ostream& stream);
         message_type type() const noexcept;
         
+        const std::vector<header_token>& headers() const noexcept;
+        void headers(std::vector<header_token> list);
+        
     private:
         std::vector<header_token> m_headers_;
         message_traits_ptr        m_traits_;
@@ -82,7 +85,7 @@ namespace http {
         transfer_encoding_token m_data_;
         std::string             m_data_buffer_;
         
-        void _M_initialize(message_traits_ptr,
+        void _M_initialize(message_traits_ptr*,
             transfer_encoding_token*,std::string*);
     };
 }}

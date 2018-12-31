@@ -19,6 +19,9 @@ namespace http {
         virtual ~message_traits();
         virtual message_type type() const noexcept = 0;
         virtual std::string start_line() const noexcept = 0;
+        virtual bool permit_user_length_header() const noexcept = 0;
+        virtual bool permit_length_header() const noexcept = 0;
+        virtual bool permit_body() const noexcept = 0;
     protected:
         int m_http_major_;
         int m_http_minor_;
@@ -66,6 +69,9 @@ namespace http {
     
         message_type type() const noexcept;
         std::string start_line() const noexcept;
+        bool permit_user_length_header() const noexcept;
+        bool permit_length_header() const noexcept;
+        bool permit_body() const noexcept;
         
     private:
         method_token m_method_;
@@ -87,6 +93,9 @@ namespace http {
     
         message_type type() const noexcept;
         std::string start_line() const noexcept;
+        bool permit_user_length_header() const noexcept;
+        bool permit_length_header() const noexcept;
+        bool permit_body() const noexcept;
     
     private:
         int         m_status_code_;

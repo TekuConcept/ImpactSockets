@@ -18,9 +18,11 @@ using namespace http;
 #define VCHAR(c)    impact::internal::VCHAR(c)
 #define OBS_TEXT(c) impact::http::internal::OBS_TEXT(c)
 
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    method_token
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 
 method_token::method_token(std::string __method_name)
 {
@@ -46,9 +48,11 @@ method_token::_M_valid_name(const std::string& __method) const
     return internal::is_token(__method);
 }
 
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    target_token
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 
 target_token::target_token(std::string __target_name)
 {
@@ -88,16 +92,20 @@ target_token::_M_valid_target(const std::string& __target) const
     }
 }
 
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    message_traits
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+
 message_traits::~message_traits()
 {}
+
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    request_traits
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 
 request_traits::request_traits(
     std::string __method,
@@ -141,9 +149,32 @@ request_traits::start_line() const noexcept
     return os.str();
 }
 
+
+bool
+request_traits::permit_user_length_header() const noexcept
+{
+    return (m_method_.name() == "HEAD");
+}
+
+
+bool
+request_traits::permit_length_header() const noexcept
+{ return true; }
+
+
+bool
+request_traits::permit_body() const noexcept
+{
+    return permit_length_header() &&
+        (m_method_.name() != "HEAD") &&
+        (m_method_.name() != "TRACE");
+}
+
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    response_traits
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 
 response_traits::response_traits(
     int         __status_code,
@@ -205,4 +236,29 @@ response_traits::start_line() const noexcept
     os << m_status_code_ << std::setfill(' ');
     os << " " << m_reason_phrase_;
     return os.str();
+}
+
+
+bool
+response_traits::permit_user_length_header() const noexcept
+{
+    return (m_status_code_ == 304); /* Not Modified */
+}
+
+
+bool
+response_traits::permit_length_header() const noexcept
+{
+    if (m_status_code_ >= 100 && m_status_code_ < 200)
+        return false;
+    else if (m_status_code_ == 204)
+        return false;
+    return true;
+}
+
+
+bool
+response_traits::permit_body() const noexcept
+{
+    return permit_length_header() && (m_status_code_ != 304);
 }
