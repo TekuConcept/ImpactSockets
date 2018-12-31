@@ -150,9 +150,48 @@ TEST(test_http_message, send)
 
 TEST(test_http_message, headers)
 {
-    // generic header format
-    // add headers to message
-    // remove headers from message
-    // access message headers
-    // handle duplicate headers?
+    NO_THROW( // add generic headers
+        std::stringstream stream;
+        message foo = message("GET", "/");
+        foo.headers({
+            header_token("Host", "www.example.com")
+        });
+        EXPECT_EQ(foo.headers().size(), 1UL);
+        foo.send(stream);
+        EXPECT_EQ(stream.str(),
+            "GET / HTTP/1.1\r\n"
+            "Host: www.example.com\r\n"
+            "\r\n");
+    )
+    
+    NO_THROW( // length header is prepended to header list
+        std::stringstream stream;
+        message foo = message("GET", "/", "Hello World!");
+        foo.headers({
+            header_token("Host", "www.example.com"),
+            /* will be overwritten or ignored */
+            header_token("Content-Length", "5")
+        });
+        EXPECT_EQ(foo.headers().size(), 2UL);
+        foo.send(stream);
+        EXPECT_EQ(stream.str(),
+            "GET / HTTP/1.1\r\n"
+            "Content-Length: 12\r\n"
+            "Host: www.example.com\r\n"
+            "\r\n"
+            "Hello World!");
+    )
+    
+    THROW(
+        // duplicate length headers not allowed
+        // NOTE: only throws if user length headers are permitted,
+        //       otherwise all length headers are ignore including
+        //       duplicates
+        message foo = message(304, "Not Modified");
+        foo.headers({
+            header_token("Content-Length", "0"),
+            header_token("Content-Length", "5")
+        });
+    )
+    
 }

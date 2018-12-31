@@ -273,27 +273,43 @@ message::headers() const noexcept
 void
 message::headers(std::vector<header_token> __list)
 {
-    UNUSED(__list);
-    /*
-    if (m_has_body_) then use predefined length header
-        if (permit_length_header()) {
-            remove all user length headers
-            prepend predefined length header {
-                if (m_is_fixed_body_)
-                    std::ostringstream os;
-                    os << std::setfill('0') << std::setw(1) << __fixed->size();
-                    header_token header(field_name::CONTENT_LENGTH, os.str());
-                    m_headers_.push_back(header);
-                else m_headers_.push_back(m_data_.header());
+    const int k_erase_length_headers = 0;
+    const int k_throw_on_duplicate = 1;
+    
+    std::vector<header_token> next;
+    int state = k_erase_length_headers;
+    int count = 0;
+
+    next.reserve(__list.size() + 1);
+    if (m_has_body_) {
+        if (m_traits_->permit_length_header()) {
+            if (m_is_fixed_body_) {
+                std::ostringstream os;
+                os << std::setfill('0') << std::setw(1) << m_data_buffer_.size();
+                header_token header(field_name::CONTENT_LENGTH, os.str());
+                next.push_back(header);
             }
-        }
-    else {
-        if (permit_user_length_header()) {
-            throw on duplicate TE or CL headers
-            TE overrides CL header
+            else next.push_back(m_data_.header());
         }
     }
+    else if (m_traits_->permit_user_length_header())
+        state = k_throw_on_duplicate;
     
-    append __list to m_headers_
-    */
+    for (const auto& header : __list) {
+        if (header.field_name() == "Transfer-Encoding" ||
+            header.field_name() == "Content-Length") {
+            if (state == k_erase_length_headers) continue;
+            else {
+                count++;
+                if (count > 1) {
+                    throw impact_error("Duplicate content-length "
+                        "or transfer_encoding headers");
+                }
+                else next.push_back(header);
+            }
+        }
+        else next.push_back(header);
+    }
+    
+    m_headers_ = next;
 }
