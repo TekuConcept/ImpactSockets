@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <memory>
 #include <functional>
 #include "utils/case_string.h"
@@ -15,10 +16,10 @@
 namespace impact {
 namespace http {
     
-    class chunk_ext_token {
+    class chunk_extension_token {
     public:
-        chunk_ext_token(std::string name, std::string value="");
-        ~chunk_ext_token();
+        chunk_extension_token(std::string name, std::string value="");
+        ~chunk_extension_token();
         
     private:
         std::string m_name_;
@@ -30,28 +31,36 @@ namespace http {
     };
     
     
+    class transfer_encoding;
+    typedef std::shared_ptr<transfer_encoding> transfer_encoding_ptr;
     class transfer_encoding {
     public:
         typedef std::function<std::string(const std::string&)> encoder_callback;
-        typedef std::vector<chunk_ext_token> chunk_ext_list;
-        typedef std::function<void(chunk_ext_list**)> ext_callback;
+        typedef std::vector<chunk_extension_token> chunk_extension_list;
+        typedef std::function<void(chunk_extension_list**)> extension_callback;
         typedef std::vector<header_token> header_list;
         typedef std::function<void(header_list**)> trailer_callback;
         
-        transfer_encoding(std::string name, encoder_callback encoder);
+        transfer_encoding(std::string name, encoder_callback&& encoder);
         virtual ~transfer_encoding();
         
-        static std::shared_ptr<transfer_encoding> chunked(
-            ext_callback extension_callback   = nullptr,
-            trailer_callback trailer_callback = nullptr
+        static transfer_encoding_ptr chunked(
+            extension_callback&& extension_callback = nullptr,
+            trailer_callback&& trailer_callback     = nullptr
         );
-    
+        
+        static void register_encoding(transfer_encoding_ptr);
+        static transfer_encoding_ptr get_by_name(case_string name) noexcept;
+
     protected:
         encoder_callback m_encode_;
         transfer_encoding(std::string name);
         
     private:
         case_string m_name_;
+        static std::map<case_string,std::shared_ptr<transfer_encoding>>
+            m_encodings_;
+        
         transfer_encoding();
     
     public:
@@ -62,18 +71,17 @@ namespace http {
         
         friend class chunked_encoding;
     };
-    typedef std::shared_ptr<transfer_encoding> transfer_encoding_ptr;
     
     
     class chunked_encoding : public transfer_encoding {
     public:
         chunked_encoding(
-            ext_callback extension_callback   = nullptr,
-            trailer_callback trailer_callback = nullptr);
+            extension_callback&& extension_callback = nullptr,
+            trailer_callback&& trailer_callback     = nullptr);
         ~chunked_encoding();
     private:
-        ext_callback     m_ext_callback_;
-        trailer_callback m_trailer_callback_;
+        extension_callback m_extension_callback_;
+        trailer_callback   m_trailer_callback_;
     };
 }}
 

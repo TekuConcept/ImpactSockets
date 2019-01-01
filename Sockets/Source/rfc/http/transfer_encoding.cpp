@@ -7,7 +7,7 @@
 #include "utils/environment.h"
 #include "utils/abnf_ops.h"
 #include "rfc/http/abnf_ops.h"
-#include "rfc/http/TX/transfer_encoding.h"
+#include "rfc/http/transfer_encoding.h"
 
 using namespace impact;
 using namespace http;
@@ -18,7 +18,7 @@ using namespace http;
 #define VERBOSE(x) std::cout << x << std::endl
 
 
-chunk_ext_token::chunk_ext_token(
+chunk_extension_token::chunk_extension_token(
     std::string __name,
     std::string __value)
 {
@@ -34,8 +34,19 @@ chunk_ext_token::chunk_ext_token(
 }
 
 
-chunk_ext_token::~chunk_ext_token()
+chunk_extension_token::~chunk_extension_token()
 {}
+
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
+   transfer_encoding
+\* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+
+std::map<case_string,std::shared_ptr<transfer_encoding>>
+transfer_encoding::m_encodings_ = {
+    { "chunked", transfer_encoding::chunked() }
+};
 
 
 transfer_encoding::transfer_encoding()
@@ -48,8 +59,8 @@ transfer_encoding::transfer_encoding(std::string __name)
 
 
 transfer_encoding::transfer_encoding(
-    std::string      __name,
-    encoder_callback __encoder)
+    std::string        __name,
+    encoder_callback&& __encoder)
 : m_encode_(__encoder), m_name_(__name.c_str(), __name.size())
 {
     for (char c : m_name_) {
@@ -66,30 +77,54 @@ transfer_encoding::~transfer_encoding()
 
 std::shared_ptr<transfer_encoding>
 transfer_encoding::chunked(
-    ext_callback     __extension_callback,
-    trailer_callback __trailer_callback)
+    extension_callback&& __extension_callback,
+    trailer_callback&&   __trailer_callback)
 {
     return std::shared_ptr<transfer_encoding>(
         (transfer_encoding*)(new chunked_encoding(
-            __extension_callback, __trailer_callback
+            std::move(__extension_callback),
+            std::move(__trailer_callback)
         ))
     );
 }
 
 
+void
+transfer_encoding::register_encoding(transfer_encoding_ptr __copy)
+{
+    if (__copy == nullptr) return;
+    m_encodings_[__copy->name()] = __copy;
+}
+
+
+transfer_encoding_ptr
+transfer_encoding::get_by_name(case_string __name) noexcept
+{
+    auto result = m_encodings_.find(__name);
+    if (result == m_encodings_.end())
+        return nullptr;
+    else return result->second;
+}
+
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
+   chunked_encoding
+\* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+
 chunked_encoding::chunked_encoding(
-    ext_callback     __ext_callback,
-    trailer_callback __trailer_callback)
-: m_ext_callback_(__ext_callback),
+    extension_callback&& __extension_callback,
+    trailer_callback&&   __trailer_callback)
+: m_extension_callback_(__extension_callback),
   m_trailer_callback_(__trailer_callback)
 {
     m_name_   = "chunked";
     m_encode_ =
     [&](const std::string& data) -> std::string {
         std::ostringstream os;
-        chunk_ext_list* extension_list = NULL;
-        if (m_ext_callback_ != nullptr)
-            m_ext_callback_(&extension_list);
+        chunk_extension_list* extension_list = NULL;
+        if (m_extension_callback_ != nullptr)
+            m_extension_callback_(&extension_list);
         
         os << std::hex << data.size() << std::dec;
         if (extension_list) {

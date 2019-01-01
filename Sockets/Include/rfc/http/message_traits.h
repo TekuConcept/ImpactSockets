@@ -33,8 +33,6 @@ namespace http {
     typedef std::shared_ptr<message_traits> message_traits_ptr;
     
     
-    // caching object
-    // (speed up execution by reducing validation checks)
     class method_token {
     public:
         method_token(std::string method_name);
@@ -51,8 +49,6 @@ namespace http {
     };
     
     
-    // caching object
-    // (speed up execution by reducing validation checks)
     class target_token {
     public:
         target_token(std::string target_name);

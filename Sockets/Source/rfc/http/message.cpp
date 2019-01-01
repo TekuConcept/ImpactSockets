@@ -6,7 +6,7 @@
 #include <sstream>
 #include "utils/environment.h"
 #include "utils/impact_error.h"
-#include "rfc/http/TX/message.h"
+#include "rfc/http/message.h"
 
 using namespace impact;
 using namespace http;
@@ -18,8 +18,8 @@ transfer_encoding_token::transfer_encoding_token()
 
 
 transfer_encoding_token::transfer_encoding_token(
-    list                              __encodings,
-    std::function<void(std::string*)> __callback)
+    list                                __encodings,
+    std::function<void(std::string*)>&& __callback)
 : callback(__callback), m_header_("_", ""),
   m_transfer_encodings_(__encodings)
 {
@@ -88,14 +88,14 @@ message::message(
 
 
 message::message(
-    std::string                       __method,
-    std::string                       __target,
-    transfer_encoding_token::list     __encodings,
-    std::function<void(std::string*)> __data_callback)
+    std::string                         __method,
+    std::string                         __target,
+    transfer_encoding_token::list       __encodings,
+    std::function<void(std::string*)>&& __data_callback)
 {
     message_traits_ptr traits((message_traits*)
         (new request_traits(__method, __target)));
-    transfer_encoding_token data(__encodings, __data_callback);
+    transfer_encoding_token data(__encodings, std::move(__data_callback));
     _M_initialize(&traits, &data, NULL);
 }
 
@@ -149,14 +149,14 @@ message::message(
 
 
 message::message(
-    int                               __status_code,
-    std::string                       __reason_phrase,
-    transfer_encoding_token::list     __encodings,
-    std::function<void(std::string*)> __data_callback)
+    int                                 __status_code,
+    std::string                         __reason_phrase,
+    transfer_encoding_token::list       __encodings,
+    std::function<void(std::string*)>&& __data_callback)
 {
     message_traits_ptr traits((message_traits*)
         (new response_traits(__status_code, __reason_phrase)));
-    transfer_encoding_token data(__encodings, __data_callback);
+    transfer_encoding_token data(__encodings, std::move(__data_callback));
     _M_initialize(&traits, &data, NULL);
 }
 

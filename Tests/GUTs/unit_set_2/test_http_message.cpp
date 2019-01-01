@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include "utils/environment.h"
-#include "rfc/http/TX/message.h"
+#include "rfc/http/message.h"
 
 using namespace impact;
 using namespace http;
@@ -58,7 +58,7 @@ TEST(test_http_message, create)
         [&](std::string* next) -> void { *next = ""; };
     std::vector<transfer_encoding_ptr> encodings =
         { transfer_encoding::chunked() };
-    transfer_encoding_token dynamic(encodings, callback);
+    transfer_encoding_token dynamic(encodings, std::move(callback));
     std::string fixed = "Hello World!";
     int status_code = 200;
     std::string reason_phrase = "OK";
@@ -76,14 +76,14 @@ TEST(test_http_message, create)
     
     // [- request convinience constructors -]
     NO_THROW(message foo = message(str_method, str_target);)
-    NO_THROW(message foo = message(str_method, str_target, encodings, callback);)
+    NO_THROW(message foo = message(str_method, str_target, encodings, std::move(callback));)
     NO_THROW(message foo = message(str_method, str_target, fixed);)
     NO_THROW(message foo = message(method, target, dynamic);)
     NO_THROW(message foo = message(method, target, fixed);)
     
     // [- response convinience constructors -]
     NO_THROW(message foo = message(status_code, reason_phrase);)
-    NO_THROW(message foo = message(status_code, reason_phrase, encodings, callback);)
+    NO_THROW(message foo = message(status_code, reason_phrase, encodings, std::move(callback));)
     NO_THROW(message foo = message(status_code, reason_phrase, dynamic);)
     NO_THROW(message foo = message(status_code, reason_phrase, fixed);)
 }
@@ -129,7 +129,7 @@ TEST(test_http_message, send)
     test_stream.str("");
     
     // - chunked body -
-    request = message(req_traits, transfer_encoding_token({},callback));
+    request = message(req_traits, transfer_encoding_token({},std::move(callback)));
     request.send(test_stream);
     EXPECT_EQ(test_stream.str(),
         "GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n"

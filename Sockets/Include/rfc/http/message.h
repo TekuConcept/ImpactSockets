@@ -10,20 +10,18 @@
 #include <functional>
 #include "utils/case_string.h"
 #include "rfc/http/header_token.h"
-#include "rfc/http/TX/transfer_encoding.h"
+#include "rfc/http/transfer_encoding.h"
 #include "rfc/http/message_traits.h"
 #include "rfc/http/types.h"
 
 namespace impact {
 namespace http {
-    // caching object
-    // (speed up execution by reducing validation checks)
     class transfer_encoding_token {
     public:
         typedef std::vector<transfer_encoding_ptr> list;
         
         transfer_encoding_token(list encodings,
-            std::function<void(std::string*)> callback);
+            std::function<void(std::string*)>&& callback);
         ~transfer_encoding_token();
         
         std::function<void(std::string*)> callback;
@@ -53,7 +51,7 @@ namespace http {
         message(std::string method, std::string target);
         message(std::string method, std::string target,
             transfer_encoding_token::list encodings,
-            std::function<void(std::string*)> data_callback);
+            std::function<void(std::string*)>&& data_callback);
         message(method_token method, target_token target,
             transfer_encoding_token data);
         message(std::string method, std::string target, std::string data);
@@ -63,7 +61,7 @@ namespace http {
         message(int status_code, std::string reason_phrase);
         message(int status_code, std::string reason_phrase,
             transfer_encoding_token::list encodings,
-            std::function<void(std::string*)> data_callback);
+            std::function<void(std::string*)>&& data_callback);
         message(int status_code, std::string reason_phrase,
             transfer_encoding_token data);
         message(int status_code, std::string reason_phrase, std::string data);

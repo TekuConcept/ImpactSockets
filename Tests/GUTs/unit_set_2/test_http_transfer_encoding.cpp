@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 #include "utils/environment.h"
-#include "rfc/http/TX/transfer_encoding.h"
+#include "rfc/http/transfer_encoding.h"
 
 using namespace impact;
 using namespace http;
@@ -18,13 +18,13 @@ using namespace http;
 TEST(test_http_chunk_ext_token, create)
 {
     NO_THROW(
-        chunk_ext_token token("foo","bar");
+        chunk_extension_token token("foo","bar");
         EXPECT_EQ(token.name(), "foo");
         EXPECT_EQ(token.value(), "bar");
     )
     
-    THROW(chunk_ext_token token("/bad", "bar"););
-    THROW(chunk_ext_token token("foo", "/bad"););
+    THROW(chunk_extension_token token("/bad", "bar"););
+    THROW(chunk_extension_token token("foo", "/bad"););
 }
 
 
@@ -75,12 +75,12 @@ TEST(test_http_transfer_encoding, chunked_encoding)
     EXPECT_EQ(chunked->encode(""), "0\r\n\r\n");
     
     // - with chunk extensions -
-    std::vector<chunk_ext_token> extension_list = {
-        chunk_ext_token("foo", "bar"),
-        chunk_ext_token("baz", "\"qux\"")
+    std::vector<chunk_extension_token> extension_list = {
+        chunk_extension_token("foo", "bar"),
+        chunk_extension_token("baz", "\"qux\"")
     };
     chunked = transfer_encoding::chunked(
-    [&](std::vector<chunk_ext_token>** extensions)->void {
+    [&](std::vector<chunk_extension_token>** extensions)->void {
         *extensions = &extension_list;
     });
     EXPECT_EQ(chunked->encode("Hello World!"),
@@ -101,7 +101,7 @@ TEST(test_http_transfer_encoding, chunked_encoding)
     
     // - NULL extensions returned -
     chunked = transfer_encoding::chunked(
-    [&](std::vector<chunk_ext_token>** extensions)->void {
+    [&](std::vector<chunk_extension_token>** extensions)->void {
         *extensions = NULL;
     });
     EXPECT_EQ(chunked->encode("Hello World!"), "c\r\nHello World!\r\n");
@@ -112,4 +112,28 @@ TEST(test_http_transfer_encoding, chunked_encoding)
         *trailers = NULL;
     });
     EXPECT_EQ(chunked->encode(""), "0\r\n\r\n");
+}
+
+
+TEST(test_http_transfer_encoding, register_encoding)
+{
+    { transfer_encoding::register_encoding(nullptr); } // do nothing
+    {
+        // predefined encodings
+        auto chunked = transfer_encoding::get_by_name("chunked");
+        ASSERT_NE(chunked, nullptr);
+        EXPECT_EQ(chunked->name(), "chunked");
+    }
+    {
+        // user defined encodings
+        auto special = transfer_encoding::get_by_name("special");
+        EXPECT_EQ(special, nullptr);
+        transfer_encoding::register_encoding(transfer_encoding_ptr(
+            new transfer_encoding("special",
+                [](const std::string& data) -> std::string { return data; })
+        ));
+        special = transfer_encoding::get_by_name("special");
+        ASSERT_NE(special, nullptr);
+        EXPECT_EQ(special->name(), "special");
+    }
 }
