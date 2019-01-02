@@ -33,9 +33,10 @@ namespace http {
         transfer_encoding_token();
     
     public:
-        inline const list& encodings()
+        inline const list& encodings() const noexcept
         { return m_transfer_encodings_; }
-        inline const header_token& header() { return m_header_; }
+        inline const header_token& header() const noexcept
+        { return m_header_; }
         
         friend class message;
     };
@@ -43,6 +44,20 @@ namespace http {
 
     class message {
     public:
+        typedef std::vector<header_token> header_list;
+        typedef std::function<void(const std::string&,bool,status_code)>
+            data_recv_callback;
+        typedef std::function<void(const message_traits_ptr&,const header_list&,
+            data_recv_callback*,enum status_code)> message_callback;
+        
+        struct parser_limits {
+            unsigned int max_line_length  = 8000;    // 8 kB
+            unsigned int max_header_limit = 50;
+            unsigned int fixed_body_limit = 1000000; // 1 MB
+            unsigned int chunk_size_limit = 1000000; // 1 MB
+        };
+        
+        /* [- generic ctors -] */
         message(message_traits_ptr);
         message(message_traits_ptr, transfer_encoding_token data);
         message(message_traits_ptr, std::string data);
@@ -68,7 +83,9 @@ namespace http {
         
         virtual ~message();
         
-        void send(std::ostream& stream);
+        static void send(std::ostream& stream, const message& message);
+        static void recv(std::istream& stream, message_callback&& when_received);
+        // static void recv(std::istream& stream, message_callback&& when_received, limits);
         message_type type() const noexcept;
         
         const std::vector<header_token>& headers() const noexcept;
@@ -85,6 +102,14 @@ namespace http {
         
         void _M_initialize(message_traits_ptr*,
             transfer_encoding_token*,std::string*);
+        
+        static inline int _M_process_start_line(std::istream&,std::string&,
+            const parser_limits&, message_traits_ptr&);
+        static inline int _M_process_header_line(std::istream&,std::string&,
+            const parser_limits&, unsigned int*, header_list&);
+        static inline int _M_process_body(std::istream&,std::string&,
+            const parser_limits&, const unsigned int*, header_list&,
+            data_recv_callback&);
     };
 }}
 

@@ -109,28 +109,28 @@ TEST(test_http_message, send)
     
     // - basic request (no body) -
     message request(req_traits);
-    request.send(test_stream);
+    message::send(test_stream, request);
     EXPECT_EQ(test_stream.str(), "GET / HTTP/1.1\r\n\r\n");
     test_stream.clear();
     test_stream.str("");
     
     // - basic response (no body) -
     message response(res_traits);
-    response.send(test_stream);
+    message::send(test_stream, response);
     EXPECT_EQ(test_stream.str(), "HTTP/1.1 200 OK\r\n\r\n");
     test_stream.clear();
     test_stream.str("");
     
     // - advanced request (no body) -
     request = message(req_traits, transfer_encoding_token({},nullptr));
-    request.send(test_stream);
+    message::send(test_stream, request);
     EXPECT_EQ(test_stream.str(), "GET / HTTP/1.1\r\n\r\n");
     test_stream.clear();
     test_stream.str("");
     
     // - chunked body -
     request = message(req_traits, transfer_encoding_token({},std::move(callback)));
-    request.send(test_stream);
+    message::send(test_stream, request);
     EXPECT_EQ(test_stream.str(),
         "GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n"
         "c\r\nHello World!\r\n0\r\n\r\n");
@@ -140,7 +140,7 @@ TEST(test_http_message, send)
     
     // - fixed body -
     request = message(req_traits, "Hello World!");
-    request.send(test_stream);
+    message::send(test_stream, request);
     EXPECT_EQ(test_stream.str(),
         "GET / HTTP/1.1\r\nContent-Length: 12\r\n\r\nHello World!");
     test_stream.clear();
@@ -157,7 +157,7 @@ TEST(test_http_message, headers)
             header_token("Host", "www.example.com")
         });
         EXPECT_EQ(foo.headers().size(), 1UL);
-        foo.send(stream);
+        message::send(stream, foo);
         EXPECT_EQ(stream.str(),
             "GET / HTTP/1.1\r\n"
             "Host: www.example.com\r\n"
@@ -173,7 +173,7 @@ TEST(test_http_message, headers)
             header_token("Content-Length", "5")
         });
         EXPECT_EQ(foo.headers().size(), 2UL);
-        foo.send(stream);
+        message::send(stream, foo);
         EXPECT_EQ(stream.str(),
             "GET / HTTP/1.1\r\n"
             "Content-Length: 12\r\n"
@@ -194,4 +194,54 @@ TEST(test_http_message, headers)
         });
     )
     
+}
+
+
+TEST(test_http_message, receive)
+{
+    message::data_recv_callback when_data = [](
+        const std::string& buffer,
+        bool               finished,
+        enum status_code   current_status) -> void
+    {
+        if (current_status != status_code::OK) return;
+        std::cout << buffer << std::endl;
+        if (finished) {
+            std::cout << "[- finished -]" << std::endl;
+            return; // we're done!
+        }
+    };
+
+    message::message_callback when_message = [&](
+        const message_traits_ptr&    traits,
+        const message::header_list&  headers,
+        message::data_recv_callback* data_callback,
+        enum status_code             current_status) -> void
+    {
+        UNUSED(traits);  // do something with request / response
+        UNUSED(headers); // use headers for customized messaging
+        UNUSED(data_callback);
+        if (current_status == status_code::OK) {
+            // *data_callback = when_data;
+            std::cout << "message type: " <<
+                (traits->type()==message_type::REQUEST?"request":"response");
+            std::cout << std::endl;
+            std::cout << "[- " << headers.size() << " headers -]" << std::endl;
+            for (const auto& header : headers)
+                std::cout << "> " << header.field_name() << std::endl;
+        }
+        else {
+            std::cout << "message failed: " << (int)current_status << std::endl;
+        }
+    };
+    
+    std::stringstream ss;
+    ss << "HTTP/1.1 200 OK\r\n";
+    ss << "Content-Length: 12\r\n";
+    ss << "\r\n";
+    ss << "Hello World!";
+    
+    EXPECT_EQ(ss.str(), "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHello World!");
+    
+    message::recv(ss, std::move(when_message));
 }

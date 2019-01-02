@@ -8,6 +8,8 @@
 #include "utils/impact_error.h"
 #include "rfc/http/message.h"
 
+#include <iostream>
+
 using namespace impact;
 using namespace http;
 
@@ -228,32 +230,238 @@ message::~message()
 
 
 void
-message::send(std::ostream& __stream)
+message::send(
+    std::ostream&  __stream,
+    const message& __message)
 {
-    __stream << m_traits_->start_line();
+    __stream << __message.m_traits_->start_line();
     
-    for (const auto& header : m_headers_) {
+    for (const auto& header : __message.m_headers_) {
         __stream << header.field_name() << ": ";
         __stream << header.field_value() << "\r\n";
     }
     
     __stream << "\r\n"; // end of HTTP headers
     
-    if (!m_has_body_) return;
-    if (m_is_fixed_body_) {
-        __stream << m_data_buffer_;
+    if (!__message.m_has_body_) return;
+    if (__message.m_is_fixed_body_) {
+        __stream << __message.m_data_buffer_;
     }
     else {
+        std::string data_buffer;
+        size_t initial_size;
         do {
-            m_data_buffer_.clear();
-            m_data_.callback(&m_data_buffer_);
-            std::string out_buffer = m_data_buffer_;
-            for (const auto& encoding : m_data_.encodings())
-                out_buffer = encoding->encode(out_buffer);
-            __stream << out_buffer;
-        } while(m_data_buffer_.size() > 0);
+            data_buffer.clear();
+            __message.m_data_.callback(&data_buffer);
+            initial_size = data_buffer.size();
+            for (const auto& encoding : __message.m_data_.encodings())
+                data_buffer = encoding->encode(data_buffer);
+            __stream << data_buffer;
+        } while (initial_size > 0);
     }
 }
+
+
+#define MESSAGE_SUCCESS  0
+#define MESSAGE_FAILED   1
+#define VERSION_FAILED   2
+#define MESSAGE_CONTINUE 3
+#define HEADER_OVERLOAD  4
+#define NO_BODY          0
+#define FIXED_BODY       1
+#define DYNAMIC_BODY     2
+
+
+inline int
+message::_M_process_start_line(
+    std::istream&        __stream,
+    std::string&         __buffer,
+    const parser_limits& __limits,
+    message_traits_ptr&  __traits)
+{
+    __buffer.resize(__limits.max_line_length, '\0');
+
+    if (!__stream.getline(&__buffer[0], __buffer.size() - 1, '\n'))
+        return MESSAGE_FAILED;
+    auto result = __stream.gcount();
+
+    if (result <= 0) return MESSAGE_FAILED;
+    __buffer[result - 1] = '\n'; // getline discards this but it is needed
+
+    try { __traits = message_traits::create(__buffer.substr(0, result)); }
+    catch (...) { return MESSAGE_FAILED; }
+
+    if (__traits->http_major() != 1 || __traits->http_minor() != 1)
+        return VERSION_FAILED;
+    return MESSAGE_SUCCESS;
+}
+
+
+inline int
+message::_M_process_header_line(
+    std::istream&        __stream,
+    std::string&         __buffer,
+    const parser_limits& __limits,
+    unsigned int*        __body_info,
+    header_list&         __headers)
+{
+    if (!__stream.getline(&__buffer[0], __buffer.size() - 1, '\n'))
+        return MESSAGE_FAILED;
+    auto result = __stream.gcount();
+    
+    if (result <= 1) return MESSAGE_FAILED;
+
+    if (__buffer[0] == '\r') { return MESSAGE_SUCCESS; }
+    else {
+        if (__headers.size() >= __limits.max_header_limit)
+            return HEADER_OVERLOAD;
+        if (__buffer[result - 2] != '\r')
+            return HEADER_OVERLOAD;
+        else __buffer[result - 1] = '\n';
+
+        try {
+            __headers.push_back(header_token(__buffer.substr(0, result)));
+            case_string name = __headers.back().field_name();
+            if (name == "Content-Length") {
+                if (__body_info[0] != NO_BODY) return MESSAGE_FAILED;
+                __body_info[0] = FIXED_BODY;
+                __body_info[1] = __headers.size() - 1;
+            }
+            else if (name == "Transfer-Encoding") {
+                if (__body_info[0] != NO_BODY) return MESSAGE_FAILED;
+                __body_info[0] = DYNAMIC_BODY;
+                __body_info[1] = __headers.size() - 1;
+            }
+        }
+        catch (...) { return MESSAGE_FAILED; }
+    }
+
+    return MESSAGE_CONTINUE;
+}
+
+
+inline int
+message::_M_process_body(
+    std::istream&        __stream,
+    std::string&         __buffer,
+    const parser_limits& __limits,
+    const unsigned int*  __body_info,
+    header_list&         __headers,
+    data_recv_callback&  __callback)
+{
+    // const int k_max_int_string = 10; // 4294967295
+    
+    UNUSED(__stream);
+    UNUSED(__buffer);
+    UNUSED(__limits);
+    UNUSED(__headers);
+    UNUSED(__callback);
+    
+    // int header_index = __body_info[1];
+    if (__body_info[0] == FIXED_BODY) {
+        // std::string string_length = __headers[header_index].field_value;
+        // // max unsigned long: 18446744073709551615
+        // if (string_length.size() > k_max_int_string)
+    }
+    else /* dynamic */ {
+        // - warning TE without chunked bodies are allowed for
+        // response messages; end of connection signals end of body
+        // - unrecognized TE results in 501 (Not Implemented) error
+    }
+    
+    return MESSAGE_SUCCESS;
+    
+// body_failed:
+//     if (__callback)
+//         __callback(__buffer, true, status_code::PAYLOAD_TOO_LARGE);
+//     return MESSAGE_FAILED;
+}
+
+
+void
+message::recv(
+    std::istream&      __stream,
+    message_callback&& __when_received)
+{
+    const int k_state_start_line  = 0;
+    const int k_state_header_line = 1;
+    const int k_state_body        = 2;
+    const int k_state_end         = 3;
+    
+    if (__when_received == nullptr)
+        throw impact_error("null callback");
+    
+    parser_limits limits;
+    status_code code = status_code::OK;
+    
+    message_traits_ptr traits = nullptr;
+    header_list headers = {};
+    data_recv_callback callback = nullptr;
+    unsigned int body_info[2] = { NO_BODY, 0 };
+    
+    std::string buffer;
+    int current_state = k_state_start_line;
+    do {
+        switch (current_state) {
+        
+        case k_state_start_line: {
+            int result = _M_process_start_line(
+                __stream, buffer, limits, traits);
+            if (result == MESSAGE_SUCCESS) current_state = k_state_header_line;
+            else if (result == VERSION_FAILED)    goto version_failed;
+            else /* (result == MESSAGE_FAILED) */ goto message_failed;
+        } break;
+        
+        case k_state_header_line: {
+            int result = _M_process_header_line(
+                __stream, buffer, limits, body_info, headers);
+            if (result == MESSAGE_SUCCESS) {
+                __when_received(traits, headers, &callback, code);
+                if (body_info[0]) current_state = k_state_body;
+                else              current_state = k_state_end;
+            }
+            else if (result == MESSAGE_FAILED)  goto message_failed;
+            else if (result == HEADER_OVERLOAD) goto header_overload;
+            /* else (result == MESSAGE_CONTINUE) */
+        } break;
+        
+        case k_state_body: {
+            int result = _M_process_body(
+                __stream, buffer, limits, body_info, headers, callback);
+            if      (result == MESSAGE_SUCCESS ) current_state = k_state_end;
+            // do not invoke message callback a second time
+            // the error will be reported in the data callback (if it exists)
+            else if (result == MESSAGE_FAILED  ) return;
+            /* else (result == MESSAGE_CONTINUE) */
+        } break;
+        
+        default: break;
+        }
+    } while (current_state != k_state_end);
+
+    return;
+
+message_failed:
+    code = status_code::BAD_REQUEST;
+    goto send_error;
+version_failed:
+    code = status_code::HTTP_VERSION_NOT_SUPPORTED;
+    goto send_error;
+header_overload:
+    code = status_code::REQUEST_HEADER_FIELDS_TOO_LARGE;
+send_error:
+    __when_received(traits, headers, &callback, code);
+    return;
+}
+
+
+#undef MESSAGE_SUCCESS
+#undef MESSAGE_FAILED
+#undef VERSION_FAILED
+#undef MESSAGE_CONTINUE
+#undef NO_BODY
+#undef FIXED_BODY
+#undef DYNAMIC_BODY
 
 
 message_type
