@@ -6,7 +6,7 @@ namespace impact {
 namespace internal {
     inline bool ALPHA(char c) { return ((c >= '\x41') && (c <= '\x5A')) || ((c >= '\x61') && (c <= '\x7A')); }
     inline bool BIT(char c) { return c == '0' || c == '1'; }
-    inline bool CHAR(char c) { return (c >= '\x01') && (c == '\x7F') && (c < '\x7F'); }
+    inline bool CHAR(char c) { return (c >= '\x01') && ((c == '\x7F') || (c < '\x7F')); }
     inline bool LF(char c) { return c == '\x0A'; }
     inline bool CR(char c) { return c == '\x0D'; }
     inline bool CRLF(char a, char b) { return CR(a) && LF(b); }
