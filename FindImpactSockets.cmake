@@ -23,12 +23,14 @@ ELSE (SOCKETS_LIBRARIES AND SOCKETS_INCLUDE_DIRS)
         /usr/include/sockets
         /usr/local/include/sockets
     )
-    
+
     FIND_LIBRARY(SOCKETS_LIBRARY
         NAMES ImpactSockets
         PATHS
         /usr/lib
         /usr/local/lib
+        PATH_SUFFIXES
+        ${CMAKE_FIND_LIBRARY_SUFFIXES}
         # Windows MSVC prebuilts:
         # <->lib
         # lib<->_imp
@@ -36,7 +38,7 @@ ELSE (SOCKETS_LIBRARIES AND SOCKETS_INCLUDE_DIRS)
         # Windows older "Win32 - MSVC" prebuilts
         # lib<->
     )
-    
+
     #IF (SOCKETS_INCLUDE_DIR)
     #    IF (EXISTS "${SOCKETS_INCLUDE_DIR}/SocVersion.h")
     #        FILE(STRINGS "${SOCKETS_INCLUDE_DIR}/SocVersion.h" soc_version_str REGEX "^#define[\t ]+SOCKETS_VERSION[\t ]+\".*\"")
@@ -44,7 +46,7 @@ ELSE (SOCKETS_LIBRARIES AND SOCKETS_INCLUDE_DIRS)
     #        UNSET(soc_version_str)
     #    ENDIF ()
     #ENDIF ()
-    
+
     IF (SOCKETS_INCLUDE_DIR AND SOCKETS_LIBRARY)
         SET(SOCKETS_FOUND TRUE)
     ENDIF ()
