@@ -23,6 +23,7 @@ TEST(test_case_string, equality)
     EXPECT_TRUE("hello world!" == stringA);
 }
 
+
 TEST(test_case_string, streams)
 {
     std::stringstream ss;
@@ -34,4 +35,25 @@ TEST(test_case_string, streams)
     
     ss >> stringB;
     EXPECT_EQ(stringB, "Hello");
+}
+
+
+#include <iostream>
+TEST(test_case_string, swap)
+{
+    impact::case_string A = "Hello World";
+    std::string B = "Goodbye World";
+    
+    impact::swap(A, B);
+    EXPECT_EQ(A, "Goodbye World");
+    EXPECT_EQ(B, "Hello World");
+}
+
+
+TEST(test_case_string, move)
+{
+    impact::case_string A = "Hello World";
+    std::string B = impact::move(A);
+    
+    EXPECT_EQ(B, "Hello World");
 }

@@ -340,6 +340,17 @@ TEST(test_uri, normalize) {
     EXPECT_EQ(u.norm_authority(), "bar");
 }
 
+TEST(test_uri, security) {
+    // testing urls that could lead to vulnerabilities
+    
+    uri u;
+    EXPECT_TRUE(uri::parse(
+        "https://web-safety.net/..;..;@mobile.twitter.com/robots.txt", &u));
+    EXPECT_EQ(u.scheme(), "https");
+    EXPECT_EQ(u.host(), "web-safety.net");
+    EXPECT_EQ(u.path(), "/..;..;@mobile.twitter.com/robots.txt");
+}
+
 /*
    URI-reference = URI / relative-ref
    

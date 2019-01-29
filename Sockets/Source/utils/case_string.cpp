@@ -92,8 +92,45 @@ impact::operator>>(
     // requires coping of the string
     // would prefer move semantics or reading
     // directly into the rhs parameter
+    // __rhs = case_string(temp.data(), temp.size());
     std::string temp;
     __lhs >> temp;
-    __rhs = case_string(temp.data(), temp.size());
+    swap(temp, __rhs);
     return __lhs;
+}
+
+
+impact::case_string&&
+impact::move(std::string& __t)
+{
+    // hack
+    return std::move(*(case_string*)&__t);
+}
+
+
+std::string&&
+impact::move(case_string& __t)
+{
+    // hack
+    return std::move(*(std::string*)&__t);
+}
+
+
+void
+impact::swap(
+    case_string& __lhs,
+    std::string& __rhs)
+{
+    // hack
+    std::swap(*(std::string*)(&__lhs), __rhs);
+}
+
+
+void
+impact::swap(
+    std::string& __lhs,
+    case_string& __rhs)
+{
+    // hack
+    std::swap(__lhs, *(std::string*)(&__rhs));
 }

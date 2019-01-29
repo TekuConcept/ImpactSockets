@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <functional>
+#include "utils/cloneable.h"
 #include "utils/case_string.h"
 #include "rfc/http/header_token.h"
 
@@ -18,7 +19,8 @@ namespace http {
     
     class chunk_extension_token {
     public:
-        chunk_extension_token(std::string name, std::string value="");
+        chunk_extension_token(std::string line);
+        chunk_extension_token(std::string name, std::string value);
         ~chunk_extension_token();
         
     private:
@@ -35,13 +37,14 @@ namespace http {
     typedef std::shared_ptr<transfer_encoding> transfer_encoding_ptr;
     class transfer_encoding {
     public:
-        typedef std::function<std::string(const std::string&)> encoder_callback;
+        typedef std::function<std::string(const std::string&)> codec_callback;
         typedef std::vector<chunk_extension_token> chunk_extension_list;
         typedef std::function<void(chunk_extension_list**)> extension_callback;
         typedef std::vector<header_token> header_list;
         typedef std::function<void(header_list**)> trailer_callback;
         
-        transfer_encoding(std::string name, encoder_callback&& encoder);
+        transfer_encoding(std::string name, codec_callback&& encoder,
+            codec_callback&& decoder);
         virtual ~transfer_encoding();
         
         static transfer_encoding_ptr chunked(
@@ -53,7 +56,8 @@ namespace http {
         static transfer_encoding_ptr get_by_name(case_string name) noexcept;
 
     protected:
-        encoder_callback m_encode_;
+        codec_callback m_encode_;
+        codec_callback m_decode_;
         transfer_encoding(std::string name);
         
     private:
@@ -66,6 +70,8 @@ namespace http {
     public:
         inline std::string encode(const std::string& data) const
         { return m_encode_(data); }
+        inline std::string decode(const std::string& data) const
+        { return m_decode_(data); }
         inline const case_string& name() const noexcept
         { return m_name_; }
         
@@ -79,6 +85,12 @@ namespace http {
             extension_callback&& extension_callback = nullptr,
             trailer_callback&& trailer_callback     = nullptr);
         ~chunked_encoding();
+        
+        static bool decode_first_line(
+            const std::string&                  line,
+            size_t*                             chunk_size,
+            std::vector<chunk_extension_token>* extensions);
+
     private:
         extension_callback m_extension_callback_;
         trailer_callback   m_trailer_callback_;

@@ -11,7 +11,7 @@
 
 namespace impact {
 namespace http {
-    enum class message_type { REQUEST, RESPONSE };
+    enum class message_type { REQUEST, RESPONSE, NONE };
     
     
     class message_traits {

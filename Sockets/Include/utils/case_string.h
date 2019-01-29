@@ -27,6 +27,11 @@ namespace impact {
     
     std::ostream& operator<<(std::ostream& lhs, const case_string& rhs);
     std::istream& operator>>(std::istream& lhs, case_string& rhs);
+    
+    case_string&& move(std::string& t);
+    std::string&& move(case_string& t);
+    void swap(std::string& lhs, case_string& rhs);
+    void swap(case_string& lhs, std::string& rhs);
 }
 
 #endif

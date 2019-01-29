@@ -7,6 +7,7 @@
 #include "rfc/http/header_token.h"
 #include "rfc/http/abnf_ops.h"
 #include "utils/abnf_ops.h"
+#include "utils/string_ops.h"
 #include "utils/impact_error.h"
 
 using namespace impact;
@@ -85,7 +86,7 @@ header_token::header_token(
     if (!is_token(__name))
         throw impact_error("Invalid name \"" + __name + "\"");
     
-    _M_trim_whitespace(&m_field_value_);
+    impact::internal::trim_whitespace(&m_field_value_);
     if (!_M_valid_value(m_field_value_))
         throw impact_error("Invalid value \"" + __value + "\"");
 }
@@ -95,7 +96,7 @@ header_token::header_token(
     enum field_name  __id,
     std::string      __value)
 {
-    _M_trim_whitespace(&__value);
+    impact::internal::trim_whitespace(&__value);
     if (!_M_valid_value(__value))
         throw impact_error("Invalid value \"" + __value + "\"");
     m_field_value_ = __value;
@@ -106,20 +107,6 @@ header_token::header_token(
 
 header_token::~header_token()
 {}
-
-
-void
-header_token::_M_trim_whitespace(std::string* __data)
-{
-    const std::string k_whitespace = " \t";
-    
-    size_t begin = __data->find_first_not_of(k_whitespace);
-    if (begin == std::string::npos) return;
-    size_t end = __data->find_last_not_of(k_whitespace);
-    size_t length = end - begin + 1;
-    if (length == __data->size()) return;
-    *__data = __data->substr(begin, length);
-}
 
 
 bool

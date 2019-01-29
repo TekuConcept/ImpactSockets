@@ -28,25 +28,48 @@ TEST(test_http_chunk_ext_token, create)
 }
 
 
+TEST(test_http_chunk_ext_token, parse)
+{
+    NO_THROW(
+        chunk_extension_token token("name=value");
+        EXPECT_EQ(token.name(), "name");
+        EXPECT_EQ(token.value(), "value");
+    )
+    NO_THROW(
+        chunk_extension_token token("name");
+        EXPECT_EQ(token.name(), "name");
+        EXPECT_EQ(token.value(), "");
+    )
+    THROW(chunk_extension_token token("name\r\n");)
+    THROW(chunk_extension_token token("name=");)
+}
+
+
 TEST(test_http_transfer_encoding, custom)
 {
     NO_THROW( // user defined transfer encoding
         transfer_encoding coding(
             "foobar",
+            [](const std::string& data) -> std::string { return data; },
             [](const std::string& data) -> std::string { return data; }
         );
     )
     THROW( // reserved names
         transfer_encoding coding(
             "chunked",
+            [](const std::string& data) -> std::string { return data; },
             [](const std::string& data) -> std::string { return data; }
         );
     )
     THROW( // names must contain VCHARs
         transfer_encoding coding(
             " bad ",
+            [](const std::string& data) -> std::string { return data; },
             [](const std::string& data) -> std::string { return data; }
         );
+    )
+    NO_THROW( // null functionals do nothing to data
+        transfer_encoding coding("good", nullptr, nullptr);
     )
 }
 
@@ -115,6 +138,25 @@ TEST(test_http_transfer_encoding, chunked_encoding)
 }
 
 
+TEST(test_http_transfer_encoding, chunked_decoding)
+{
+    std::string line;
+    size_t chunk_size;
+    std::vector<chunk_extension_token> extensions;
+    
+    line = "C;name=value;foo=\"\\;bar\"\r\n";
+    EXPECT_TRUE(chunked_encoding::decode_first_line(line, NULL, NULL));
+    EXPECT_TRUE(chunked_encoding::decode_first_line(line, &chunk_size, &extensions));
+    EXPECT_EQ(chunk_size, 0xCUL);
+    ASSERT_EQ(extensions.size(), 2UL);
+    EXPECT_EQ(extensions.front().name(), "name");
+    EXPECT_EQ(extensions.front().value(), "value");
+    
+    line = "C;name=\r\n";
+    EXPECT_FALSE(chunked_encoding::decode_first_line(line, NULL, NULL));
+}
+
+
 TEST(test_http_transfer_encoding, register_encoding)
 {
     { transfer_encoding::register_encoding(nullptr); } // do nothing
@@ -130,6 +172,7 @@ TEST(test_http_transfer_encoding, register_encoding)
         EXPECT_EQ(special, nullptr);
         transfer_encoding::register_encoding(transfer_encoding_ptr(
             new transfer_encoding("special",
+                [](const std::string& data) -> std::string { return data; },
                 [](const std::string& data) -> std::string { return data; })
         ));
         special = transfer_encoding::get_by_name("special");

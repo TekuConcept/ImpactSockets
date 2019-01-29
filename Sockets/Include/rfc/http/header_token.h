@@ -24,7 +24,6 @@ namespace http {
         case_string m_field_name_;
         std::string m_field_value_;
         
-        void _M_trim_whitespace(std::string*);
         bool _M_valid_value(const std::string&) const;
     
     public:
