@@ -69,9 +69,9 @@ md5::_S_preprocess(std::string* __message)
     padded_message.append("\x80");
     padded_message.append(zero_pad_length + 8, '\0');
 
-    original_size <<= 3; // get size in bits
-    unsigned int sizeof_size_t = std::max(sizeof(size_t), (size_t)8U);
-    char* trailer = &padded_message[padded_message.size() - sizeof_size_t];
+	original_size <<= 3; // get size in bits
+    unsigned int sizeof_size_t = std::min(sizeof(size_t), (size_t)8U);
+    char* trailer = &padded_message[padded_message.size() - 8];
     for (unsigned int i = 0; i < sizeof_size_t; i++)
         trailer[i] = 0xFF & (original_size >> (8 * i));
 }
