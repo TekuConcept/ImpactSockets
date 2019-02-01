@@ -3,6 +3,7 @@
  */
 
 #include "rfc/md5.h"
+#include <algorithm>
 
 using namespace impact;
 
