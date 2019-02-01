@@ -9,7 +9,7 @@
 #include <sstream>
 
 #ifndef RFC4648
-    #define RFC4648 1 /* Part 2 */
+    #define RFC4648 1 /* base 64 */
 #endif
 
 namespace impact {

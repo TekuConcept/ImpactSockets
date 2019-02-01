@@ -11,10 +11,6 @@
 
 #define RFC3629 1
 
-#include <iostream>
-#include <iomanip>
-#define VERB(x) std::cout << x << std::endl
-
 namespace impact {
     class utf8 {
     public:

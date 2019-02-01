@@ -10,6 +10,8 @@
 
 #include <string>
 
+#define RFC3174 1
+
 namespace impact {
     class sha1 {
     public:
@@ -44,5 +46,4 @@ namespace impact {
     };
 }
 
-#undef HashSize
 #endif
