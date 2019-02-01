@@ -7,7 +7,6 @@
 
 using namespace impact;
 
-#include <iostream>
 TEST(test_md5, digest)
 {
     EXPECT_EQ(md5::digest(""), std::string(
