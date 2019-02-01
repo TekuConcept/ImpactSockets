@@ -57,7 +57,7 @@ md5::_S_preprocess(std::string* __message)
 {
     auto& padded_message = *__message;
     size_t original_size = __message->size();
-    
+
     // TODO: safe-guard against message overflow
     // max_size = size + roundup(size % 512)
 
@@ -65,7 +65,7 @@ md5::_S_preprocess(std::string* __message)
     size_t modulo1 = (original_size + 1) % 64;
     if (modulo1 <= 56) zero_pad_length =  56 - modulo1;
     else               zero_pad_length = 120 - modulo1;
-    
+
     padded_message.append("\x80");
     padded_message.append(zero_pad_length + 8, '\0');
 
@@ -98,16 +98,16 @@ md5::_S_process(const std::string& __padded_message)
                 ((MASK8 __padded_message[chunk_index + (j * 4) + 2]) << 16) |
                 ((MASK8 __padded_message[chunk_index + (j * 4) + 3]) << 24);
         }
-        
+
         var A = a0;
         var B = b0;
         var C = c0;
         var D = d0;
-        
+
         // Main loop:
         for (var i = 0; i < 64; i++) {
             var F, j;
-            if (0 <= i && i <= 15) {
+            if ((0 == i || 0 < i) && i <= 15) {
                 F = MASK32 ((B & C) | ((MASK32 (~B)) & D));
                 j = i;
             }
@@ -123,7 +123,7 @@ md5::_S_process(const std::string& __padded_message)
                 F = MASK32 (C ^ (B | (MASK32 (~D))));
                 j = (7 * i) % 16;
             }
-            
+
             // Be wary of the below definitions of a,b,c,d
             F = MASK32 (F + A + K[i] + M[j]);
             F = MASK32 ((F << s[i]) | (F >> (32 - s[i]))); // left-rotate
@@ -132,14 +132,14 @@ md5::_S_process(const std::string& __padded_message)
             C = B;
             B = MASK32 (B + F);
         }
-        
+
         // Add this chunk's hash to result so far:
         a0 = MASK32 (a0 + A);
         b0 = MASK32 (b0 + B);
         c0 = MASK32 (c0 + C);
         d0 = MASK32 (d0 + D);
     }
-    
+
     std::string result(16, '\0');
     result[ 0] = (char)(MASK8 (a0 >>  0));
     result[ 1] = (char)(MASK8 (a0 >>  8));
