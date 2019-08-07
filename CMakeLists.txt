@@ -35,6 +35,14 @@ IF (${BUILD_SHARED})
         $<TARGET_OBJECTS:${PROJECT_NAME}_obj>)
     SET_TARGET_PROPERTIES(${PROJECT_NAME}_shared PROPERTIES
         OUTPUT_NAME ${PROJECT_NAME})
+    IF (UNIX AND NOT APPLE)
+        # Setup so versioning for Linux systems
+        SET_TARGET_PROPERTIES(${PROJECT_NAME}_shared
+            PROPERTIES
+            SOVERSION 0
+            VERSION 0.1
+        )
+    ENDIF ()
     IF (HAVE_NPCAP)
         TARGET_LINK_LIBRARIES(${PROJECT_NAME}_shared ${NPCAP_LIBRARY})
     ENDIF ()
