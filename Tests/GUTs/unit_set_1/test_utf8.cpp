@@ -42,7 +42,7 @@ TEST(test_utf8, size_estimate_char) {
     EXPECT_EQ(test::estimate_buf_size(u'\u07FF'), 2U);
     EXPECT_EQ(test::estimate_buf_size(U'\U0000FFFF'), 3U);
     EXPECT_EQ(test::estimate_buf_size(U'\U0010FFFF'), 4U);
-    EXPECT_EQ(test::estimate_buf_size(0x00110000), static_cast<size_t>(-1));
+    EXPECT_EQ(test::estimate_buf_size(0x00110000), (size_t)(-1));
 
     /*
     0xD800 - 0xDFFF are reserved unicode values
@@ -52,7 +52,7 @@ TEST(test_utf8, size_estimate_char) {
     into account.
     */
     char16_t c4 = 0xDFFF;
-    EXPECT_EQ(test::estimate_buf_size(c4), static_cast<size_t>(-1));
+    EXPECT_EQ(test::estimate_buf_size(c4), (size_t)(-1));
 }
 
 

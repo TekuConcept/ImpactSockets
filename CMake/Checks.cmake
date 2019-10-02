@@ -1,11 +1,14 @@
+
 include(CheckCXXSourceRuns)
 #include(CheckVariableExists)
 #include(CheckCXXSymbolExists)
 
-SET(TMP_REQ_FLAGS "${CMAKE_REQUIRED_FLAGS}")
-SET(CMAKE_REQUIRED_FLAGS
-    "${CMAKE_REQUIRED_FLAGS} -std=c++11 -Wall -Werror -Wextra")
-get_directory_property(CMAKE_HAS_PARENT_SCOPE PARENT_DIRECTORY)
+IF (UNIX)
+    SET(TMP_REQ_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+    SET(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11 -Wall -Werror -Wextra")
+ENDIF (UNIX)
+
+GET_DIRECTORY_PROPERTY(CMAKE_HAS_PARENT_SCOPE PARENT_DIRECTORY)
 IF (CMAKE_HAS_PARENT_SCOPE)
     SET(SCOPE PARENT_SCOPE)
 ELSE ()
@@ -71,25 +74,24 @@ SET(HAVE_INT64_T ${HAVE_INT64_T} ${SCOPE})
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
 SET(ENDIAN_CODE_TEMPLATE "            \
-#include <cstdint>                    \n\
 int main(void) {                      \n\
     union {                           \n\
-        uint32_t dword\;              \n\
-        uint8_t byte[4]\;             \n\
+        unsigned long int dword\;     \n\
+        unsigned char byte[4]\;       \n\
     } value = { 0x01020304 }\;        \n\
-return !(                             \n\
-    (value.byte[0] == '\\\\TESTA') && \n\
-    (value.byte[2] == '\\\\TESTB'))\; \n\
+    return !(                         \n\
+    (value.byte[0] == TESTA) &&       \n\
+    (value.byte[2] == TESTB))\;       \n\
 }                                     \
 ")
 
-STRING(REPLACE "TESTA" "x01" ENDIAN_CODE "${ENDIAN_CODE_TEMPLATE}")
-STRING(REPLACE "TESTB" "x03" ENDIAN_CODE "${ENDIAN_CODE}")
+STRING(REPLACE "TESTA" "0x01" ENDIAN_CODE "${ENDIAN_CODE_TEMPLATE}")
+STRING(REPLACE "TESTB" "0x03" ENDIAN_CODE "${ENDIAN_CODE}")
 CHECK_CXX_SOURCE_RUNS(${ENDIAN_CODE} BIG_ENDIAN)
 SET(BIG_ENDIAN ${BIG_ENDIAN} ${SCOPE})
 
-STRING(REPLACE "TESTA" "x04" ENDIAN_CODE "${ENDIAN_CODE_TEMPLATE}")
-STRING(REPLACE "TESTB" "x02" ENDIAN_CODE "${ENDIAN_CODE}")
+STRING(REPLACE "TESTA" "0x04" ENDIAN_CODE "${ENDIAN_CODE_TEMPLATE}")
+STRING(REPLACE "TESTB" "0x02" ENDIAN_CODE "${ENDIAN_CODE}")
 CHECK_CXX_SOURCE_RUNS(${ENDIAN_CODE} LITTLE_ENDIAN)
 SET(LITTLE_ENDIAN ${LITTLE_ENDIAN} ${SCOPE})
 
@@ -116,4 +118,6 @@ int main(void) {        \n\
 SET(HAVE_FALLTHROUGH_ATTRIBUTE ${HAVE_FALLTHROUGH_ATTRIBUTE} ${SCOPE})
 
 
-SET(CMAKE_REQUIRED_FLAGS "${TMP_REQ_FLAGS}")
+IF (UNIX)
+    SET(CMAKE_REQUIRED_FLAGS "${TMP_REQ_FLAGS}")
+ENDIF (UNIX)
