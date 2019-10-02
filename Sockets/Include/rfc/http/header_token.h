@@ -27,9 +27,9 @@ namespace http {
         bool _M_valid_value(const std::string&) const;
     
     public:
-        inline const case_string& field_name() const noexcept
+        inline const case_string& name() const noexcept
         { return m_field_name_; }
-        inline const std::string& field_value() const noexcept
+        inline const std::string& value() const noexcept
         { return m_field_value_; }
     };
 }}

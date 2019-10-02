@@ -8,6 +8,8 @@
 #include <sstream>
 #include <algorithm>
 
+#include "utils/environment.h"
+
 using namespace impact;
 using namespace internal;
 
@@ -423,6 +425,7 @@ regex::_S_escape(char __c, struct parser_context* __ctx)
         case 'N':
             ptr = atom_ptr(new atom());
             ptr->set.chars = "\n\r";
+            FALLTHROUGH;
         case 'H':
         case 'V':
         case 'D':
@@ -547,6 +550,7 @@ regex::_S_follow_and_compare(
     case LITERAL:   _S_check_literal(current_token,__ctx);   break;
     case GROUP_IN:  _S_check_group_in(current_token,__ctx);  goto default_label;
     case GROUP_OUT: _S_check_group_out(current_token,__ctx);
+        FALLTHROUGH;
     default:
         default_label:
         V("Branch { " << current_token->_1 <<

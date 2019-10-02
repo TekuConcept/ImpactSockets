@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <memory>
 
 /* TODO
     - error checking

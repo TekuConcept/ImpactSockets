@@ -115,7 +115,7 @@ namespace http {
         bool _M_valid_phrase(const std::string& __data) const noexcept;
     
     public:
-        inline int status_code() const noexcept
+        inline int code() const noexcept
         { return m_status_code_; }
         inline const std::string& reason_phrase() const noexcept
         { return m_reason_phrase_; }

@@ -253,8 +253,8 @@ message::send(
     __stream << __message.m_traits_->start_line();
     
     for (const auto& header : __message.m_headers_) {
-        __stream << header.field_name() << ": ";
-        __stream << header.field_value() << "\r\n";
+        __stream << header.name() << ": ";
+        __stream << header.value() << "\r\n";
     }
     
     __stream << "\r\n"; // end of HTTP headers
@@ -344,7 +344,7 @@ message::_M_process_header_line(parser_context& context)
 
     try {
         headers.push_back(header_token(buffer.substr(0, result)));
-        auto name = headers.back().field_name();
+        auto name = headers.back().name();
         if (name == "Content-Length") {
             if (body_info[0] != NO_BODY)
                 goto message_failed;
@@ -383,7 +383,7 @@ message::_M_process_fixed_body(parser_context& context)
     
     if (body_info[2] == 0) { // initial pass
         unsigned int header_index = body_info[1];
-        std::string string_length = headers[header_index].field_value();
+        std::string string_length = headers[header_index].value();
         unsigned int body_size;
         
         try { body_size = std::stoul(string_length, 0, 10); }
@@ -430,7 +430,7 @@ message::_M_process_dynamic_init(parser_context& context)
     
     std::regex delimiter(",[\t ]*"); // ABNF #rule
     auto tokens = impact::internal::split(
-        &context.target->m_headers_[body_info[1]].field_value(),
+        &context.target->m_headers_[body_info[1]].value(),
         delimiter
     );
 
@@ -578,7 +578,7 @@ message::_M_process_chunk_trailer(parser_context& context)
 
     try {
         header_token header(buffer.substr(0, result));
-        auto name = header.field_name();
+        auto name = header.name();
         if ((name != "Content-Length") &&
             (name != "Transfer-Encoding"))
             headers.push_back(header);
@@ -772,8 +772,8 @@ message::headers(std::vector<header_token> __list)
         state = k_throw_on_duplicate;
     
     for (const auto& header : __list) {
-        if (header.field_name() == "Transfer-Encoding" ||
-            header.field_name() == "Content-Length") {
+        if (header.name() == "Transfer-Encoding" ||
+            header.name() == "Content-Length") {
             if (state == k_erase_length_headers) continue;
             else {
                 count++;

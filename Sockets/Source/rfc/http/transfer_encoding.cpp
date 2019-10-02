@@ -170,8 +170,8 @@ chunked_encoding::chunked_encoding(
                 m_trailer_callback_(&header_list);
             if (header_list) {
                 for (const auto& token : *header_list) {
-                    os << token.field_name() << ": ";
-                    os << token.field_value() << "\r\n";
+                    os << token.name() << ": ";
+                    os << token.value() << "\r\n";
                 }
             }
             os << "\r\n";

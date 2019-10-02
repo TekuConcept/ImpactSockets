@@ -19,8 +19,8 @@ TEST(test_http_transfer_encoding_token, transfer_encoding_token)
         ASSERT_EQ(token.encodings().size(), 1UL);
         EXPECT_EQ(token.encodings()[0]->name(), "chunked");
         auto header = token.header();
-        EXPECT_EQ(header.field_name(), "Transfer-Encoding");
-        EXPECT_EQ(header.field_value(), "chunked");
+        EXPECT_EQ(header.name(), "Transfer-Encoding");
+        EXPECT_EQ(header.value(), "chunked");
         EXPECT_EQ(token.callback, nullptr);
     }
     
@@ -46,8 +46,8 @@ TEST(test_http_transfer_encoding_token, transfer_encoding_token)
         EXPECT_EQ(token.encodings()[1]->name(), "custom");
         EXPECT_EQ(token.encodings()[2]->name(), "chunked");
         auto header = token.header();
-        EXPECT_EQ(header.field_name(), "Transfer-Encoding");
-        EXPECT_EQ(header.field_value(), "custom, custom, chunked");
+        EXPECT_EQ(header.name(), "Transfer-Encoding");
+        EXPECT_EQ(header.value(), "custom, custom, chunked");
     }
 }
 
@@ -266,13 +266,13 @@ TEST(test_http_message, receive)
     ASSERT_EQ(message::recv(ss, &foo), status_code::OK);
     EXPECT_EQ(foo.type(), message_type::REQUEST);
     EXPECT_EQ(foo.headers().size(), 1UL);
-    EXPECT_EQ(foo.headers()[0].field_name(), "Content-Length");
+    EXPECT_EQ(foo.headers()[0].name(), "Content-Length");
     EXPECT_EQ(foo.body(), "Hello World!");
     
     ASSERT_EQ(message::recv(ss, &foo), status_code::OK);
     EXPECT_EQ(foo.type(), message_type::RESPONSE);
     EXPECT_EQ(foo.headers().size(), 1UL);
-    EXPECT_EQ(foo.headers()[0].field_name(), "Content-Length");
+    EXPECT_EQ(foo.headers()[0].name(), "Content-Length");
     EXPECT_EQ(foo.body(), "Goodbye World!");
     
     // message::data_recv_callback when_data = [](

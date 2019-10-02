@@ -159,13 +159,13 @@ TEST(test_http_response_message, create)
 {
     NO_THROW( // manually defined code and phrase
         response_traits response = response_traits(200, "OK");
-        EXPECT_EQ(response.status_code(), 200);
+        EXPECT_EQ(response.code(), 200);
         EXPECT_EQ(response.reason_phrase(), "OK");
     )
     
     NO_THROW( // pre-defined code and phrase
         response_traits response = response_traits(status_code::OK);
-        EXPECT_EQ(response.status_code(), 200);
+        EXPECT_EQ(response.code(), 200);
         EXPECT_EQ(response.reason_phrase(), "OK");
     )
 }
@@ -182,7 +182,7 @@ TEST(test_http_response_message, start_line)
         auto ptr = message_traits::create("HTTP/1.1 200 OK\r\n");
         ASSERT_EQ(ptr->type(), message_type::RESPONSE);
         response_traits& response = *(response_traits*)ptr.get();
-        EXPECT_EQ(response.status_code(), 200);
+        EXPECT_EQ(response.code(), 200);
         EXPECT_EQ(response.reason_phrase(), "OK");
         EXPECT_EQ(response.http_major(), 1);
         EXPECT_EQ(response.http_minor(), 1);

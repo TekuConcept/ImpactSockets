@@ -22,7 +22,10 @@ namespace internal {
         return false;
     }
     
-    inline bool OBS_TEXT(char c) { return ((c >= '\x80' && c <= '\xFE') || (c == '\xFF')); }
+    inline bool OBS_TEXT(char c) {
+        int d = c;
+        return (d >= 0x80 && d <= 0xFF);
+    }
     
     bool is_token(const std::string& data);
     bool is_quoted_string(const std::string& data);

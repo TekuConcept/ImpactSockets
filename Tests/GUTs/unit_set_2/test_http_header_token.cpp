@@ -16,17 +16,17 @@ TEST(test_http_header_token, header_token)
 {
     NO_THROW(
         header_token token("name", "value");
-        EXPECT_EQ(token.field_name(), "Name"); /* case insensitive */
-        EXPECT_EQ(token.field_value(), "value");
+        EXPECT_EQ(token.name(), "Name"); /* case insensitive */
+        EXPECT_EQ(token.value(), "value");
     )
     NO_THROW( // field value whitespace trimming
         header_token token("name", "\tset value ");
-        EXPECT_EQ(token.field_value(), "set value");
+        EXPECT_EQ(token.value(), "set value");
     )
     NO_THROW( // skip field name validation check
         header_token token(field_name::CONNECTION, "value");
-        EXPECT_EQ(token.field_name(), "Connection");
-        EXPECT_EQ(token.field_value(), "value");
+        EXPECT_EQ(token.name(), "Connection");
+        EXPECT_EQ(token.value(), "value");
     )
     THROW(header_token token("/bad", "value");) // TCHAR only
     THROW(header_token token("name", "\x7F");)  // VCHAR only
@@ -35,8 +35,8 @@ TEST(test_http_header_token, header_token)
     // obsolete line folding
     NO_THROW(
         header_token token("name: value,\r\n\tvalue2\r\n");
-        EXPECT_EQ(token.field_name(), "name");
-        EXPECT_EQ(token.field_value(), "value, value2");
+        EXPECT_EQ(token.name(), "name");
+        EXPECT_EQ(token.value(), "value, value2");
     )
     THROW(header_token token("name : bad\r\n");)
     THROW(header_token token("name: bad,\r\nvalue\r\n");)
