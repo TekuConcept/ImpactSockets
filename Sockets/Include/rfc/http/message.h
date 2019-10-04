@@ -8,7 +8,7 @@
 #include <vector>
 #include <iostream>
 
-#include "rfc/http/header.h"
+#include "rfc/http/header_list.h"
 #include "rfc/http/message_traits.h"
 
 namespace impact {
@@ -41,22 +41,6 @@ namespace http {
             method method,
             std::string target,
             header_list headers = {});
-        // message_t(std::string method, std::string target,
-        //     transfer_encoding_token::list encodings,
-        //     std::function<void(std::string*)>&& data_callback);
-        // message_t(
-        //     message_traits::method_t method,
-        //     message_traits::target_t target,
-        //     transfer_encoding_token data);
-        // message_t(
-        //     std::string method,
-        //     std::string target,
-        //     std::string data);
-        // message_t(
-        //     message_traits::method_t method,
-        //     message_traits::target_t target,
-        //     std::string data);
-        /* [- response message convinience ctors -] */
         message_t(
             int status_code,
             std::string reason_phrase,
@@ -64,35 +48,30 @@ namespace http {
         message_t(
             status_code status_code,
             header_list headers = {});
-        // message_t(int status_code, std::string reason_phrase,
-        //     transfer_encoding_token::list encodings,
-        //     std::function<void(std::string*)>&& data_callback);
-        // message_t(
-        //     int status_code,
-        //     std::string reason_phrase,
-        //     transfer_encoding_token data);
-        // message_t(int status_code, std::string reason_phrase, std::string data);
 
         virtual ~message_t() = default;
 
         std::string to_string() const;
+
         inline const message_traits* traits() const
         { return m_traits_.get(); }
 
-        /*  RFC7230 - 3.2.2
-            A sender MUST NOT generate multiple header fields with the same field
-            name in a message unless either the entire field value for that
-            header field is defined as a comma-separated list [i.e., #(values)]
-            or the header field is a well-known exception
-        */
         inline header_list& headers()
         { return m_headers_; }
+
+        // ( not the same as payload body )
+        // if a transfer encoder is specified for this
+        // message; the body() value here will be ignored
+        // because it will be retrieved through the encoder
+        inline std::string& body()
+        { return m_body_; }
 
         friend std::ostream& operator<<(std::ostream&, const message_t&);
 
     private:
         message_traits_ptr m_traits_;
         header_list m_headers_;
+        std::string m_body_;
 
         message_t();
     };

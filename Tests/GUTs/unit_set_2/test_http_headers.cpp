@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include "utils/environment.h"
 #include "rfc/http/header.h"
+#include "rfc/http/header_list.h"
 
 using namespace impact;
 using namespace http;
@@ -85,7 +86,7 @@ TEST(test_http_header, header_t)
         header_t token("name: value"); // missing CRLF
     THROW_END
 
-    // obsolete line folding must contain SP or HTAB on next line
+    // obsolete line folding must start with SP or HTAB on next line
     THROW_BEGIN
         header_t token("name: bad,\r\nvalue\r\n");
     THROW_END
@@ -121,6 +122,38 @@ TEST(test_http_header, append_value)
     THROW_BEGIN
         header_t token("name", "john");
         token.append_value("\x7F");
+    THROW_END
+}
+
+
+TEST(test_http_header, setters)
+{
+    // set normal name
+    NO_THROW_BEGIN
+        header_t token("name", "value");
+        EXPECT_EQ(token.name(), "Name");
+        token.name("new-name");
+        EXPECT_EQ(token.name(), "new-name");
+    NO_THROW_END
+
+    // set normal value
+    NO_THROW_BEGIN
+        header_t token("name", "value");
+        EXPECT_EQ(token.value(), "value");
+        token.value("new-value");
+        EXPECT_EQ(token.value(), "new-value");
+    NO_THROW_END
+
+    // set error name
+    THROW_BEGIN
+        header_t token("good", "value"); // TCHAR only
+        token.name("/bad");
+    THROW_END
+
+    // set error value
+    THROW_BEGIN
+        header_t token("name", "good");  // VCHAR only
+        token.value("\x7F");
     THROW_END
 }
 

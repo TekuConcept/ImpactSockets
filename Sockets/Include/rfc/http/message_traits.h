@@ -113,6 +113,12 @@ namespace http {
         message_type type() const noexcept;
         std::string to_string() const noexcept;
         bool permit_user_length_header() const noexcept;
+        /* RFC 7230 - 3.3.1
+        A server MUST NOT send a Transfer-Encoding header field in any
+        response with a status code of 1xx (Informational) or 204 (No
+        Content).  A server MUST NOT send a Transfer-Encoding header field in
+        any 2xx (Successful) response to a CONNECT request
+        */
         bool permit_length_header() const noexcept;
         bool permit_body() const noexcept;
 

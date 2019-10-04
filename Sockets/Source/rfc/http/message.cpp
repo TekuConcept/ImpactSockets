@@ -137,11 +137,43 @@ message_t::to_string() const
                       [ message-body ]
     */
 
+    // 0: none
+    // 1: content-length
+    // 2: transfer-encoding
+    // 3: not allowed
+    int body_format = 0;
     std::ostringstream os;
     os << m_traits_->to_string();
-    for (const auto& header : m_headers_.m_headers_)
+
+    for (const auto& header : m_headers_.m_headers_) {
+        if (header.m_describes_body_size_) {
+            // overwrite or inject header values
+            if (/* transfer-encoding= */NULL)
+                 body_format = 2;
+            else body_format = 1;
+        }
+        else os << header;
+    }
+
+    body_format = m_traits_->permit_length_header() ?
+        body_format : 3;
+    if (body_format < 2 && m_body_.size() > 0) {
+        header_t header(
+            field_name::CONTENT_LENGTH,
+            std::to_string(m_body_.size()));
+        body_format = 1;
         os << header;
+    }
+
     os << "\r\n";
-    // TODO: message-body
+
+    if (m_traits_->permit_body()) {
+        if (body_format == 1)
+            os << m_body_;
+        else if (body_format == 2) {
+            // TODO: transfer encoding
+        }
+    }
+
     return os.str();
 }
