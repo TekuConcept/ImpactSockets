@@ -25,11 +25,10 @@ using namespace http;
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 
-method_token::method_token()
-{}
+message_traits::method_t::method_t() = default;
 
 
-method_token::method_token(std::string __method_name)
+message_traits::method_t::method_t(std::string __method_name)
 {
     if (!_M_valid_name(__method_name))
         throw impact_error("Invalid method name");
@@ -37,21 +36,16 @@ method_token::method_token(std::string __method_name)
 }
 
 
-method_token::method_token(method __id)
-{
-    m_name_ = method_string(__id);
-}
+message_traits::method_t::method_t(http::method __id)
+{ m_name_ = method_string(__id); }
 
 
-method_token::~method_token()
-{}
+message_traits::method_t::~method_t() = default;
 
 
 bool
-method_token::_M_valid_name(const std::string& __method) const
-{
-    return internal::is_token(__method);
-}
+message_traits::method_t::_M_valid_name(const std::string& __method) const
+{ return internal::is_token(__method); }
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
@@ -59,11 +53,10 @@ method_token::_M_valid_name(const std::string& __method) const
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 
-target_token::target_token()
-{}
+message_traits::target_t::target_t() = default;
 
 
-target_token::target_token(std::string __target_name)
+message_traits::target_t::target_t(std::string __target_name)
 {
     if ((m_type_ = _M_valid_target(__target_name)) == path_type::UNKNOWN)
         throw impact_error("Invalid target path");
@@ -71,12 +64,11 @@ target_token::target_token(std::string __target_name)
 }
 
 
-target_token::~target_token()
-{}
+message_traits::target_t::~target_t() = default;
 
 
-target_token::path_type
-target_token::_M_valid_target(const std::string& __target) const
+message_traits::target_t::path_type
+message_traits::target_t::_M_valid_target(const std::string& __target) const
 {
     if (__target.size() == 0) return path_type::UNKNOWN;
     if (__target == "*") return path_type::ASTERISK;
@@ -145,8 +137,8 @@ message_traits::create(std::string __line)
             request_traits* request    = new request_traits();
             request->m_method_.m_name_ = match[2].str();
             // full validation: regex validated target charset,
-            // target_token will validate formatting and id the type
-            request->m_target_         = target_token(match[3].str());
+            // target_token will now validate formatting and determine the type
+            request->m_target_         = message_traits::target_t(match[3].str());
             result = message_traits_ptr((message_traits*)request);
         }
         else if (match[5].str().size() != 0) {
@@ -171,6 +163,31 @@ message_traits::~message_traits()
 {}
 
 
+namespace impact {
+namespace http {
+
+std::ostream&
+operator<<(
+    std::ostream&         __os,
+    const request_traits& __traits)
+{
+    __os << __traits.to_string();
+    return __os;
+}
+
+
+std::ostream&
+operator<<(
+    std::ostream&          __os,
+    const response_traits& __traits)
+{
+    __os << __traits.to_string();
+    return __os;
+}
+
+}}
+
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    request_traits
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -183,8 +200,8 @@ request_traits::request_traits()
 request_traits::request_traits(
     std::string __method,
     std::string __target)
-: m_method_(method_token(__method)),
-  m_target_(target_token(__target))
+: m_method_(message_traits::method_t(__method)),
+  m_target_(message_traits::target_t(__target))
 {
     m_http_major_ = 1;
     m_http_minor_ = 1;
@@ -192,8 +209,8 @@ request_traits::request_traits(
 
 
 request_traits::request_traits(
-    method_token __method,
-    target_token __target)
+    message_traits::method_t __method,
+    message_traits::target_t __target)
 : m_method_(__method),
   m_target_(__target)
 {
@@ -206,15 +223,13 @@ request_traits::~request_traits()
 {}
 
 
-message_type
+message_traits::message_type
 request_traits::type() const noexcept
-{
-    return message_type::REQUEST;
-}
+{ return message_type::REQUEST; }
 
 
 std::string
-request_traits::start_line() const noexcept
+request_traits::to_string() const noexcept
 {
     std::ostringstream os;
     os << m_method_.name() << " " << m_target_.name() << " ";
@@ -298,15 +313,13 @@ response_traits::~response_traits()
 {}
 
 
-message_type
+message_traits::message_type
 response_traits::type() const noexcept
-{
-    return message_type::RESPONSE;
-}
+{ return message_type::RESPONSE; }
 
 
 std::string
-response_traits::start_line() const noexcept
+response_traits::to_string() const noexcept
 {
     std::ostringstream os;
     os << "HTTP/" << m_http_major_ << "." << m_http_minor_ << " ";

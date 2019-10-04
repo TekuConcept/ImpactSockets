@@ -12,7 +12,7 @@
 #include <functional>
 #include "utils/cloneable.h"
 #include "utils/case_string.h"
-#include "rfc/http/header_token.h"
+#include "rfc/http/header.h"
 
 namespace impact {
 namespace http {
@@ -40,7 +40,7 @@ namespace http {
         typedef std::function<std::string(const std::string&)> codec_callback;
         typedef std::vector<chunk_extension_token> chunk_extension_list;
         typedef std::function<void(chunk_extension_list**)> extension_callback;
-        typedef std::vector<header_token> header_list;
+        typedef std::vector<header_t> header_list;
         typedef std::function<void(header_list**)> trailer_callback;
         
         transfer_encoding(std::string name, codec_callback&& encoder,

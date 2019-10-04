@@ -3,8 +3,10 @@
  */
 
 #include <iostream>
+#include <sstream>
 #include <regex>
-#include "rfc/http/header_token.h"
+
+#include "rfc/http/header.h"
 #include "rfc/http/abnf_ops.h"
 #include "utils/abnf_ops.h"
 #include "utils/string_ops.h"
@@ -19,7 +21,22 @@ using namespace http;
 #define HTAB(c)       impact::internal::HTAB(c)
 
 
-header_token::header_token(std::string __line)
+namespace impact {
+namespace http {
+
+std::ostream&
+operator<<(
+    std::ostream&   __os,
+    const header_t& __header)
+{
+    __os << __header.to_string();
+    return __os;
+}
+
+}}
+
+
+header_t::header_t(std::string __line)
 {
     const std::string grammar_error =
         "line does not follow grammar rules";
@@ -74,7 +91,7 @@ header_token::header_token(std::string __line)
 }
 
 
-header_token::header_token(
+header_t::header_t(
     std::string __name,
     std::string __value)
 : m_field_name_(__name.c_str(), __name.size()), m_field_value_(__value)
@@ -92,7 +109,7 @@ header_token::header_token(
 }
 
 
-header_token::header_token(
+header_t::header_t(
     enum field_name  __id,
     std::string      __value)
 {
@@ -105,12 +122,20 @@ header_token::header_token(
 }
 
 
-header_token::~header_token()
-{}
+header_t::~header_t() = default;
+
+
+std::string
+header_t::to_string() const
+{
+    std::ostringstream os;
+    os << m_field_name_ << ": " << m_field_value_ << "\r\n";
+    return os.str();
+}
 
 
 bool
-header_token::_M_valid_value(const std::string& __value) const
+header_t::_M_valid_value(const std::string& __value) const
 {
     if (__value.size() == 0) return true;
     if (!VCHAR(__value[0])) return false;
