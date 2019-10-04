@@ -44,6 +44,8 @@ std::string
 http::field_name_string(field_name __id) noexcept
 {
     switch (__id) {
+    case field_name::SET_COOKIE:          return "Set-Cookie";
+
     case field_name::CONNECTION:          return "Connection";
     case field_name::CONTENT_LENGTH:      return "Content-Length";
     case field_name::HOST:                return "Host";

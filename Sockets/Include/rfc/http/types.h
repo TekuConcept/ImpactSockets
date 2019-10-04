@@ -22,6 +22,9 @@ namespace http {
     } Method;
     
     typedef enum class field_name {
+        /* - RFC 6265 - */
+        SET_COOKIE,          // Section 5.2
+
         /* - RFC 7230 - */
         CONNECTION,          // Section 6.1
         CONTENT_LENGTH,      // Section 3.3.2

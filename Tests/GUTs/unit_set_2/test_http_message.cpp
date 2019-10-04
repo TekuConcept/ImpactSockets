@@ -9,26 +9,28 @@
 using namespace impact;
 using namespace http;
 
-#define NO_THROW(code) try { {code} } catch (...) { FAIL(); }
-#define THROW(code)    try { {code} FAIL(); } catch (...) { }
+#define NO_THROW_BEGIN try {
+#define NO_THROW_END   } catch (...) { FAIL(); }
+#define THROW_BEGIN   try {
+#define THROW_END     FAIL(); } catch (...) { }
 
 TEST(test_http_message, message_t)
 {
-    NO_THROW(
+    NO_THROW_BEGIN
         std::ostringstream os;
         message_t message("GET", "/test");
         os << message;
         EXPECT_EQ(os.str(), "GET /test HTTP/1.1\r\n\r\n");
-    )
+    NO_THROW_END
 
-    NO_THROW(
+    NO_THROW_BEGIN
         std::ostringstream os;
         message_t message(method::GET, "/test");
         os << message;
         EXPECT_EQ(os.str(), "GET /test HTTP/1.1\r\n\r\n");
-    )
+    NO_THROW_END
 
-    NO_THROW(
+    NO_THROW_BEGIN
         std::ostringstream os;
         message_t message(
             "GET"
@@ -44,19 +46,19 @@ TEST(test_http_message, message_t)
             "Host: localhost\r\n"
             "Accept-Encoding: utf8\r\n"
             "\r\n");
-    )
+    NO_THROW_END
 
-    NO_THROW(
+    NO_THROW_BEGIN
         std::ostringstream os;
         message_t message(200, "OK");
         os << message;
         EXPECT_EQ(os.str(), "HTTP/1.1 200 OK\r\n\r\n");
-    )
+    NO_THROW_END
 
-    NO_THROW(
+    NO_THROW_BEGIN
         std::ostringstream os;
         message_t message(status_code::OK);
         os << message;
         EXPECT_EQ(os.str(), "HTTP/1.1 200 OK\r\n\r\n");
-    )
+    NO_THROW_END
 }

@@ -16,8 +16,6 @@ namespace http {
 
     class message_t {
     public:
-        typedef std::vector<header_t> header_list;
-
         struct limits {
             unsigned int max_line_length    = 8000;    // 8 kB
             unsigned int max_header_limit   = 50;
@@ -80,6 +78,13 @@ namespace http {
         std::string to_string() const;
         inline const message_traits* traits() const
         { return m_traits_.get(); }
+
+        /*  RFC7230 - 3.2.2
+            A sender MUST NOT generate multiple header fields with the same field
+            name in a message unless either the entire field value for that
+            header field is defined as a comma-separated list [i.e., #(values)]
+            or the header field is a well-known exception
+        */
         inline header_list& headers()
         { return m_headers_; }
 

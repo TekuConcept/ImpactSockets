@@ -139,7 +139,7 @@ message_t::to_string() const
 
     std::ostringstream os;
     os << m_traits_->to_string();
-    for (const auto& header : m_headers_)
+    for (const auto& header : m_headers_.m_headers_)
         os << header;
     os << "\r\n";
     // TODO: message-body
