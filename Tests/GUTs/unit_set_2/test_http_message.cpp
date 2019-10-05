@@ -151,13 +151,15 @@ public:
     void
     send(std::unique_ptr<message_t> message)
     {
+        // TODO: throw if message exists
+        // TODO: throw if message pipe's sync is locked
         if (message == nullptr) return;
         m_stream_ << message->to_string();
         if (message->pipe()) {
             m_message_ = std::move(message);
             m_message_->pipe()->set_sink([&](const std::string& __chunk) {
                 m_stream_ << __chunk;
-                // TODO: more elegantly reset m_message_ on end of message
+                // TODO: more elegantly reset m_message_ on end-of-payload
                 if (__chunk.size() == 0 || __chunk[0] == '0')
                     m_message_.reset(nullptr);
             });
@@ -179,20 +181,14 @@ TEST(test_http_message, piped_body)
         header_t(field_name::HOST, "www.example.com")
     });
 
-    auto* pipe = new transfer_pipe();
-    message->pipe() = std::unique_ptr<transfer_pipe>(pipe);
+    std::shared_ptr<transfer_pipe> pipe =
+        std::make_shared<transfer_pipe>();
+    message->pipe() = pipe;
 
     connection.send(std::unique_ptr<message_t>(message));
 
     pipe->send("Hello World!");
     pipe->send(pipe->eop());
-
-    // TODO: safe-guard against segfault
-    //       pipe is owned by message, which is automatically
-    //       deleted after the EOP signal is sent
-    // TODO: lock pipe sync - the pipe's set_sync must not be
-    //       altered by any object other than the current owner
-    //       while an outbound payload is in progress
 
     EXPECT_EQ(stream.str(),
         "GET / HTTP/1.1\r\n"

@@ -34,11 +34,17 @@ namespace http {
 
         size_t send(const std::string& data);
 
-        // sink will be used until the end-of-payload signal is sent;
-        // the sink needs to be set again to resend the payload or to
-        // send a new payload
-        inline void set_sink(std::function<void(const std::string&)> sink)
-        { m_sink_ = sink; }
+        // sink is used until the end-of-payload message is sent;
+        // when end-of-payload is sent, the sink is released and
+        // another sink can be set thereafter;
+        //
+        // set_sink() will throw if a sink already exists
+        //
+        // this behavior prevents the sink from changing while a
+        // message payload is still being processed by a downstream
+        // connection
+        void set_sink(std::function<void(const std::string&)> sink);
+        inline bool has_sink() const { return m_sink_ != nullptr; }
 
         inline const std::string& eop() const
         { return transfer_pipe::EOP; }

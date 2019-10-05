@@ -4,6 +4,8 @@
 
 #include "rfc/http/transfer_pipe.h"
 
+#include "utils/impact_error.h"
+
 using namespace impact;
 using namespace http;
 
@@ -70,4 +72,12 @@ transfer_pipe::send(const std::string& __chunk)
         m_sink_ = nullptr;
 
     return __chunk.size();
+}
+
+
+void
+transfer_pipe::set_sink(std::function<void(const std::string&)> __sink)
+{
+    if (m_sink_) throw impact_error("sink already exists");
+    else m_sink_ = __sink;
 }

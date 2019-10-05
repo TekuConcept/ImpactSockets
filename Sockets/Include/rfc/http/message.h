@@ -77,7 +77,7 @@ namespace http {
         inline std::string& body()
         { return m_body_; }
 
-        inline std::unique_ptr<transfer_pipe>& pipe()
+        inline std::shared_ptr<transfer_pipe>& pipe()
         { return m_pipe_; }
 
         message_t clone() const;
@@ -86,7 +86,7 @@ namespace http {
         std::unique_ptr<message_traits> m_traits_;
         header_list m_headers_;
         std::string m_body_;
-        std::unique_ptr<transfer_pipe> m_pipe_;
+        std::shared_ptr<transfer_pipe> m_pipe_;
 
         message_t();
 

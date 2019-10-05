@@ -56,6 +56,24 @@ TEST(test_http_transfer_pipe, set_codings)
 }
 
 
+TEST(test_http_transfer_pipe, set_sync)
+{
+    transfer_pipe pipe;
+    NO_THROW_BEGIN
+        pipe.set_sink([&](const std::string&) {});
+    NO_THROW_END
+    THROW_BEGIN
+        // sync already exists
+        pipe.set_sink([&](const std::string&) {});
+    THROW_END
+    NO_THROW_BEGIN
+        // sync is cleared with EOP message
+        pipe.send(pipe.EOP);
+        pipe.set_sink([&](const std::string&) {});
+    NO_THROW_END
+}
+
+
 TEST(test_http_transfer_pipe, send)
 {
     transfer_pipe pipe;
