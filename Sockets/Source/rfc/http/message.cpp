@@ -141,42 +141,52 @@ message_t::to_string() const
     // 1: content-length
     // 2: transfer-encoding
     // 3: not allowed
-    int body_format = 0;
     std::ostringstream os;
     os << m_traits_->to_string();
 
     for (const auto& header : m_headers_.m_headers_) {
-        if (header.m_describes_body_size_) {
+        if (header.m_describes_body_size_)
             // overwrite or inject header values
-            if (/* transfer-encoding= */NULL)
-                 body_format = 2;
-            else body_format = 1;
-        }
+            continue;
         else os << header;
     }
 
-    body_format = m_traits_->permit_length_header() ?
-        body_format : 3;
-    if (body_format < 2 && m_body_.size() > 0) {
-        header_t header(
-            field_name::CONTENT_LENGTH,
-            std::to_string(m_body_.size()));
-        body_format = 1;
-        os << header;
-    }
-    else if (body_format == 2) {
-        // generate Transfer-Encoding header
-        // concatenate encoder types in order of application
+    if (m_traits_->permit_length_header()) {
+        if (m_encoding_ != nullptr) {
+            os << field_name_string(field_name::TRANSFER_ENCODING);
+            os << ": ";
+            bool first = true;
+            for (const auto& coding : m_encoding_->codings()) {
+                if (!first) os << ", ";
+                os << coding->name();
+                first = false;
+            }
+            os << "\r\n";
+        }
+        else if (m_body_.size() > 0) {
+            header_t header(
+                field_name::CONTENT_LENGTH,
+                std::to_string(m_body_.size()));
+            os << header;
+        }
     }
 
     os << "\r\n";
 
     if (m_traits_->permit_body()) {
-        if (body_format == 1)
-            os << m_body_;
-        else if (body_format == 2) {
-            // TODO: transfer encoding
+        if (m_encoding_ != nullptr) {
+            transfer_encoding::status status;
+            do {
+                std::string buffer;
+                status = m_encoding_->on_data_requested(&buffer);
+                for (const auto& coding : m_encoding_->codings())
+                    buffer = coding->encode(buffer);
+                os << buffer;
+            }
+            while (status == transfer_encoding::status::CONTINUE);
         }
+        else if (m_body_.size() > 0)
+            os << m_body_;
     }
 
     return os.str();

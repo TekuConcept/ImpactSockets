@@ -43,7 +43,7 @@ public:
 };
 
 
-TEST(test_http_transfer_encoding, basic_coding)
+TEST(test_http_transfer_coding, basic_coding)
 {
     NO_THROW_BEGIN
         good_transfer_coding good;
@@ -59,7 +59,7 @@ TEST(test_http_transfer_encoding, basic_coding)
 }
 
 
-TEST(test_http_transfer_encoding, chunked_extension)
+TEST(test_http_transfer_coding, chunked_extension)
 {
     NO_THROW_BEGIN
         chunked_coding::extension_t extension("foo");
@@ -109,7 +109,7 @@ TEST(test_http_transfer_encoding, chunked_extension)
 class dummy_chunked_observer : public chunked_observer {
 public:
     ~dummy_chunked_observer() = default;
-    
+
     void
     on_next_chunk(
         std::vector<chunked_coding::extension_t>& __extensions,
@@ -119,7 +119,7 @@ public:
         __extensions.push_back(chunked_coding::extension_t("bar", "baz"));
         (void)__buffer;
     }
-    
+
     void
     on_last_chunk(
         std::vector<chunked_coding::extension_t>& __extensions,
@@ -136,7 +136,7 @@ public:
 };
 
 
-TEST(test_http_transfer_encoding, chunked_coding)
+TEST(test_http_transfer_coding, chunked_coding)
 {
     NO_THROW_BEGIN
         chunked_coding coding;

@@ -6,10 +6,12 @@
 #define _IMPACT_HTTP_MESSAGE_H_
 
 #include <vector>
+#include <memory>
 #include <iostream>
 
 #include "rfc/http/header_list.h"
 #include "rfc/http/message_traits.h"
+#include "rfc/http/transfer_encoding.h"
 
 namespace impact {
 namespace http {
@@ -60,28 +62,15 @@ namespace http {
         { return m_headers_; }
 
         // ( not the same as payload body )
-        // if a transfer encoder is specified for this
-        // message; the body() value here will be ignored
-        // because it will be retrieved through the encoder
+        // if a transfer encoding is specified, the body()
+        // value here will be ignored because it will be
+        // retrieved through the encoding callbacks
         inline std::string& body()
         { return m_body_; }
 
-        /*
-        A recipient MUST be able to parse the chunked transfer coding
-        (Section 4.1) because it plays a crucial role in framing messages
-        when the payload body size is not known in advance.  A sender MUST
-        NOT apply chunked more than once to a message body (i.e., chunking an
-        already chunked message is not allowed).  If any transfer coding
-        other than chunked is applied to a request payload body, the sender
-        MUST apply chunked as the final transfer coding to ensure that the
-        message is properly framed.  If any transfer coding other than
-        chunked is applied to a response payload body, the sender MUST either
-        apply chunked as the final transfer coding or terminate the message
-        by closing the connection.
-        */
-        // void set_transfer_encoders({});
-        // - use last chunked encoder and discard all others
-        // - set chunked encoder as last encoder
+        inline void set_transfer_encoding(
+            std::shared_ptr<transfer_encoding> encoding)
+        { m_encoding_ = encoding; }
 
         friend std::ostream& operator<<(std::ostream&, const message_t&);
 
@@ -89,6 +78,7 @@ namespace http {
         message_traits_ptr m_traits_;
         header_list m_headers_;
         std::string m_body_;
+        std::shared_ptr<transfer_encoding> m_encoding_;
 
         message_t();
     };
