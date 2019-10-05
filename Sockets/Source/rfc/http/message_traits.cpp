@@ -99,7 +99,7 @@ message_traits::target_t::_M_valid_target(const std::string& __target) const
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 
-message_traits_ptr
+std::unique_ptr<message_traits>
 message_traits::create(std::string __line)
 {
     /* match indicies
@@ -121,7 +121,7 @@ message_traits::create(std::string __line)
     if (__line.size() == 0)
         throw impact_error("no value");
     
-    message_traits_ptr result;
+    std::unique_ptr<message_traits> result;
     
     std::smatch match;
     if (std::regex_match(__line, match, k_start_line_regex)) {
@@ -139,14 +139,14 @@ message_traits::create(std::string __line)
             // full validation: regex validated target charset,
             // target_token will now validate formatting and determine the type
             request->m_target_         = message_traits::target_t(match[3].str());
-            result = message_traits_ptr((message_traits*)request);
+            result.reset((message_traits*)request);
         }
         else if (match[5].str().size() != 0) {
             http_version               = match[6].str();
             response_traits* response  = new response_traits();
             response->m_status_code_   = std::stoi(match[7].str());
             response->m_reason_phrase_ = match[8].str();
-            result = message_traits_ptr((message_traits*)response);
+            result.reset((message_traits*)response);
         }
         else throw impact_error("line does not follow grammar rules");
         
@@ -193,8 +193,7 @@ operator<<(
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 
-request_traits::request_traits()
-{}
+request_traits::request_traits() = default;
 
 
 request_traits::request_traits(
@@ -219,8 +218,7 @@ request_traits::request_traits(
 }
 
 
-request_traits::~request_traits()
-{}
+request_traits::~request_traits() = default;
 
 
 message_traits::message_type
@@ -241,9 +239,7 @@ request_traits::to_string() const noexcept
 
 bool
 request_traits::permit_user_length_header() const noexcept
-{
-    return (m_method_.name() == "HEAD");
-}
+{ return (m_method_.name() == "HEAD"); }
 
 
 bool
@@ -260,13 +256,24 @@ request_traits::permit_body() const noexcept
 }
 
 
+std::unique_ptr<message_traits>
+request_traits::clone()
+{
+    auto* traits = new request_traits();
+    traits->m_http_major_ = this->m_http_major_;
+    traits->m_http_minor_ = this->m_http_minor_;
+    traits->m_method_     = this->m_method_;
+    traits->m_target_     = this->m_target_;
+    return std::unique_ptr<message_traits>(traits);
+}
+
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
    response_traits
 \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 
-response_traits::response_traits()
-{}
+response_traits::response_traits() = default;
 
 
 response_traits::response_traits(
@@ -309,8 +316,7 @@ response_traits::_M_valid_phrase(const std::string& __data) const noexcept
 }
 
 
-response_traits::~response_traits()
-{}
+response_traits::~response_traits() = default;
 
 
 message_traits::message_type
@@ -332,9 +338,7 @@ response_traits::to_string() const noexcept
 
 bool
 response_traits::permit_user_length_header() const noexcept
-{
-    return (m_status_code_ == 304); /* Not Modified */
-}
+{ return (m_status_code_ == 304); /* Not Modified */ }
 
 
 bool
@@ -350,6 +354,16 @@ response_traits::permit_length_header() const noexcept
 
 bool
 response_traits::permit_body() const noexcept
+{ return permit_length_header() && (m_status_code_ != 304); }
+
+
+std::unique_ptr<message_traits>
+response_traits::clone()
 {
-    return permit_length_header() && (m_status_code_ != 304);
+    auto* traits = new response_traits();
+    traits->m_http_major_    = this->m_http_major_;
+    traits->m_http_minor_    = this->m_http_minor_;
+    traits->m_status_code_   = this->m_status_code_;
+    traits->m_reason_phrase_ = this->m_reason_phrase_;
+    return std::unique_ptr<message_traits>(traits);
 }

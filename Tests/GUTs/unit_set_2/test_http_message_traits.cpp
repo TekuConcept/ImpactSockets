@@ -13,6 +13,10 @@ using namespace http;
 
 #define NO_THROW(code) try { {code} } catch (...) { FAIL(); }
 #define THROW(code)    try { {code} FAIL(); } catch (...) { }
+#define NO_THROW_BEGIN try {
+#define NO_THROW_END   } catch (...) { FAIL(); }
+#define THROW_BEGIN    try {
+#define THROW_END      FAIL(); } catch (...) { }
 
 
 TEST(test_http_method_token, method_t)
@@ -37,14 +41,14 @@ TEST(test_http_method_token, method_t)
     THROW(message_traits::method_t token(" ");)
 
     // [- INFO -]
-    NO_THROW(
+    NO_THROW_BEGIN
         message_traits::method_t token("GET");
         EXPECT_EQ(token.name(), "GET");
-    )
-    NO_THROW( // skip method name validation check
+    NO_THROW_END
+    NO_THROW_BEGIN // skip method name validation check
         message_traits::method_t token(method::CONNECT);
         EXPECT_EQ(token.name(), "CONNECT");
-    )
+    NO_THROW_END
 }
 
 
@@ -66,38 +70,38 @@ TEST(test_http_target_token, target_t)
       authority-form: www.example.com:80
     */
     
-    NO_THROW(
+    NO_THROW_BEGIN
         message_traits::target_t token("*");
         EXPECT_EQ(token.type(),
             message_traits::target_t::path_type::ASTERISK);
         EXPECT_EQ(token.name(), "*");
-    )
-    NO_THROW(
+    NO_THROW_END
+    NO_THROW_BEGIN
         message_traits::target_t token("/");
         EXPECT_EQ(token.type(),
             message_traits::target_t::path_type::ORIGIN);
         EXPECT_EQ(token.name(), "/");
-    )
-    NO_THROW(
+    NO_THROW_END
+    NO_THROW_BEGIN
         message_traits::target_t token("/where?q=now");
         EXPECT_EQ(token.type(),
             message_traits::target_t::path_type::ORIGIN);
         EXPECT_EQ(token.name(), "/where?q=now");
-    )
-    NO_THROW(
+    NO_THROW_END
+    NO_THROW_BEGIN
         message_traits::target_t token(
             "http://www.example.org/pub/WWW/TheProject.html");
         EXPECT_EQ(token.type(),
             message_traits::target_t::path_type::ABSOLUTE);
         EXPECT_EQ(token.name(),
             "http://www.example.org/pub/WWW/TheProject.html");
-    )
-    NO_THROW(
+    NO_THROW_END
+    NO_THROW_BEGIN
         message_traits::target_t token("www.example.com:80");
         EXPECT_EQ(token.type(),
             message_traits::target_t::path_type::AUTHORITY);
         EXPECT_EQ(token.name(), "www.example.com:80");
-    )
+    NO_THROW_END
     THROW(message_traits::target_t token("//bad/origin");)
     THROW(message_traits::target_t token("");)
     THROW(message_traits::target_t token(" ");)
@@ -132,12 +136,12 @@ TEST(test_http_request_traits, valid_target)
 
 TEST(test_http_request_traits, to_string)
 {
-    NO_THROW(
+    NO_THROW_BEGIN
         request_traits request("GET", "/");
         EXPECT_EQ(request.to_string(), "GET / HTTP/1.1\r\n");
-    )
+    NO_THROW_END
     
-    NO_THROW(
+    NO_THROW_BEGIN
         auto ptr = message_traits::create("GET / HTTP/1.1\r\n");
         ASSERT_EQ(ptr->type(), message_traits::message_type::REQUEST);
         request_traits& request = *(request_traits*)ptr.get();
@@ -145,7 +149,7 @@ TEST(test_http_request_traits, to_string)
         EXPECT_EQ(request.target(), "/");
         EXPECT_EQ(request.http_major(), 1);
         EXPECT_EQ(request.http_minor(), 1);
-    )
+    NO_THROW_END
     
     THROW(auto ptr = message_traits::create("GET / HTTP");)
 }
@@ -153,10 +157,10 @@ TEST(test_http_request_traits, to_string)
 
 TEST(test_http_request_traits, type)
 {
-    NO_THROW(
+    NO_THROW_BEGIN
         request_traits request("GET", "/");
         EXPECT_EQ(request.type(), message_traits::message_type::REQUEST);
-    )
+    NO_THROW_END
 }
 
 
@@ -176,30 +180,44 @@ TEST(test_http_request_traits, permit)
 }
 
 
+TEST(test_http_request_traits, clone)
+{
+    NO_THROW_BEGIN
+        request_traits request("GET", "/");
+        request_traits clone =
+            std::move(*(request_traits*)request.clone().get());
+        EXPECT_EQ(request.method(),     clone.method());
+        EXPECT_EQ(request.target(),     clone.target());
+        EXPECT_EQ(request.http_major(), clone.http_major());
+        EXPECT_EQ(request.http_minor(), clone.http_minor());
+    NO_THROW_END
+}
+
+
 TEST(test_http_response_traits, create)
 {
-    NO_THROW( // manually defined code and phrase
+    NO_THROW_BEGIN // manually defined code and phrase
         response_traits response(200, "OK");
         EXPECT_EQ(response.code(), 200);
         EXPECT_EQ(response.reason_phrase(), "OK");
-    )
+    NO_THROW_END
     
-    NO_THROW( // pre-defined code and phrase
+    NO_THROW_BEGIN // pre-defined code and phrase
         response_traits response(status_code::OK);
         EXPECT_EQ(response.code(), 200);
         EXPECT_EQ(response.reason_phrase(), "OK");
-    )
+    NO_THROW_END
 }
 
 
 TEST(test_http_response_traits, to_string)
 {
-    NO_THROW(
+    NO_THROW_BEGIN
         response_traits response(200, "OK");
         EXPECT_EQ(response.to_string(), "HTTP/1.1 200 OK\r\n");
-    )
+    NO_THROW_END
     
-    NO_THROW(
+    NO_THROW_BEGIN
         auto ptr = message_traits::create("HTTP/1.1 200 OK\r\n");
         ASSERT_EQ(ptr->type(), message_traits::message_type::RESPONSE);
         response_traits& response = *(response_traits*)ptr.get();
@@ -207,7 +225,7 @@ TEST(test_http_response_traits, to_string)
         EXPECT_EQ(response.reason_phrase(), "OK");
         EXPECT_EQ(response.http_major(), 1);
         EXPECT_EQ(response.http_minor(), 1);
-    )
+    NO_THROW_END
     
     THROW(auto ptr = message_traits::create("HTTP 200");)
 }
@@ -215,10 +233,10 @@ TEST(test_http_response_traits, to_string)
 
 TEST(test_http_response_traits, type)
 {
-    NO_THROW(
+    NO_THROW_BEGIN
         response_traits response = response_traits(200, "OK");
         EXPECT_EQ(response.type(), message_traits::message_type::RESPONSE);
-    )
+    NO_THROW_END
 }
 
 
@@ -235,10 +253,10 @@ TEST(test_http_response_traits, valid_reason_phrase)
     NO_THROW(response_traits response = response_traits(200, "OK");)
     // reason phrase must contain characters in the set
     // { HTAB, SP, VCHAR, OBS_TEXT }
-    THROW(
+    THROW_BEGIN
         response_traits response =
             response_traits(200, std::string("\x00\x7F", 2));
-    )
+    THROW_END
 }
 
 
@@ -255,4 +273,18 @@ TEST(test_http_response_traits, permit)
     EXPECT_FALSE(traits.permit_length_header());
     traits = response_traits(100, "Continue");
     EXPECT_FALSE(traits.permit_length_header());
+}
+
+
+TEST(test_http_response_traits, clone)
+{
+    NO_THROW_BEGIN
+        response_traits response(status_code::OK);
+        response_traits clone =
+            std::move(*(response_traits*)response.clone().get());
+        EXPECT_EQ(response.code(),          clone.code());
+        EXPECT_EQ(response.reason_phrase(), clone.reason_phrase());
+        EXPECT_EQ(response.http_major(),    clone.http_major());
+        EXPECT_EQ(response.http_minor(),    clone.http_minor());
+    NO_THROW_END
 }

@@ -17,7 +17,7 @@ namespace http {
     public:
         enum class message_type { UNKNOWN, REQUEST, RESPONSE };
 
-        static std::shared_ptr<message_traits> create(std::string line);
+        static std::unique_ptr<message_traits> create(std::string line);
         virtual ~message_traits();
 
         virtual message_type type() const noexcept = 0;
@@ -29,16 +29,17 @@ namespace http {
         inline int http_major() const noexcept { return m_http_major_; }
         inline int http_minor() const noexcept { return m_http_minor_; }
 
+        virtual std::unique_ptr<message_traits> clone() = 0;
 
         class method_t {
-        public:
+         public:
             method_t(std::string method_name);
             method_t(method id);
             ~method_t();
 
             inline const std::string& name() const noexcept { return m_name_; }
 
-        private:
+         private:
             std::string m_name_;
             method_t();
             bool _M_valid_name(const std::string&) const;
@@ -49,7 +50,7 @@ namespace http {
 
 
         class target_t {
-        public:
+         public:
             enum class path_type { ASTERISK, ORIGIN, AUTHORITY, ABSOLUTE, UNKNOWN };
 
             target_t(std::string target_name);
@@ -58,7 +59,7 @@ namespace http {
             inline const std::string& name() const noexcept { return m_target_; }
             inline path_type type() const noexcept { return m_type_; }
 
-        private:
+         private:
             std::string m_target_;
             path_type m_type_;
 
@@ -72,7 +73,6 @@ namespace http {
         int m_http_major_;
         int m_http_minor_;
     };
-    typedef std::shared_ptr<message_traits> message_traits_ptr;
 
 
     class request_traits : public message_traits {
@@ -91,6 +91,8 @@ namespace http {
         { return m_method_.name(); }
         inline const std::string& target() const noexcept
         { return m_target_.name(); }
+
+        std::unique_ptr<message_traits> clone();
 
         friend std::ostream& operator<<(std::ostream&, const request_traits&);
 
@@ -126,6 +128,8 @@ namespace http {
         { return m_status_code_; }
         inline const std::string& reason_phrase() const noexcept
         { return m_reason_phrase_; }
+
+        std::unique_ptr<message_traits> clone();
 
         friend std::ostream& operator<<(std::ostream&, const response_traits&);
 

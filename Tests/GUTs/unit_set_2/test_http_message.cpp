@@ -123,43 +123,83 @@ TEST(test_http_message, simple_body)
 }
 
 
-class plain_transfer_encoding : public transfer_encoding {
+TEST(test_http_message, clone)
+{
+    NO_THROW_BEGIN
+        message_t message(
+            "GET", "/test",
+            {
+                header_t(field_name::HOST, "localhost"),
+                header_t(field_name::ACCEPT_ENCODING, "utf8")
+            }
+        );
+        message_t clone = message.clone();
+        EXPECT_EQ(clone.to_string(),
+            "GET /test HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Accept-Encoding: utf8\r\n"
+            "\r\n");
+    NO_THROW_END
+}
+
+
+class dummy_connection {
 public:
-    plain_transfer_encoding()
-    : m_state_(0) { }
+    dummy_connection(std::iostream& stream)
+    : m_stream_(stream) {}
 
     void
-    on_data_requested(std::string* buffer)
+    send(std::unique_ptr<message_t> message)
     {
-        switch (m_state_) {
-        case 0:
-            m_state_++;
-            *buffer = "Hello World!";
-            break;
-        case 1:
-            m_state_++;
-            *buffer = "Good Bye!";
-            break;
-        default: *buffer = ""; break;
+        if (message == nullptr) return;
+        m_stream_ << message->to_string();
+        if (message->pipe()) {
+            m_message_ = std::move(message);
+            m_message_->pipe()->set_sink([&](const std::string& __chunk) {
+                m_stream_ << __chunk;
+                // TODO: more elegantly reset m_message_ on end of message
+                if (__chunk.size() == 0 || __chunk[0] == '0')
+                    m_message_.reset(nullptr);
+            });
         }
     }
+
 private:
-    int m_state_;
+    std::iostream& m_stream_;
+    std::unique_ptr<message_t> m_message_;
 };
 
 
-TEST(test_http_message, encoded_body)
+TEST(test_http_message, piped_body)
 {
-    message_t message = message_t::get();
-    message.set_transfer_encoding(
-        std::make_shared<plain_transfer_encoding>());
-    EXPECT_EQ(message.to_string(),
+    std::stringstream stream;
+    dummy_connection connection(stream);
+
+    message_t* message = new message_t("GET", "/", {
+        header_t(field_name::HOST, "www.example.com")
+    });
+
+    auto* pipe = new transfer_pipe();
+    message->pipe() = std::unique_ptr<transfer_pipe>(pipe);
+
+    connection.send(std::unique_ptr<message_t>(message));
+
+    pipe->send("Hello World!");
+    pipe->send(pipe->eop());
+
+    // TODO: safe-guard against segfault
+    //       pipe is owned by message, which is automatically
+    //       deleted after the EOP signal is sent
+    // TODO: lock pipe sync - the pipe's set_sync must not be
+    //       altered by any object other than the current owner
+    //       while an outbound payload is in progress
+
+    EXPECT_EQ(stream.str(),
         "GET / HTTP/1.1\r\n"
+        "Host: www.example.com\r\n"
         "Transfer-Encoding: chunked\r\n"
         "\r\n"
         "C\r\nHello World!\r\n"
-        "9\r\nGood Bye!\r\n"
         "0\r\n"
-        "\r\n"
-    );
+        "\r\n");
 }

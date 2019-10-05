@@ -11,7 +11,7 @@
 
 #include "rfc/http/header_list.h"
 #include "rfc/http/message_traits.h"
-#include "rfc/http/transfer_encoding.h"
+#include "rfc/http/transfer_pipe.h"
 
 namespace impact {
 namespace http {
@@ -30,26 +30,35 @@ namespace http {
 
         /* [- generic ctors -] */
         message_t(
-            message_traits_ptr traits,
-            header_list headers = {});
+            std::unique_ptr<message_traits> traits,
+            header_list headers = {},
+            std::string body = "");
         // message_t(message_traits_ptr, transfer_encoding_token data);
         // message_t(message_traits_ptr, std::string data);
         /* [- request message convinience ctors -] */
         message_t(
             std::string method,
             std::string target,
-            header_list headers = {});
+            header_list headers = {},
+            std::string body = "");
         message_t(
             method method,
             std::string target,
-            header_list headers = {});
+            header_list headers = {},
+            std::string body = "");
         message_t(
             int status_code,
             std::string reason_phrase,
-            header_list headers = {});
+            header_list headers = {},
+            std::string body = "");
         message_t(
             status_code status_code,
-            header_list headers = {});
+            header_list headers = {},
+            std::string body = "");
+
+        message_t(message_t&&);
+        message_t(const message_t&) = delete;
+        void operator=(const message_t&) = delete;
 
         virtual ~message_t() = default;
 
@@ -62,27 +71,26 @@ namespace http {
         { return m_headers_; }
 
         // ( not the same as payload body )
-        // if a transfer encoding is specified, the body()
+        // if a transfer pipe is specified, the body()
         // value here will be ignored because it will be
-        // retrieved through the encoding callbacks
+        // retrieved through the pipe
         inline std::string& body()
         { return m_body_; }
 
-        // TODO: not ideal for multi-threaded applications;
-        // consider using unique_ptr instead
-        inline void set_transfer_encoding(
-            std::shared_ptr<transfer_encoding> encoding)
-        { m_encoding_ = encoding; }
+        inline std::unique_ptr<transfer_pipe>& pipe()
+        { return m_pipe_; }
 
-        friend std::ostream& operator<<(std::ostream&, const message_t&);
+        message_t clone() const;
 
     private:
-        message_traits_ptr m_traits_;
+        std::unique_ptr<message_traits> m_traits_;
         header_list m_headers_;
         std::string m_body_;
-        std::shared_ptr<transfer_encoding> m_encoding_;
+        std::unique_ptr<transfer_pipe> m_pipe_;
 
         message_t();
+
+        friend std::ostream& operator<<(std::ostream&, const message_t&);
     };
 
 }}

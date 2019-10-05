@@ -37,7 +37,7 @@ message_t
 message_t::get(std::string __target)
 {
     message_t result;
-    result.m_traits_ = message_traits_ptr(
+    result.m_traits_.reset(
         new request_traits(
             message_traits::method_t(method::GET),
             message_traits::target_t(__target))
@@ -50,7 +50,7 @@ message_t
 message_t::post(std::string __target)
 {
     message_t result;
-    result.m_traits_ = message_traits_ptr(
+    result.m_traits_.reset(
         new request_traits(
             message_traits::method_t(method::POST),
             message_traits::target_t(__target))
@@ -63,22 +63,23 @@ message_t::message_t() = default;
 
 
 message_t::message_t(
-    message_traits_ptr __traits,
-    header_list        __headers)
-: m_traits_(__traits), m_headers_(__headers)
+    std::unique_ptr<message_traits> __traits,
+    header_list                     __headers,
+    std::string                     __body)
+: m_traits_(std::move(__traits)),
+  m_headers_(__headers),
+  m_body_(__body)
 { }
 
 
 message_t::message_t(
     std::string __method,
     std::string __target,
-    header_list __headers)
-: m_headers_(__headers)
+    header_list __headers,
+    std::string __body)
+: m_headers_(__headers), m_body_(__body)
 {
-    try {
-        m_traits_ = message_traits_ptr(
-            new request_traits(__method, __target));
-    }
+    try { m_traits_.reset(new request_traits(__method, __target)); }
     catch (...) { throw; }
 }
 
@@ -86,12 +87,12 @@ message_t::message_t(
 message_t::message_t(
     method      __method,
     std::string __target,
-    header_list __headers)
-: m_headers_(__headers)
+    header_list __headers,
+    std::string __body)
+: m_headers_(__headers), m_body_(__body)
 {
     try {
-        m_traits_ = message_traits_ptr(
-            new request_traits(
+        m_traits_.reset(new request_traits(
                 message_traits::method_t(__method),
                 message_traits::target_t(__target))
         );
@@ -103,12 +104,12 @@ message_t::message_t(
 message_t::message_t(
     int         __status_code,
     std::string __reason_phrase,
-    header_list __headers)
-: m_headers_(__headers)
+    header_list __headers,
+    std::string __body)
+: m_headers_(__headers), m_body_(__body)
 {
     try {
-        m_traits_ = message_traits_ptr(
-            new response_traits(__status_code, __reason_phrase));
+        m_traits_.reset(new response_traits(__status_code, __reason_phrase));
     }
     catch (...) { throw; }
 }
@@ -116,14 +117,21 @@ message_t::message_t(
 
 message_t::message_t(
     status_code __status_code,
-    header_list __headers)
-: m_headers_(__headers)
+    header_list __headers,
+    std::string __body)
+: m_headers_(__headers), m_body_(__body)
 {
-    try {
-        m_traits_ = message_traits_ptr(
-            new response_traits(__status_code));
-    }
+    try { m_traits_.reset(new response_traits(__status_code)); }
     catch (...) { throw; }
+}
+
+
+message_t::message_t(message_t&& __rhs)
+{
+    this->m_traits_  = std::move(__rhs.m_traits_);
+    this->m_pipe_    = std::move(__rhs.m_pipe_);
+    this->m_headers_ = std::move(__rhs.m_headers_);
+    this->m_body_    = std::move(__rhs.m_body_);
 }
 
 
@@ -148,11 +156,11 @@ message_t::to_string() const
     }
 
     if (m_traits_->permit_length_header()) {
-        if (m_encoding_ != nullptr) {
+        if (m_pipe_ != nullptr) {
             os << field_name_string(field_name::TRANSFER_ENCODING);
             os << ": ";
             bool first = true;
-            for (const auto& coding : m_encoding_->codings()) {
+            for (const auto& coding : m_pipe_->codings()) {
                 if (!first) os << ", ";
                 os << coding->name();
                 first = false;
@@ -170,22 +178,20 @@ message_t::to_string() const
     os << "\r\n";
 
     if (m_traits_->permit_body()) {
-        if (m_encoding_ != nullptr) {
-            std::string buffer;
-            bool done = false;
-            do {
-                buffer.clear();
-                m_encoding_->on_data_requested(&buffer);
-                done = buffer.size() == 0;
-                for (const auto& coding : m_encoding_->codings())
-                    buffer = coding->encode(buffer);
-                os << buffer;
-            }
-            while (!done);
-        }
-        else if (m_body_.size() > 0)
+        if (m_pipe_ == nullptr && m_body_.size() > 0)
             os << m_body_;
     }
 
     return os.str();
+}
+
+
+message_t
+message_t::clone() const
+{
+    message_t result;
+    result.m_traits_  = this->m_traits_->clone();
+    result.m_headers_ = this->m_headers_;
+    result.m_body_    = this->m_body_;
+    return result;
 }
