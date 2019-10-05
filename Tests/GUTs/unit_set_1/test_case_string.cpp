@@ -57,3 +57,10 @@ TEST(test_case_string, move)
     
     EXPECT_EQ(B, "Hello World");
 }
+
+
+TEST(test_case_string, compare)
+{
+    impact::case_string a = "HELLO WORLD";
+    EXPECT_EQ(a.compare(0, 5, "hello"), 0);
+}

@@ -164,6 +164,10 @@ message_t::to_string() const
         body_format = 1;
         os << header;
     }
+    else if (body_format == 2) {
+        // generate Transfer-Encoding header
+        // concatenate encoder types in order of application
+    }
 
     os << "\r\n";
 

@@ -66,6 +66,23 @@ namespace http {
         inline std::string& body()
         { return m_body_; }
 
+        /*
+        A recipient MUST be able to parse the chunked transfer coding
+        (Section 4.1) because it plays a crucial role in framing messages
+        when the payload body size is not known in advance.  A sender MUST
+        NOT apply chunked more than once to a message body (i.e., chunking an
+        already chunked message is not allowed).  If any transfer coding
+        other than chunked is applied to a request payload body, the sender
+        MUST apply chunked as the final transfer coding to ensure that the
+        message is properly framed.  If any transfer coding other than
+        chunked is applied to a response payload body, the sender MUST either
+        apply chunked as the final transfer coding or terminate the message
+        by closing the connection.
+        */
+        // void set_transfer_encoders({});
+        // - use last chunked encoder and discard all others
+        // - set chunked encoder as last encoder
+
         friend std::ostream& operator<<(std::ostream&, const message_t&);
 
     private:
