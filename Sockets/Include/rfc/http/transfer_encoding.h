@@ -15,8 +15,6 @@ namespace http {
 
     class transfer_encoding {
     public:
-        enum class status { CONTINUE, DONE, ERROR };
-
         transfer_encoding();
         virtual ~transfer_encoding() = default;
 
@@ -31,7 +29,7 @@ namespace http {
         inline const std::vector<std::unique_ptr<transfer_coding>>& codings()
             const { return m_codings_; }
 
-        virtual status on_data_requested(std::string* buffer) = 0;
+        virtual void on_data_requested(std::string* buffer) = 0;
 
     private:
         std::vector<std::unique_ptr<transfer_coding>> m_codings_;

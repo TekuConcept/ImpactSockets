@@ -68,6 +68,8 @@ namespace http {
         inline std::string& body()
         { return m_body_; }
 
+        // TODO: not ideal for multi-threaded applications;
+        // consider using unique_ptr instead
         inline void set_transfer_encoding(
             std::shared_ptr<transfer_encoding> encoding)
         { m_encoding_ = encoding; }

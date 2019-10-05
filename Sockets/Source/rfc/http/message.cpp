@@ -137,10 +137,6 @@ message_t::to_string() const
                       [ message-body ]
     */
 
-    // 0: none
-    // 1: content-length
-    // 2: transfer-encoding
-    // 3: not allowed
     std::ostringstream os;
     os << m_traits_->to_string();
 
@@ -175,15 +171,17 @@ message_t::to_string() const
 
     if (m_traits_->permit_body()) {
         if (m_encoding_ != nullptr) {
-            transfer_encoding::status status;
+            std::string buffer;
+            bool done = false;
             do {
-                std::string buffer;
-                status = m_encoding_->on_data_requested(&buffer);
+                buffer.clear();
+                m_encoding_->on_data_requested(&buffer);
+                done = buffer.size() == 0;
                 for (const auto& coding : m_encoding_->codings())
                     buffer = coding->encode(buffer);
                 os << buffer;
             }
-            while (status == transfer_encoding::status::CONTINUE);
+            while (!done);
         }
         else if (m_body_.size() > 0)
             os << m_body_;

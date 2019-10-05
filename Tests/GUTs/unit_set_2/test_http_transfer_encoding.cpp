@@ -17,8 +17,7 @@ using namespace http;
 
 class dummy_transfer_encoding : public transfer_encoding {
 public:
-    status on_data_requested(std::string* buffer)
-    { (void)buffer; return status::DONE; }
+    void on_data_requested(std::string* buffer) { (void)buffer; }
 };
 
 
