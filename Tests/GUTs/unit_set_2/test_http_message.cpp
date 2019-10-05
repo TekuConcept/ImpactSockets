@@ -143,7 +143,7 @@ TEST(test_http_message, clone)
 }
 
 
-class dummy_connection {
+class dummy_connection : transfer_pipe::sink {
 public:
     dummy_connection(std::iostream& stream)
     : m_stream_(stream) {}
@@ -152,19 +152,25 @@ public:
     send(std::unique_ptr<message_t> message)
     {
         // TODO: throw if message exists
-        // TODO: throw if message pipe's sync is locked
         if (message == nullptr) return;
         m_stream_ << message->to_string();
         if (message->pipe()) {
             m_message_ = std::move(message);
-            m_message_->pipe()->set_sink([&](const std::string& __chunk) {
-                m_stream_ << __chunk;
-                // TODO: more elegantly reset m_message_ on end-of-payload
-                if (__chunk.size() == 0 || __chunk[0] == '0')
-                    m_message_.reset(nullptr);
-            });
+            m_message_->pipe()->set_sink(this);
         }
     }
+
+    void
+    on_chunk(const std::string& __chunk)
+    { m_stream_ << __chunk; }
+
+    void
+    on_eop()
+    { m_message_.reset(nullptr); }
+
+    void
+    on_error(const std::string& /*error*/)
+    { m_message_.reset(nullptr); }
 
 private:
     std::iostream& m_stream_;

@@ -18,6 +18,14 @@ namespace http {
     public:
         static std::string EOP; // end-of-payload
 
+        class sink {
+        public:
+            virtual ~sink() = default;
+            virtual void on_chunk(const std::string& chunk) = 0;
+            virtual void on_error(const std::string& error) = 0;
+            virtual void on_eop() = 0;
+        };
+
         transfer_pipe();
         virtual ~transfer_pipe() = default;
 
@@ -36,14 +44,10 @@ namespace http {
 
         // sink is used until the end-of-payload message is sent;
         // when end-of-payload is sent, the sink is released and
-        // another sink can be set thereafter;
-        //
-        // set_sink() will throw if a sink already exists
-        //
-        // this behavior prevents the sink from changing while a
-        // message payload is still being processed by a downstream
-        // connection
-        void set_sink(std::function<void(const std::string&)> sink);
+        // another sink can be set thereafter; if a sink is already
+        // set but a new one is set in its place, the previous sink's
+        // on_error() callback is invoked
+        void set_sink(sink* sink);
         inline bool has_sink() const { return m_sink_ != nullptr; }
 
         inline const std::string& eop() const
@@ -51,7 +55,7 @@ namespace http {
 
     private:
         std::vector<std::unique_ptr<transfer_coding>> m_codings_;
-        std::function<void(const std::string&)> m_sink_;
+        sink* m_sink_;
 
         void _M_push(transfer_coding*);
     };

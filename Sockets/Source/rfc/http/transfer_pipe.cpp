@@ -14,6 +14,7 @@ std::string transfer_pipe::EOP = "";
 
 
 transfer_pipe::transfer_pipe()
+: m_sink_(NULL)
 {
     m_codings_.push_back(
         std::unique_ptr<transfer_coding>(new chunked_coding()));
@@ -63,21 +64,29 @@ transfer_pipe::send(const std::string& __chunk)
     std::string buffer = __chunk;
     for (const auto& coding : m_codings_)
         buffer = coding->encode(buffer);
-    m_sink_(buffer);
+    m_sink_->on_chunk(buffer);
 
     // end of message
     // detach sink to prevent erroneous sends internally
     // must re-attach sink to write again
-    if (__chunk.size() == 0)
+    if (__chunk.size() == 0) {
+        // clear m_sink_ before calling on_eop()
+        auto* ptr = m_sink_;
         m_sink_ = nullptr;
+        ptr->on_eop();
+    }
 
     return __chunk.size();
 }
 
 
 void
-transfer_pipe::set_sink(std::function<void(const std::string&)> __sink)
+transfer_pipe::set_sink(sink* __sink)
 {
-    if (m_sink_) throw impact_error("sink already exists");
+    if (m_sink_) {
+        auto* ptr = m_sink_;
+        m_sink_ = __sink;
+        ptr->on_error("sink changed before payload finished");
+    }
     else m_sink_ = __sink;
 }

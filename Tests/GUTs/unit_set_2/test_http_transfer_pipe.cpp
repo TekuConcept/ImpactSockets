@@ -56,34 +56,42 @@ TEST(test_http_transfer_pipe, set_codings)
 }
 
 
+class dummy_sink : public transfer_pipe::sink {
+public:
+    dummy_sink(std::iostream& stream)
+    : m_stream_(stream) { }
+    void on_chunk(const std::string& __chunk)
+    { m_stream_ << __chunk; }
+    void on_error(const std::string&) { }
+    void on_eop() { }
+private:
+    std::iostream& m_stream_;
+};
+
+
 TEST(test_http_transfer_pipe, set_sync)
 {
+    std::stringstream ss;
+    dummy_sink sink(ss);
     transfer_pipe pipe;
-    NO_THROW_BEGIN
-        pipe.set_sink([&](const std::string&) {});
-    NO_THROW_END
-    THROW_BEGIN
-        // sync already exists
-        pipe.set_sink([&](const std::string&) {});
-    THROW_END
-    NO_THROW_BEGIN
-        // sync is cleared with EOP message
-        pipe.send(pipe.EOP);
-        pipe.set_sink([&](const std::string&) {});
-    NO_THROW_END
+    pipe.set_sink(&sink);
 }
+
+
+
 
 
 TEST(test_http_transfer_pipe, send)
 {
     transfer_pipe pipe;
-    std::ostringstream os;
-    pipe.set_sink([&](const std::string& __chunk) {
-        os << __chunk;
-    });
+
+    std::stringstream ss;
+    dummy_sink sink(ss);
+    pipe.set_sink(&sink);
+
     EXPECT_EQ(pipe.send("Hello World!"), 0xC);
     EXPECT_EQ(pipe.send(transfer_pipe::EOP), 0); // end of payload
     EXPECT_EQ(pipe.send("Good Bye!"), 0);        // sink detatched
 
-    EXPECT_EQ(os.str(), "C\r\nHello World!\r\n0\r\n\r\n");
+    EXPECT_EQ(ss.str(), "C\r\nHello World!\r\n0\r\n\r\n");
 }
