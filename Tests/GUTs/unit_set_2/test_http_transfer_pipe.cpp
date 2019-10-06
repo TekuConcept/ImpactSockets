@@ -78,9 +78,6 @@ TEST(test_http_transfer_pipe, set_sync)
 }
 
 
-
-
-
 TEST(test_http_transfer_pipe, send)
 {
     transfer_pipe pipe;
