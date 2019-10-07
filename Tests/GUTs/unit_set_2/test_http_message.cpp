@@ -205,3 +205,20 @@ TEST(test_http_message, piped_body)
         "0\r\n"
         "\r\n");
 }
+
+
+TEST(test_http_message, limits)
+{
+    message_t::limits custom_limits;
+    custom_limits.chunk_size_limit = 10;
+    custom_limits.max_header_limit = 15;
+    custom_limits.max_line_length  = 20;
+    message_t::message_limits() = custom_limits;
+
+    EXPECT_EQ(message_t::message_limits().chunk_size_limit, 10);
+    EXPECT_EQ(message_t::message_limits().max_header_limit, 15);
+    EXPECT_EQ(message_t::message_limits().max_line_length,  20);
+
+    // reset for other tests since this is static
+    message_t::message_limits() = message_t::limits();
+}

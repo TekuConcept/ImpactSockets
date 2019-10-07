@@ -19,12 +19,13 @@ namespace http {
     class message_t {
     public:
         struct limits {
-            unsigned int max_line_length    = 8000;    // 8 kB
-            unsigned int max_header_limit   = 50;
-            unsigned int payload_size_limit = 1000000; // 1 MB
+            size_t max_line_length;    // 8 kB
+            size_t max_header_limit;   // 50 headers
+            size_t chunk_size_limit;   // 1 MB
             limits();
         };
 
+        static inline limits& message_limits() { return s_limits_; }
         static message_t get(std::string target="/");
         static message_t post(std::string target="/");
 
@@ -87,6 +88,8 @@ namespace http {
         header_list m_headers_;
         std::string m_body_;
         std::shared_ptr<transfer_pipe> m_pipe_;
+
+        static limits s_limits_;
 
         message_t();
 

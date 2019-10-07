@@ -14,8 +14,11 @@ using namespace http;
 message_t::limits::limits()
 : max_line_length(8000),      // 8 kB
   max_header_limit(50),       // 50 header lines
-  payload_size_limit(1000000) // 1 MB
-{}
+  chunk_size_limit(1000000) // 1 MB
+{ }
+
+
+message_t::limits message_t::s_limits_ = message_t::limits();
 
 
 namespace impact {

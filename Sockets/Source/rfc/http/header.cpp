@@ -90,10 +90,13 @@ header_t::header_t(std::string __line)
         else throw impact_error(grammar_error);
     }
 
+    if (m_field_name_ == "Content-Length")
+        m_field_name_id_ = field_name::CONTENT_LENGTH;
+    else if (m_field_name_ == "Transfer-Encoding")
+        m_field_name_id_ = field_name::TRANSFER_ENCODING;
     m_describes_body_size_ = (
-        m_field_name_ == "Content-Length" ||
-        m_field_name_ == "Transfer-Encoding"
-    );
+        m_field_name_id_ == field_name::CONTENT_LENGTH ||
+        m_field_name_id_ == field_name::TRANSFER_ENCODING);
 }
 
 
@@ -114,16 +117,19 @@ header_t::header_t(
     if (!_M_valid_value(m_field_value_))
         throw impact_error("Invalid value \"" + __value + "\"");
     
+    if (m_field_name_ == "Content-Length")
+        m_field_name_id_ = field_name::CONTENT_LENGTH;
+    else if (m_field_name_ == "Transfer-Encoding")
+        m_field_name_id_ = field_name::TRANSFER_ENCODING;
     m_describes_body_size_ = (
-        m_field_name_ == "Content-Length" ||
-        m_field_name_ == "Transfer-Encoding"
-    );
+        m_field_name_id_ == field_name::CONTENT_LENGTH ||
+        m_field_name_id_ == field_name::TRANSFER_ENCODING);
 }
 
 
 header_t::header_t(
-    enum field_name  __id,
-    std::string      __value)
+    field_name  __id,
+    std::string __value)
 {
     impact::internal::trim_whitespace(&__value);
     if (!_M_valid_value(__value))
@@ -132,10 +138,10 @@ header_t::header_t(
     std::string temp = field_name_string(__id);
     m_field_name_.assign(temp.c_str(), temp.size());
 
+    m_field_name_id_ = __id;
     m_describes_body_size_ = (
-        __id == field_name::CONTENT_LENGTH ||
-        __id == field_name::TRANSFER_ENCODING
-    );
+        m_field_name_id_ == field_name::CONTENT_LENGTH ||
+        m_field_name_id_ == field_name::TRANSFER_ENCODING);
 }
 
 
