@@ -2,6 +2,9 @@
  * Created by TekuConcept on October 4, 2019
  */
 
+#include <iostream>
+#include <regex>
+
 #include <sstream>
 #include <gtest/gtest.h>
 #include "utils/environment.h"
@@ -59,7 +62,7 @@ TEST(test_http_transfer_coding, basic_coding)
 }
 
 
-TEST(test_http_transfer_coding, chunked_extension)
+TEST(test_http_chunked_coding, chunked_extension)
 {
     NO_THROW_BEGIN
         chunked_coding::extension_t extension("foo");
@@ -136,7 +139,7 @@ public:
 };
 
 
-TEST(test_http_transfer_coding, chunked_coding)
+TEST(test_http_chunked_coding, chunked_coding)
 {
     NO_THROW_BEGIN
         chunked_coding coding;
@@ -171,4 +174,90 @@ TEST(test_http_transfer_coding, chunked_coding)
             "Upload-Status: OK\r\n"
             "\r\n");
     }
+}
+
+
+TEST(test_http_chunked_coding, chunk_header)
+{
+    size_t size;
+    std::vector<chunked_coding::extension_t> extensions;
+
+    // plain chunk header
+    NO_THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C\r\n",
+        &size, &extensions);
+    EXPECT_EQ(size, 0xC);
+    EXPECT_EQ(extensions.size(), 0);
+    NO_THROW_END
+
+    // last chunk header
+    NO_THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "0\r\n",
+        &size, &extensions);
+    EXPECT_EQ(size, 0x0);
+    EXPECT_EQ(extensions.size(), 0);
+    NO_THROW_END
+
+    // one chunk extension
+    NO_THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C;foo\r\n",
+        &size, &extensions);
+    EXPECT_EQ(size, 0xC);
+    EXPECT_EQ(extensions.size(), 1);
+    EXPECT_EQ(extensions.back().name(), "foo");
+    NO_THROW_END
+
+    // chunk extensions with values
+    NO_THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C;foo=bar;baz;name=\"mary;john\"\r\n",
+        &size, &extensions);
+    EXPECT_EQ(size, 0xC);
+    EXPECT_EQ(extensions.size(), 3);
+    EXPECT_EQ(extensions[0].name(),  "foo");
+    EXPECT_EQ(extensions[0].value(), "bar");
+    EXPECT_EQ(extensions[1].name(),  "baz");
+    EXPECT_EQ(extensions[1].value(), "");
+    EXPECT_EQ(extensions[2].name(),  "name");
+    EXPECT_EQ(extensions[2].value(), "\"mary;john\"");
+    NO_THROW_END
+
+    // bad extension name
+    THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C;\r\n", &size, &extensions);
+    THROW_END
+
+    // bad extension value
+    THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C;foo=\r\n", &size, &extensions);
+    THROW_END
+
+    // bad extension name 2
+    THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C;foo=bar;\r\n", &size, &extensions);
+    THROW_END
+
+    // incomplete quote
+    THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C;foo=\"test\r\n", &size, &extensions);
+    THROW_END
+
+    // incomplete quote 2
+    THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C;foo=\"test;bar=baz\r\n", &size, &extensions);
+    THROW_END
+
+    // incomplete quoted pair (hanging escape '\')
+    THROW_BEGIN
+    chunked_coding::parse_chunk_header(
+        "C;foo=\"\\\";\r\n", &size, &extensions);
+    THROW_END
 }

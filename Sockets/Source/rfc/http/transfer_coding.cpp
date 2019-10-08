@@ -306,3 +306,168 @@ chunked_coding::encode(const std::string& __buffer)
 
     return os.str();
 }
+
+
+void
+chunked_coding::parse_chunk_header(
+    const std::string&        __raw,
+    size_t*                   __size,
+    std::vector<extension_t>* __extensions)
+{
+    try {
+        if (!_M_parse_chunk_header(__raw, __size, __extensions))
+            throw impact_error("chunk header not formatted properly");
+    }
+    catch (...) { throw; }
+}
+
+
+bool
+chunked_coding::_M_parse_chunk_header(
+    const std::string&        __raw,
+    size_t*                   __size,
+    std::vector<extension_t>* __extensions)
+{
+    // 1*HEXDIG *( ";" chunk-ext-name [ "=" chunk-ext-val ] ) CRLF
+    if (__raw.size() < 3) return false;
+    if (__raw[__raw.size() - 2] != '\r' ||
+        __raw[__raw.size() - 1] != '\n') return false;
+
+    size_t size  = 0;
+    size_t begin = 0;
+    size_t end   = __raw.size() - 2;
+    std::vector<extension_t> extensions;
+
+    size_t i            = begin;
+    bool found_size     = false;
+    bool has_extensions = false;
+    bool quoted_pair    = false;
+
+    for (; i <= end; i++) {
+        if (__raw[i] == '\r') {
+            if (i != end) return false;
+            else found_size = true;
+            break;
+        }
+        else if (__raw[i] == ';') {
+            found_size = true;
+            has_extensions = true;
+            begin = i;
+            break;
+        }
+        else if (!impact::internal::HEXDIG(__raw[i]))
+            return false;
+    }
+
+    if (!found_size) return false;
+    else size = std::stoi(__raw.substr(0, i), 0, 16); // will throw if error
+
+    // TODO: use indexed lambdas instead of swiches?
+    if (has_extensions) {
+        int state = 0;
+        for (i = ++begin; i <= end; i++) {
+            char c = __raw[i];
+            switch (state) {
+            case 0: // magic
+                if (internal::TCHAR(c)) {
+                    extensions.push_back(extension_t());
+                    state = 1;
+                }
+                else return false;
+                break;
+
+            case 1: // token
+                if (internal::TCHAR(c))
+                    continue;
+                else if (c == '=') {
+                    extensions.back().m_name_ =
+                        __raw.substr(begin, i - begin);
+                    state = 2;
+                    begin = i + 1;
+                }
+                else if (c == ';') {
+                    extensions.back().m_name_ =
+                        __raw.substr(begin, i - begin);
+                    state = 0;
+                    begin = i + 1;
+                }
+                else if (c == '\r') {
+                    if (i != end) return false;
+                    extensions.back().m_name_ =
+                        __raw.substr(begin, i - begin);
+                }
+                else return false;
+                break;
+
+            case 2: // value
+                if (internal::TCHAR(c))
+                    state = 3;
+                else if (c == '"')
+                    state = 4;
+                else return false;
+                break;
+
+            case 3: // value as token
+                if (internal::TCHAR(c))
+                    continue;
+                else if (c == ';') {
+                    extensions.back().m_value_ =
+                        __raw.substr(begin, i - begin);
+                    state = 0;
+                    begin = i + 1;
+                }
+                else if (c == '\r') {
+                    if (i != end) return false;
+                    extensions.back().m_value_ =
+                        __raw.substr(begin, i - begin);
+                }
+                else return false;
+                break;
+            
+            case 4: // value as quoted string
+                if (quoted_pair) {
+                    if (!impact::internal::HTAB(c)  &&
+                        !impact::internal::SP(c)    &&
+                        !impact::internal::VCHAR(c) &&
+                        !internal::OBS_TEXT(c)) return false;
+                    quoted_pair = false; // reset
+                    continue;
+                }
+                else if (c == '\\') quoted_pair = true;
+                else if (
+                    impact::internal::HTAB(c)    ||
+                    impact::internal::SP(c)      ||
+                    (c == '\x21')                ||
+                    (c >= '\x23' && c <= '\x5B') ||
+                    (c >= '\x5D' && c <= '\x7E') ||
+                    internal::OBS_TEXT(c)) continue;
+                else if (c == '"')
+                    state = 5;
+                else return false;
+                break;
+
+            case 5: // end value as quoted string
+                if (c == '\r') {
+                    if (i != end) return false;
+                    extensions.back().m_value_ =
+                        __raw.substr(begin, i - begin);
+                }
+                else if (c == ';') {
+                    extensions.back().m_value_ =
+                        __raw.substr(begin, i - begin);
+                    state = 0;
+                    begin = i + 1;
+                }
+                else return false;
+                break;
+            }
+        }
+
+        if (quoted_pair) return false;
+    }
+
+    if (__size) *__size = size;
+    if (__extensions) *__extensions = std::move(extensions);
+
+    return true;
+}

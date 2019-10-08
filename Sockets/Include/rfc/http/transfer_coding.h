@@ -64,12 +64,21 @@ namespace http {
             extension_t();
             static bool _M_parse(const std::string&,extension_t*);
             friend std::ostream& operator<<(std::ostream&, const extension_t&);
+            friend class chunked_coding;
         };
+
+        static void parse_chunk_header(
+            const std::string& raw,
+            size_t* chunk_size,
+            std::vector<extension_t>* chunk_extensions);
 
     private:
         chunked_observer* m_observer_;
 
         static std::set<case_string> s_forbidden_trailers_;
+
+        static bool _M_parse_chunk_header(
+            const std::string&, size_t*, std::vector<extension_t>*);
     };
 
 

@@ -165,7 +165,7 @@ message_builder::_M_process_header()
 }
 
 
-void
+void // TODO
 message_builder::_M_process_empty_line()
 {
     using error_id = message_builder_observer::error_id;
@@ -179,6 +179,7 @@ message_builder::_M_process_empty_line()
             m_body_header_ = nullptr;
         }
         else {
+            // TODO: omit chunked coding from Transfer-Encoding header
             m_state_ = parsing_state::BODY;
             if (!_M_determine_body_format()) return;
         }
@@ -320,21 +321,23 @@ message_builder::_M_process_body()
 }
 
 
-inline void
+inline void // TODO
 message_builder::_M_parse_chunk()
 {
     using error_id = message_builder_observer::error_id;
     for (; m_block_end_ < m_buffer_.size(); m_block_end_++) {
+        char c = m_buffer_[m_block_end_];
+        print_char(c);
         switch (m_chunk_state_) {
         case 0: // chunk header
             if (m_block_end_ > (message_t::message_limits().max_line_length - 1))
             { EMIT_ERROR(error_id::LINE_LENGTH_EXCEEDED) }
-            if (m_buffer_[m_block_end_] == '\r')
-                m_chunk_state_ = 1; // CRLF 1
+            if (c == '\r') m_chunk_state_ = 1; // CRLF 1
+            // else continue
             break;
 
         case 1: // CRLF 1
-            if (m_buffer_[m_block_end_] != '\n')
+            if (c != '\n')
             { EMIT_ERROR(error_id::BODY_PARSER_ERROR) }
             else {
                 // parse chunk line
@@ -342,6 +345,7 @@ message_builder::_M_parse_chunk()
                 //     - varify chunk size within limits
                 //     - parse chunk extensions
                 m_chunk_state_ = m_body_length_ > 0 ? 2 : 5;
+                m_header_state_ = 0; // used for trailers
                 m_block_end_ = -1; // loop increments this to 0
             }
             break;
@@ -354,26 +358,28 @@ message_builder::_M_parse_chunk()
                 m_chunk_state_ = 3; // CR
         } break;
 
-
         case 3: // CR
-            if (m_buffer_[m_block_end_] != '\r')
+            if (c != '\r')
             { EMIT_ERROR(error_id::BODY_PARSER_ERROR) }
             else m_chunk_state_ = 4; // LF
             break;
         
         case 4: // LF
-            if (m_buffer_[m_block_end_] != '\n')
+            if (c != '\n')
             { EMIT_ERROR(error_id::BODY_PARSER_ERROR) }
             else {
-                message_builder_observer::payload_fragment fragment;
-                fragment.continuous       = false;
-                fragment.eop              = false;
-                fragment.chunk_extensions = std::move(m_chunk_ext_);
-                fragment.data_begin       = m_buffer_.begin();
-                fragment.data_end         = m_buffer_.begin() + m_block_end_;
-                if (m_observer_)
+                if (m_observer_) {
+                    message_builder_observer::payload_fragment fragment;
+                    fragment.continuous       = false;
+                    fragment.eop              = false;
+                    fragment.chunk_extensions = std::move(m_chunk_ext_);
+                    fragment.data_begin       = m_buffer_.begin();
+                    fragment.data_end         = m_buffer_.begin() + m_block_end_;
                     m_observer_->on_data(fragment);
-                m_state_ = parsing_state::START;
+                }
+                else { m_chunk_ext_.clear(); }
+                m_buffer_ = m_buffer_.substr(m_block_end_, m_buffer_.npos);
+                m_chunk_state_ = 0;
                 m_block_end_ = 0;
                 return;
             }
@@ -382,20 +388,66 @@ message_builder::_M_parse_chunk()
         case 5: // end of payload
             if (m_block_end_ > (message_t::message_limits().max_line_length + 1))
             { EMIT_ERROR(error_id::LINE_LENGTH_EXCEEDED) }
-            if (m_in_empty_line_) {
-                if (m_buffer_[m_block_end_] == '\r') {
+            switch (m_header_state_) {
+            case 0:
+                if (c == '\r') m_header_state_ = 1; // empty line
+                else if (internal::TCHAR(c)) m_header_state_ = 2; // header line
+                else { EMIT_ERROR(error_id::HEADER_LINE_PARSER_ERROR) }
+                break;
 
-                }
-                else { EMIT_ERROR(error_id::BODY_PARSER_ERROR) }
+            case 1:
+                _M_process_empty_chunk_line();
                 return;
+
+            case 2:
+                // TODO: validate against forbidden headers
+                if (m_in_empty_line_) {
+                    _M_process_empty_chunk_line();
+                    return;
+                }
+                else if (m_header_ready_)
+                { if (!_M_insert_header(m_current_message_->headers())) return; }
+                else if (m_buffer_[m_block_end_] == '\n')
+                    m_header_ready_ = true;
+                break;
             }
-            else if (m_header_ready_)
-            { if (!_M_insert_header(m_chunk_trailers_)) return; }
-            else if (m_buffer_[m_block_end_] == '\n')
-                m_header_ready_ = true;
             break;
         }
     }
+}
+
+
+void
+message_builder::_M_process_empty_chunk_line()
+{
+    using error_id = message_builder_observer::error_id;
+    if (m_buffer_[m_block_end_] == '\n') {
+        // empty-line reached
+        m_buffer_    = m_buffer_.substr(2, m_buffer_.npos);
+        m_block_end_ = 0;
+        m_state_     = parsing_state::START;
+        if (m_observer_) {
+            message_builder_observer::payload_fragment fragment;
+            // no data for this fragment
+            fragment.data_begin       = m_buffer_.end();
+            fragment.data_end         = m_buffer_.end();
+            fragment.continuous       = false;
+            fragment.eop              = true;
+            fragment.chunk_extensions = std::move(m_chunk_ext_);
+            fragment.trailers         = std::move(m_chunk_trailers_);
+            m_observer_->on_data(fragment);
+        }
+        else {
+            m_chunk_ext_.clear();
+            m_chunk_trailers_.clear();
+        }
+    }
+    else {
+        m_state_ = parsing_state::ERROR;
+        if (m_observer_)
+            m_observer_->on_error(error_id::HEADER_LINE_PARSER_ERROR);
+    }
+    m_in_empty_line_ = false;
 }
 
 
