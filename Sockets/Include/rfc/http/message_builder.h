@@ -101,7 +101,7 @@ namespace http {
         inline void _M_process_body();
         inline void _M_parse_chunk();
         void _M_process_empty_line();
-        bool _M_insert_header(header_list&);
+        bool _M_insert_header(header_list&, bool = false);
         void _M_process_empty_chunk_line();
 
     protected:

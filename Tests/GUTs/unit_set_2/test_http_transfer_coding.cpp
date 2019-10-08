@@ -59,6 +59,16 @@ TEST(test_http_transfer_coding, basic_coding)
     THROW_BEGIN
         reserved_transfer_coding bad;
     THROW_END
+
+    NO_THROW_BEGIN
+        auto passthrough = transfer_coding::create_passthrough("test");
+        EXPECT_EQ(passthrough->encode("Hello World!"), "Hello World!");
+    NO_THROW_END
+
+    THROW_BEGIN
+        // any reserved name other than chunked is allowed
+        auto passthrough = transfer_coding::create_passthrough("chunked");
+    THROW_END
 }
 
 

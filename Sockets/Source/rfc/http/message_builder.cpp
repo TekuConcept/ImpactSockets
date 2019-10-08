@@ -27,17 +27,6 @@ if (m_observer_) \
 return;
 
 
-inline void
-print_char(char c)
-{
-    if (c == '\r')
-        std::cout << "\\r";
-    else if (c == '\n')
-        std::cout << "\\n\n";
-    else std::cout << c;
-}
-
-
 message_builder::message_builder()
 : m_observer_(NULL)
 { clear(); }
@@ -97,7 +86,6 @@ message_builder::_M_process_start()
 {
     using error_id = message_builder_observer::error_id;
     for (; m_block_end_ < m_buffer_.size(); m_block_end_++) {
-        print_char(m_buffer_[m_block_end_]);
         if (m_block_end_ > message_t::message_limits().max_line_length)
         {
             V(__FUNCTION__ << "() 103");
@@ -131,8 +119,6 @@ message_builder::_M_process_header()
     using error_id = message_builder_observer::error_id;
     for (; m_block_end_ < m_buffer_.size(); m_block_end_++) {
         char c = m_buffer_[m_block_end_];
-
-        print_char(c);
         if (m_block_end_ > (message_t::message_limits().max_line_length + 1)) {
             V(__FUNCTION__ << "() 133 " << m_block_end_ << " : "
                 << (message_t::message_limits().max_line_length + 1));
@@ -250,8 +236,10 @@ message_builder::_M_determine_body_format()
 }
 
 
-bool
-message_builder::_M_insert_header(header_list& __headers)
+bool // TODO
+message_builder::_M_insert_header(
+    header_list& __headers,
+    bool         __forbidden)
 {
     using error_id = message_builder_observer::error_id;
     m_header_ready_ = false;
@@ -265,13 +253,23 @@ message_builder::_M_insert_header(header_list& __headers)
         if (__headers.size() >=
             message_t::limits().max_header_limit)
         { EMIT_ERROR_FLAG(error_id::HEADER_LIMIT_EXCEEDED, false) }
-        __headers.push_back(
-            header_t(m_buffer_.substr(0, m_block_end_)));
-        if (__headers.back().m_describes_body_size_) {
+        header_t header(m_buffer_.substr(0, m_block_end_));
+        if (__forbidden) {
+            auto n = chunked_coding::forbidden_trailers().find(header.name());
+            if (n == chunked_coding::forbidden_trailers().end())
+                __headers.push_back(header);
+            // else drop forbidden header
+        }
+        else __headers.push_back(header);
+        if (header.m_describes_body_size_) {
             if (m_body_header_ != nullptr)
             { EMIT_ERROR_FLAG(error_id::DUPLICATE_BODY_HEADERS, false) }
-            else m_body_header_.reset(new header_t(
-                __headers.back()));
+            else {
+                m_body_header_.reset(new header_t(header));
+                // TODO
+                // _M_determine_body_format()
+                // remove "chunked" from transfer-encoding if it exists
+            }
         }
         m_buffer_    = m_buffer_.substr(m_block_end_, m_buffer_.npos);
         m_block_end_ = 0;
@@ -321,13 +319,12 @@ message_builder::_M_process_body()
 }
 
 
-inline void // TODO
+inline void
 message_builder::_M_parse_chunk()
 {
     using error_id = message_builder_observer::error_id;
     for (; m_block_end_ < m_buffer_.size(); m_block_end_++) {
         char c = m_buffer_[m_block_end_];
-        print_char(c);
         switch (m_chunk_state_) {
         case 0: // chunk header
             if (m_block_end_ > (message_t::message_limits().max_line_length - 1))
@@ -348,7 +345,6 @@ message_builder::_M_parse_chunk()
                     );
                     if (m_body_length_ > message_t::limits().chunk_size_limit)
                     { EMIT_ERROR(error_id::CHUNK_LIMIT_EXCEEDED) }
-                    V("Chunk size: " << m_body_length_ << "; extensions: " << m_chunk_ext_.size());
                     m_buffer_ = m_buffer_.substr(
                         m_block_end_ + 1, m_buffer_.npos);
                 }
@@ -364,9 +360,6 @@ message_builder::_M_parse_chunk()
         case 2: { // chunk body
             auto count = std::min(m_body_length_,
                 m_buffer_.size() - m_block_end_);
-            for (auto x = m_block_end_ + 1;
-                x <= m_block_end_ + count - 1; x++)
-                print_char(m_buffer_[x]);
             m_body_length_ -= count;
             m_block_end_   += count - 1;
             if (m_body_length_ == 0)
@@ -415,13 +408,13 @@ message_builder::_M_parse_chunk()
                 return;
 
             case 2:
-                // TODO: validate against forbidden headers
                 if (m_in_empty_line_) {
                     _M_process_empty_chunk_line();
                     return;
                 }
                 else if (m_header_ready_)
-                { if (!_M_insert_header(m_chunk_trailers_)) return; }
+                { if (!_M_insert_header(m_chunk_trailers_,
+                    /* check_if_forbidden = */true)) return; }
                 else if (m_buffer_[m_block_end_] == '\n')
                     m_header_ready_ = true;
                 break;

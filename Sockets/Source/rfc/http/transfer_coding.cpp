@@ -24,10 +24,10 @@ transfer_coding::transfer_coding(std::string __name)
     impact::internal::trim_whitespace(&__name);
     m_name_.assign(__name.c_str(), __name.size());
 
-    if (m_name_ == "chunked" ||
+    if (m_name_ == "chunked" /*||
         m_name_ == "compress" ||
         m_name_ == "deflate" ||
-        m_name_ == "gzip") {
+        m_name_ == "gzip"*/) {
         __name.append(" is a reserved name");
         throw impact_error(__name);
     }
@@ -39,8 +39,13 @@ transfer_coding::transfer_coding(std::string __name)
 transfer_coding::~transfer_coding() = default;
 
 
+std::string
+transfer_coding::encode(const std::string& __buffer)
+{ return __buffer; }
+
+
 bool
-transfer_coding::_M_valid_transfer_extension(const std::string& __value) const
+transfer_coding::_M_valid_transfer_extension(const std::string& __value)
 {
     /* transfer-extension ABNF
         OWS            = *( SP / HTAB )
@@ -153,9 +158,25 @@ transfer_coding::_M_valid_transfer_extension(const std::string& __value) const
         }
     }
 
-    if (in_parameter) return false;
+    return !in_parameter;
+}
 
-    return true;
+
+std::unique_ptr<transfer_coding>
+transfer_coding::create_passthrough(std::string __name)
+{
+    case_string name(__name.c_str(), __name.size());
+    if (name == "chunked") {
+        __name.append(" is a reserved name");
+        throw impact_error(__name);
+    }
+    if (!_M_valid_transfer_extension(__name))
+        throw impact_error("invalid transfer-extension name");
+    else {
+        std::unique_ptr<transfer_coding> result(new transfer_coding());
+        result->m_name_ = std::move(name);
+        return result;
+    }
 }
 
 

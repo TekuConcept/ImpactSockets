@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <memory>
 
 #include "utils/case_string.h"
 #include "rfc/http/header_list.h"
@@ -24,13 +25,18 @@ namespace http {
         inline const case_string& name() const
         { return m_name_; }
 
-        virtual std::string encode(const std::string& buffer) = 0;
+        virtual std::string encode(const std::string& buffer);
+
+        // data that is encoded through a passthrough coding is
+        // returned as-is without alteration;
+        static std::unique_ptr<transfer_coding>
+            create_passthrough(std::string name);
 
     private:
         case_string m_name_;
 
         transfer_coding();
-        bool _M_valid_transfer_extension(const std::string&) const;
+        static bool _M_valid_transfer_extension(const std::string&);
 
         friend class chunked_coding;
     };
@@ -71,6 +77,8 @@ namespace http {
             const std::string& raw,
             size_t* chunk_size,
             std::vector<extension_t>* chunk_extensions);
+        static inline const std::set<case_string>& forbidden_trailers()
+        { return s_forbidden_trailers_; }
 
     private:
         chunked_observer* m_observer_;
