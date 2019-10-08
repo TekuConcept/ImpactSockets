@@ -340,18 +340,33 @@ message_builder::_M_parse_chunk()
             if (c != '\n')
             { EMIT_ERROR(error_id::BODY_PARSER_ERROR) }
             else {
-                // parse chunk line
-                //     - parse chunk size (m_body_length_ = parse())
-                //     - varify chunk size within limits
-                //     - parse chunk extensions
-                m_chunk_state_ = m_body_length_ > 0 ? 2 : 5;
-                m_header_state_ = 0; // used for trailers
-                m_block_end_ = -1; // loop increments this to 0
+                try {
+                    chunked_coding::parse_chunk_header(
+                        m_buffer_.substr(0, m_block_end_ + 1),
+                        &m_body_length_,
+                        &m_chunk_ext_
+                    );
+                    if (m_body_length_ > message_t::limits().chunk_size_limit)
+                    { EMIT_ERROR(error_id::CHUNK_LIMIT_EXCEEDED) }
+                    V("Chunk size: " << m_body_length_ << "; extensions: " << m_chunk_ext_.size());
+                    m_buffer_ = m_buffer_.substr(
+                        m_block_end_ + 1, m_buffer_.npos);
+                }
+                catch (...) { EMIT_ERROR(error_id::BODY_PARSER_ERROR) }
+                m_chunk_state_   = m_body_length_ > 0 ? 2 : 5;
+                m_block_end_     = -1; // loop increments this to 0
+                m_header_state_  = 0; // used for trailers
+                m_in_empty_line_ = false;
+                m_header_ready_  = false;
             }
             break;
 
         case 2: { // chunk body
-            auto count = std::min(m_body_length_, m_buffer_.size());
+            auto count = std::min(m_body_length_,
+                m_buffer_.size() - m_block_end_);
+            for (auto x = m_block_end_ + 1;
+                x <= m_block_end_ + count - 1; x++)
+                print_char(m_buffer_[x]);
             m_body_length_ -= count;
             m_block_end_   += count - 1;
             if (m_body_length_ == 0)
@@ -378,7 +393,7 @@ message_builder::_M_parse_chunk()
                     m_observer_->on_data(fragment);
                 }
                 else { m_chunk_ext_.clear(); }
-                m_buffer_ = m_buffer_.substr(m_block_end_, m_buffer_.npos);
+                m_buffer_ = m_buffer_.substr(m_block_end_ + 1, m_buffer_.npos);
                 m_chunk_state_ = 0;
                 m_block_end_ = 0;
                 return;
@@ -406,7 +421,7 @@ message_builder::_M_parse_chunk()
                     return;
                 }
                 else if (m_header_ready_)
-                { if (!_M_insert_header(m_current_message_->headers())) return; }
+                { if (!_M_insert_header(m_chunk_trailers_)) return; }
                 else if (m_buffer_[m_block_end_] == '\n')
                     m_header_ready_ = true;
                 break;

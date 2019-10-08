@@ -126,4 +126,56 @@ TEST(test_http_message_builder, message_builder)
         "GET / HTTP/1.1\r\n\r\n"
         "TOUCH / HTTP/1.1\r\n\r\n");
     builder.clear();
+
+    // test chunked message
+    EXPECT_CALL(observer, on_message_proxy(_)).Times(1);
+    EXPECT_CALL(observer, on_error(_)).Times(0);
+    EXPECT_CALL(observer, on_data(_)).Times(3);
+    builder.write(
+        "HTTP/1.1 200 OK\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "C;foo=bar\r\n"
+        "Hello World!\r\n"
+        "F\r\n"
+        "Good Bye World!\r\n"
+        "0;baz\r\n"
+        "Checksum: 123ABC\r\n"
+        "\r\n");
+    builder.clear();
+
+    // test fragmented chunked message
+    EXPECT_CALL(observer, on_message_proxy(_)).Times(1);
+    EXPECT_CALL(observer, on_error(_)).Times(0);
+    EXPECT_CALL(observer, on_data(_)).Times(3);
+    builder.write(
+        "HTTP/1.1 200 OK\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "C;foo=bar\r\n"
+        "Hello ");
+    builder.write("World!\r\n"
+        "F\r\n"
+        "Good Bye World!\r\n"
+        "0;baz\r\n"
+        "Checksum: 123ABC\r\n"
+        "\r\n");
+    builder.clear();
+
+    // test pipelined chunked message
+    EXPECT_CALL(observer, on_message_proxy(_)).Times(2);
+    EXPECT_CALL(observer, on_error(_)).Times(0);
+    EXPECT_CALL(observer, on_data(_)).Times(4);
+    builder.write(
+        "HTTP/1.1 200 OK\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "C\r\nHello World!\r\n"
+        "0\r\nChecksum: 123ABC\r\n\r\n"
+        "HTTP/1.1 200 OK\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "F\r\nGood Bye World!\r\n"
+        "0\r\n\r\n");
+    builder.clear();
 }
