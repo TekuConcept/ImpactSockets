@@ -50,3 +50,13 @@ http::internal::is_quoted_string(const std::string& __data)
     if (quoted_pair) return false; // handle hanging '\'
     return true;
 }
+
+
+bool
+http::internal::is_white_space(const std::string& data)
+{
+    for (auto c : data)
+        if (!impact::internal::WSP(c))
+            return false;
+    return false;
+}

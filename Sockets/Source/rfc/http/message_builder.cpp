@@ -151,7 +151,7 @@ message_builder::_M_process_header()
 }
 
 
-void // TODO
+void
 message_builder::_M_process_empty_line()
 {
     using error_id = message_builder_observer::error_id;
@@ -164,11 +164,7 @@ message_builder::_M_process_empty_line()
             m_state_ = parsing_state::START;
             m_body_header_ = nullptr;
         }
-        else {
-            // TODO: omit chunked coding from Transfer-Encoding header
-            m_state_ = parsing_state::BODY;
-            if (!_M_determine_body_format()) return;
-        }
+        else m_state_ = parsing_state::BODY;
         if (m_observer_)
             m_observer_->on_message(std::move(m_current_message_));
     }
@@ -178,6 +174,7 @@ message_builder::_M_process_empty_line()
             m_observer_->on_error(error_id::HEADER_LINE_PARSER_ERROR);
     }
     m_in_empty_line_ = false;
+    m_body_header_ = nullptr; // no longer needed, reseting for next message
 }
 
 
@@ -231,12 +228,11 @@ message_builder::_M_determine_body_format()
             return false;
         }
     }
-    m_body_header_ = nullptr; // no longer needed, reseting for next message
     return true;
 }
 
 
-bool // TODO
+bool
 message_builder::_M_insert_header(
     header_list& __headers,
     bool         __forbidden)
@@ -254,23 +250,34 @@ message_builder::_M_insert_header(
             message_t::limits().max_header_limit)
         { EMIT_ERROR_FLAG(error_id::HEADER_LIMIT_EXCEEDED, false) }
         header_t header(m_buffer_.substr(0, m_block_end_));
-        if (__forbidden) {
+        bool drop = false;
+        if (header.m_describes_body_size_) {
+            if (m_body_header_ != nullptr)
+            { EMIT_ERROR_FLAG(error_id::DUPLICATE_BODY_HEADERS, false) }
+            else if (__forbidden) drop = true;
+            else {
+                m_body_header_.reset(new header_t(header));
+                if (!_M_determine_body_format()) return false;
+                if (m_body_format_ == body_format::CHUNKED_CODING) {
+                    // remove "chunked" from end of transfer-encoding header
+                    auto found = header.m_field_value_.find_last_of(',');
+                    header.m_field_value_ =
+                        header.m_field_value_.substr(0, found);
+                    drop = (header.m_field_value_.size() == 0 ||
+                        internal::is_white_space(header.m_field_value_));
+                }
+                // keep content-length header so higher-level applications
+                // have a chance to prepare for data they will be receiving
+            }
+        }
+        if (__forbidden && !drop) {
             auto n = chunked_coding::forbidden_trailers().find(header.name());
             if (n == chunked_coding::forbidden_trailers().end())
                 __headers.push_back(header);
             // else drop forbidden header
         }
-        else __headers.push_back(header);
-        if (header.m_describes_body_size_) {
-            if (m_body_header_ != nullptr)
-            { EMIT_ERROR_FLAG(error_id::DUPLICATE_BODY_HEADERS, false) }
-            else {
-                m_body_header_.reset(new header_t(header));
-                // TODO
-                // _M_determine_body_format()
-                // remove "chunked" from transfer-encoding if it exists
-            }
-        }
+        else if (!drop) __headers.push_back(header);
+        // else drop header
         m_buffer_    = m_buffer_.substr(m_block_end_, m_buffer_.npos);
         m_block_end_ = 0;
     }
