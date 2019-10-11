@@ -6,6 +6,14 @@
 #cmakedefine __OS_WINDOWS__
 /* not tested on unix or solaris systems */
 
+// some compilers already define these macros
+#ifdef BIG_ENDIAN
+#   undef BIG_ENDIAN
+#endif
+#ifdef LITTLE_ENDIAN
+#   undef LITTLE_ENDIAN
+#endif
+
 #cmakedefine BIG_ENDIAN
 #cmakedefine LITTLE_ENDIAN
 
