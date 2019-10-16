@@ -129,6 +129,7 @@ IF (BUILD_UNIT_TESTS)
         SET(UNIT_SETS
             "unit_set_1"
             "unit_set_2"
+            "unit_set_3"
         )
         FOREACH(UNIT_SET ${UNIT_SETS})
             FILE(GLOB_RECURSE UNIT_FILES "${TESTS_DIR}/GUTs/${UNIT_SET}/*.cpp")
