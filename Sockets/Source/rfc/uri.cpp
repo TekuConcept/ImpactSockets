@@ -452,7 +452,7 @@ uri::_S_percent_decode(const std::string& __str)
     result.reserve(__str.size());
     
     int state = 0;
-    char nibble[2];
+    char nibble[2] = { '\0', '\0' };
     for (char c : __str) {
         if (state == 0) {
             if (c == '%') state++;

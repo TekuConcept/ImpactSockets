@@ -95,7 +95,7 @@ utf8::deserialize(
     imp_errno = imperr::SUCCESS;
 
     int state = 0;
-    uint32_t symbol;
+    uint32_t symbol = 0;
     for (char c : __input) {
         switch (state) {
         case 0: /* header */ {
