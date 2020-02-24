@@ -23,3 +23,5 @@ namespace internal {
     inline bool VCHAR(char c) { return (c >= '\x21') && (c <= '\x7E'); }
     inline bool WSP(char c) { return SP(c) || HTAB(c); }
 }}
+
+#endif
