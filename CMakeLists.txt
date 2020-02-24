@@ -24,9 +24,9 @@ INCLUDE_DIRECTORIES(
     ${NPCAP_INCLUDE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR} # location of configure.h
 )
-FILE(GLOB_RECURSE SOURCE_FILES "${SOCKETS_SOURCE_DIR}/*.cpp")
+FILE(GLOB_RECURSE SOCKET_SOURCE_FILES "${SOCKETS_SOURCE_DIR}/*.cpp")
 
-x_add_library(${PROJECT_NAME}_obj OBJECT ${SOURCE_FILES})
+x_add_library(${PROJECT_NAME}_obj OBJECT ${SOCKET_SOURCE_FILES})
 SET_PROPERTY(TARGET ${PROJECT_NAME}_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 
 
@@ -118,6 +118,17 @@ ENDIF ()
 # TEST MODULES                                            #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
+FUNCTION(SUBDIRLIST out_var curdir)
+    FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)
+    SET(result)
+    FOREACH(child ${children})
+        IF(IS_DIRECTORY ${curdir}/${child})
+            LIST(APPEND result ${child})
+        ENDIF()
+    ENDFOREACH()
+    SET(${out_var} "${result}" PARENT_SCOPE)
+ENDFUNCTION()
+
 IF (BUILD_UNIT_TESTS)
     IF (GTEST_FOUND)
         IF (NOT MSVC)
@@ -125,13 +136,11 @@ IF (BUILD_UNIT_TESTS)
         ELSE ()
             SET(OTHER_LIBRARIES "")
         ENDIF ()
-
-        SET(UNIT_SETS
-            "unit_set_1"
-        )
+        SUBDIRLIST(UNIT_SETS ${TESTS_DIR}/GUTs)
         FOREACH(UNIT_SET ${UNIT_SETS})
             FILE(GLOB_RECURSE UNIT_FILES "${TESTS_DIR}/GUTs/${UNIT_SET}/*.cpp")
-            x_add_executable(${UNIT_SET} ${UNIT_FILES} ${TESTS_DIR}/GUTs/main.cpp)
+            ADD_EXECUTABLE(${UNIT_SET} ${UNIT_FILES} ${TESTS_DIR}/GUTs/main.cpp)
+            ADD_DEPENDENCIES(${UNIT_SET} ${PROJECT_NAME}_obj)
             TARGET_INCLUDE_DIRECTORIES(${UNIT_SET} PUBLIC ${GTEST_INCLUDE_DIRS})
             TARGET_LINK_LIBRARIES(${UNIT_SET}
                 ${GTEST_LIBRARIES}
@@ -144,16 +153,17 @@ IF (BUILD_UNIT_TESTS)
 ENDIF ()
 
 IF (BUILD_SYSTEM_TESTS)
-    SET(SYSTEM_TESTS
-        "test_basic_socket"
-        "test_networking"
-        "test_impact_error"
-        "test_worker_thread"
-        "test_async_pipeline"
-    )
+    IF (NOT MSVC)
+        SET(OTHER_LIBRARIES pthread)
+    ELSE ()
+        SET(OTHER_LIBRARIES "")
+    ENDIF ()
+    FILE(GLOB_RECURSE SYSTEM_TESTS "${TESTS_DIR}/System/test_*.cpp")
     FOREACH (SYSTEM_TEST ${SYSTEM_TESTS})
-        x_add_executable(${SYSTEM_TEST} "${TESTS_DIR}/System/${SYSTEM_TEST}.cpp")
-        TARGET_LINK_LIBRARIES(${SYSTEM_TEST} ${SELECTED_LINK_TARGET})
+    GET_FILENAME_COMPONENT(SYSTEM_TEST_NAME ${SYSTEM_TEST} NAME_WE)
+        ADD_EXECUTABLE(${SYSTEM_TEST_NAME} ${SYSTEM_TEST})
+        ADD_DEPENDENCIES(${SYSTEM_TEST_NAME} ${PROJECT_NAME}_obj)
+        TARGET_LINK_LIBRARIES(${SYSTEM_TEST_NAME} ${SELECTED_LINK_TARGET})
     ENDFOREACH ()
     IF (NOT MSVC)
         TARGET_COMPILE_OPTIONS(test_async_pipeline PRIVATE "-ggdb3")
