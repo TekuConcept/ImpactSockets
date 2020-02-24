@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 28, 2018
  */
 
-#ifndef _IMPACT_UTF8_H_
-#define _IMPACT_UTF8_H_
+#ifndef IMPACT_UTF8_H
+#define IMPACT_UTF8_H
 
 #include <cstdint>
 #include <string>

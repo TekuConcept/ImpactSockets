@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 7, 2018
  */
 
-#ifndef _IMPACT_BASIC_SOCKET_H_
-#define _IMPACT_BASIC_SOCKET_H_
+#ifndef IMPACT_BASIC_SOCKET_H
+#define IMPACT_BASIC_SOCKET_H
 
 #include <atomic>
 #include <string>

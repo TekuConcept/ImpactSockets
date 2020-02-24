@@ -2,6 +2,9 @@
  * Created by TekuConcept on August 1, 2018
  */
 
+#ifndef IMPACT_ABNF_OPS_H
+#define IMPACT_ABNF_OPS_H
+
 namespace impact {
 namespace internal {
     inline bool ALPHA(char c) { return ((c >= '\x41') && (c <= '\x5A')) || ((c >= '\x61') && (c <= '\x7A')); }

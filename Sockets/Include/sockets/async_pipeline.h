@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 10, 2018
  */
 
-#ifndef _IMPACT_ASYNC_PIPELINE_H_
-#define _IMPACT_ASYNC_PIPELINE_H_
+#ifndef IMPACT_ASYNC_PIPELINE_H
+#define IMPACT_ASYNC_PIPELINE_H
 
 #include <thread>
 #include <condition_variable>

@@ -3,8 +3,8 @@
  * Endian-Agnostic, type-size-independent MD5 implementation
  */
 
-#ifndef _IMPACT_RFC_MD5_H_
-#define _IMPACT_RFC_MD5_H_
+#ifndef IMPACT_RFC_MD5_H
+#define IMPACT_RFC_MD5_H
 
 #include <cstdint>
 #include <string>

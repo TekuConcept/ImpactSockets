@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 15, 2018
  */
 
-#ifndef _IMPACT_IMPACT_ERROR_H_
-#define _IMPACT_IMPACT_ERROR_H_
+#ifndef IMPACT_IMPACT_ERROR_H
+#define IMPACT_IMPACT_ERROR_H
 
 #include <string>
 #include <stdexcept>

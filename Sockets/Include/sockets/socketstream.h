@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 8, 2018
  */
 
-#ifndef _IMPACT_SOCKETSTREAM_H_
-#define _IMPACT_SOCKETSTREAM_H_
+#ifndef IMPACT_SOCKETSTREAM_H
+#define IMPACT_SOCKETSTREAM_H
 
 #include <string>
 #include <streambuf>

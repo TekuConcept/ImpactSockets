@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 8, 2017
  */
 
-#ifndef _IMPACT_ENVIRONMENT_H_
-#define _IMPACT_ENVIRONMENT_H_
+#ifndef IMPACT_ENVIRONMENT_H
+#define IMPACT_ENVIRONMENT_H
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *\
                  -: BUILD DEFINE FLAGS :-
