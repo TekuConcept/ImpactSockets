@@ -114,6 +114,7 @@ event_loop_impl::_M_thread_loop(size_t __id)
             token.event(__id);
             if (token.busy != nullptr) {
                 token.busy->store(false);
+                // prevent thread from spinning out
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 // allow other idle threads to work on idle-events
                 m_cv_.notify_one();
@@ -125,21 +126,22 @@ event_loop_impl::_M_thread_loop(size_t __id)
 
 bool
 event_loop_impl::add_idle_event(
-    std::function<void(size_t, void*)> function,
-    void* function_id)
+    std::function<void(size_t, void*)> __function,
+    void*                              __function_id)
 {
     {
         std::lock_guard<std::mutex> lock(m_mtx_);
         auto token = std::find_if(m_idle_events_.begin(), m_idle_events_.end(),
-            [&](const std::shared_ptr<struct idle_event> ev)
-            { return ev->id == function_id; });
+            [&](const std::shared_ptr<struct idle_event>& ev)
+            { return ev->id == __function_id; });
         if (token != m_idle_events_.end()) return false;
         std::shared_ptr<struct idle_event> ev =
             std::make_shared<struct idle_event>();
-        ev->id   = function_id;
-        ev->busy = false;
-        ev->event = std::bind(function, std::placeholders::_1, function_id);
-        m_idle_events_.push_back(std::shared_ptr<struct idle_event>(ev));
+        ev->id    = __function_id;
+        ev->busy  = false;
+        ev->event = std::bind(__function,
+            std::placeholders::_1, __function_id);
+        m_idle_events_.push_back(ev);
         m_idle_pending_ = true;
     }
     m_cv_.notify_all();
@@ -148,12 +150,12 @@ event_loop_impl::add_idle_event(
 
 
 bool
-event_loop_impl::remove_idle_event(void* function_id)
+event_loop_impl::remove_idle_event(void* __function_id)
 {
     std::lock_guard<std::mutex> lock(m_mtx_);
     auto token = std::find_if(m_idle_events_.begin(), m_idle_events_.end(),
-        [&](const std::shared_ptr<struct idle_event> ev)
-        { return ev->id == function_id; });
+        [&](const std::shared_ptr<struct idle_event>& ev)
+        { return ev->id == __function_id; });
     if (token == m_idle_events_.end())
         return false;
     m_idle_events_.erase(token);
@@ -164,11 +166,11 @@ event_loop_impl::remove_idle_event(void* function_id)
 
 
 void
-event_loop_impl::push_event(std::function<void(size_t)> function)
+event_loop_impl::push_event(std::function<void(size_t)> __function)
 {
     {
         std::lock_guard<std::mutex> lock(m_mtx_);
-        m_events_.push(function);
+        m_events_.push(__function);
     }
     m_cv_.notify_one();
 }
