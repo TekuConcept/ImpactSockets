@@ -24,9 +24,9 @@ INCLUDE_DIRECTORIES(
     ${NPCAP_INCLUDE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR} # location of configure.h
 )
-FILE(GLOB_RECURSE SOURCE_FILES "${SOCKETS_SOURCE_DIR}/*.cpp")
+FILE(GLOB_RECURSE SOC_SOURCE_FILES "${SOCKETS_SOURCE_DIR}/*.cpp")
 
-x_add_library(${PROJECT_NAME}_obj OBJECT ${SOURCE_FILES})
+x_add_library(${PROJECT_NAME}_obj OBJECT ${SOC_SOURCE_FILES})
 SET_PROPERTY(TARGET ${PROJECT_NAME}_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 
 
@@ -39,8 +39,8 @@ IF (${BUILD_SHARED})
         # Setup so versioning for Linux systems
         SET_TARGET_PROPERTIES(${PROJECT_NAME}_shared
             PROPERTIES
-            SOVERSION 0
-            VERSION 0.1
+            SOVERSION ${IMPACT_VERSION_MAJOR}
+            VERSION ${IMPACT_VERSION_MAJOR}.${IMPACT_VERSION_MINOR}.${IMPACT_VERSION_PATCH}
         )
     ENDIF ()
     IF (HAVE_NPCAP)
@@ -158,4 +158,27 @@ IF (BUILD_SYSTEM_TESTS)
     IF (NOT MSVC)
         TARGET_COMPILE_OPTIONS(test_async_pipeline PRIVATE "-ggdb3")
     ENDIF ()
+ENDIF ()
+
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# LINUX DEBIAN PACKAGE BUILDER                            #
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+IF (${__OS_LINUX__})
+    MESSAGE(STATUS "Linux debian package option available.")
+
+    SET(CPACK_GENERATOR "DEB")
+    SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "TekuConcept")
+    SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Light-weight network sockets, protocols, and utilities")
+    SET(CPACK_PACKAGE_VENDOR "TekuConcept")
+    SET(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
+    SET(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+
+    SET(CPACK_PACKAGE_VERSION_MAJOR "${IMPACT_VERSION_MAJOR}")
+    SET(CPACK_PACKAGE_VERSION_MINOR "${IMPACT_VERSION_MINOR}")
+    SET(CPACK_PACKAGE_VERSION_PATCH "${IMPACT_VERSION_PATCH}")
+
+    INCLUDE(CPack)
 ENDIF ()
