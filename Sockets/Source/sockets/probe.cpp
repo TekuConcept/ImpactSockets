@@ -25,7 +25,7 @@
     #define SOCKET_ERROR -1
 #endif
 
-#define ASSERT(cond)\
+#define IMPACT_ASSERT(cond)\
     if (!(cond)) throw impact_error(internal::error_message());
 
 int

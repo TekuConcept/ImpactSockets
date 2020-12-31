@@ -22,6 +22,7 @@ namespace impact {
 
         // constructors
         basic_socket();
+        basic_socket(address_family domain, socket_type type, internet_protocol proto);
         basic_socket(const basic_socket& r) /* throw(impact_error) */;
         basic_socket(basic_socket&& r) /* throw(impact_error) */;
 

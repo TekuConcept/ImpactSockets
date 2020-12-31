@@ -3,7 +3,7 @@
  */
 
 #include "sockets/basic_socket.h"
-#include "basic_socket_common.inc"
+#include "basic_socket_common.h"
 
 using namespace impact;
 
@@ -46,8 +46,10 @@ void
 basic_socket::_M_dtor()
 {
     if (m_info_ != nullptr && m_info_.use_count() == 1) {
+        IMPACT_TRY_BEGIN
         if (m_info_->descriptor != INVALID_SOCKET)
-            CATCH_ASSERT(close();)
+            close();
+        IMPACT_TRY_END
         m_info_->descriptor = INVALID_SOCKET;
         m_info_ = nullptr;
     }
@@ -69,15 +71,38 @@ basic_socket::basic_socket()
 }
 
 
+basic_socket::basic_socket(
+    address_family    __domain,
+    socket_type       __type,
+    internet_protocol __proto)
+{
+    #if defined(__OS_WINDOWS__)
+        static WSADATA wsa_data;
+        auto status = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+        WIN_ASSERT(status == 0, status, (void)0;)
+        result.m_info_->wsa    = true;
+    #endif
+    m_info_->descriptor = ::socket((int)__domain, (int)__type, (int)__proto);
+    IMPACT_ASSERT(m_info_->descriptor != INVALID_SOCKET);
+    m_info_->domain     = __domain;
+    m_info_->type       = __type;
+    m_info_->protocol   = __proto;
+}
+
+
 basic_socket::basic_socket(const basic_socket& __rvalue)
 {
-    CATCH_ASSERT(_M_copy(__rvalue);)
+    IMPACT_TRY_BEGIN
+    _M_copy(__rvalue);
+    IMPACT_TRY_END
 }
 
 
 basic_socket::basic_socket(basic_socket&& __rvalue)
 {
-    CATCH_ASSERT(_M_move(std::move(__rvalue));)
+    IMPACT_TRY_BEGIN
+    _M_move(std::move(__rvalue));
+    IMPACT_TRY_END
 }
 
 
@@ -87,45 +112,33 @@ impact::make_socket(
     socket_type       __type,
     internet_protocol __proto)
 {
-    basic_socket result;
-    #if defined(__OS_WINDOWS__)
-        static WSADATA wsa_data;
-        auto status = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-        WIN_ASSERT(status == 0, status, (void)0;)
-        result.m_info_->wsa    = true;
-    #endif
-    result.m_info_->descriptor = ::socket((int)__domain, (int)__type, (int)__proto);
-    ASSERT(result.m_info_->descriptor != INVALID_SOCKET);
-    result.m_info_->domain     = __domain;
-    result.m_info_->type       = __type;
-    result.m_info_->protocol   = __proto;
-    return result;
+    return basic_socket(__domain, __type, __proto);
 }
 
 
 basic_socket
 impact::make_tcp_socket()
 {
-    CATCH_ASSERT(
-        return make_socket(
+    IMPACT_TRY_BEGIN
+        return basic_socket(
             address_family::INET,
             socket_type::STREAM,
             internet_protocol::TCP
         );
-    )
+    IMPACT_TRY_END
 }
 
 
 basic_socket
 impact::make_udp_socket()
 {
-    CATCH_ASSERT(
-        return make_socket(
+    IMPACT_TRY_BEGIN
+        return basic_socket(
             address_family::INET,
             socket_type::DATAGRAM,
             internet_protocol::UDP
         );
-    )
+    IMPACT_TRY_END
 }
 
 
@@ -139,10 +152,10 @@ basic_socket::~basic_socket()
 void
 basic_socket::close()
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     auto status = CLOSE_SOCKET(m_info_->descriptor);
     m_info_->descriptor = INVALID_SOCKET;
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 #if defined(__WINDOWS__)
     if (m_info_->wsa)
         WSACleanup();
@@ -154,9 +167,11 @@ basic_socket::close()
 basic_socket&
 basic_socket::operator=(const basic_socket& __rvalue)
 {
+    IMPACT_TRY_BEGIN
     if (m_info_ && m_info_.use_count() > 0)
-        CATCH_ASSERT(_M_dtor();)
-    CATCH_ASSERT(_M_copy(__rvalue);)
+        _M_dtor();
+    _M_copy(__rvalue);
+    IMPACT_TRY_END
     return *this;
 }
 
@@ -164,9 +179,11 @@ basic_socket::operator=(const basic_socket& __rvalue)
 basic_socket&
 basic_socket::operator=(basic_socket&& __rvalue)
 {
+    IMPACT_TRY_BEGIN
     if (m_info_ && m_info_.use_count() > 0)
-        CATCH_ASSERT(_M_dtor();)
-    CATCH_ASSERT(_M_move(std::move(__rvalue));)
+        _M_dtor();
+    _M_move(std::move(__rvalue));
+    IMPACT_TRY_END
     return *this;
 }
 

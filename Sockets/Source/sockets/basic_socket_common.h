@@ -64,22 +64,22 @@
     #define INVALID_SOCKET -1
 #endif
 
-#define ASSERT(cond)\
+#define IMPACT_ASSERT(cond)\
     if (!(cond)) throw impact_error(internal::error_message());
 
-#define ASSERT_MOVED\
+#define IMPACT_ASSERT_MOVED\
     if (!m_info_) throw impact_error("Socket moved");
 
-#define ASSERT_INVALID\
+#define IMPACT_ASSERT_INVALID\
     if (m_info_->descriptor == INVALID_SOCKET)\
         throw impact_error("Invalid socket");
 
-#define CATCH_ASSERT(code)\
-    try { code }\
+#define IMPACT_TRY_BEGIN try {
+#define IMPACT_TRY_END }\
     catch (impact_error&) { throw; }\
     catch (...) { throw impact_error("Unknown internal error"); }
 
-#define WIN_ASSERT(cond,error,fin)\
+#define IMPACT_WIN_ASSERT(cond,error,fin)\
     if (!(cond)) {\
         fin\
         throw impact_error(internal::win_error_message( error ));\

@@ -21,7 +21,7 @@
 #include "utils/impact_error.h"
 #include "utils/errno.h"
 #include "sockets/generic.h"
-#include "basic_socket_common.inc"
+#include "basic_socket_common.h"
 
 #if defined HAVE_NPCAP
     #include <pcap.h>
@@ -259,7 +259,7 @@ raw_socket::send(
         (int)message_flags::NONE
     );
 #endif
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
         return status;
 }
 
@@ -276,7 +276,7 @@ raw_socket::recv(
         &m_aligned_buffer_[0],
         m_aligned_buffer_.size()
     );
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     auto berkley_packet_header = (struct bpf_hdr*)&m_aligned_buffer_[0];
     auto size = std::min((unsigned int)__length,
         berkley_packet_header->bh_caplen);
@@ -289,7 +289,7 @@ raw_socket::recv(
         __length,
         (int)message_flags::NONE
     );
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 #endif
     return status;
 }
@@ -319,26 +319,26 @@ raw_socket::_M_attach(const char* __interface_name)
     unsigned int enabled = 1;
     auto target = m_bpf_descriptor_;
     auto status = ::ioctl(target, BIOCSETIF, &ifr);
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     status = ::ioctl(target, BIOCSHDRCMPLT, &enabled);
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     status = ::ioctl(target, BIOCIMMEDIATE, &enabled);
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     unsigned int buffer_align_size = 0;
     status = ::ioctl(m_bpf_descriptor_, BIOCGBLEN, &buffer_align_size);
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     m_aligned_buffer_.resize(buffer_align_size);
 
 #elif defined(__OS_LINUX__)
     auto status = ::ioctl(m_socket_.get(), SIOCGIFINDEX, &ifr);
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     struct sockaddr_ll sll;
     memset(&sll, 0, sizeof(sll));
     sll.sll_family   = AF_PACKET;
     sll.sll_protocol = htons(ETH_P_ALL);
     sll.sll_ifindex  = ifr.ifr_ifindex;
     status = ::bind(m_socket_.get(), (struct sockaddr*)&sll, sizeof(sll));
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 #endif
 }
 

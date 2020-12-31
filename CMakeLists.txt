@@ -118,6 +118,22 @@ ENDIF ()
 # TEST MODULES                                            #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
+FUNCTION(SUBDIRLIST out_var curdir)
+    FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)
+    SET(result)
+    FOREACH(child ${children})
+        IF(IS_DIRECTORY ${curdir}/${child})
+            LIST(APPEND result ${child})
+        ENDIF()
+    ENDFOREACH()
+    SET(${out_var} "${result}" PARENT_SCOPE)
+ENDFUNCTION()
+
+SET(TESTS_DIR ${CMAKE_SOURCE_DIR}/Tests)
+
+SET(BUILD_UNIT_TESTS ON CACHE BOOL "Build unit-tests")
+SET(BUILD_SYSTEM_TESTS ON CACHE BOOL "Build system-tests")
+
 IF (BUILD_UNIT_TESTS)
     IF (GTEST_FOUND)
         IF (NOT MSVC)
@@ -125,14 +141,11 @@ IF (BUILD_UNIT_TESTS)
         ELSE ()
             SET(OTHER_LIBRARIES "")
         ENDIF ()
-
-        SET(UNIT_SETS
-            "unit_set_1"
-            "unit_set_2"
-        )
+        SUBDIRLIST(UNIT_SETS ${TESTS_DIR}/GUTs)
         FOREACH(UNIT_SET ${UNIT_SETS})
             FILE(GLOB_RECURSE UNIT_FILES "${TESTS_DIR}/GUTs/${UNIT_SET}/*.cpp")
-            x_add_executable(${UNIT_SET} ${UNIT_FILES} ${TESTS_DIR}/GUTs/main.cpp)
+            x_add_executable(${UNIT_SET} ${UNIT_FILES} "${TESTS_DIR}/GUTs/main.cpp")
+            ADD_DEPENDENCIES(${UNIT_SET} ${PROJECT_NAME}_obj)
             TARGET_INCLUDE_DIRECTORIES(${UNIT_SET} PUBLIC ${GTEST_INCLUDE_DIRS})
             TARGET_LINK_LIBRARIES(${UNIT_SET}
                 ${GTEST_LIBRARIES}
@@ -145,21 +158,15 @@ IF (BUILD_UNIT_TESTS)
 ENDIF ()
 
 IF (BUILD_SYSTEM_TESTS)
-    SET(SYSTEM_TESTS
-        "test_basic_socket"
-        "test_networking"
-        "test_impact_error"
-        "test_worker_thread"
-        "test_async_pipeline"
-        "test_regex"
-    )
+    FILE(GLOB_RECURSE SYSTEM_TESTS "${TESTS_DIR}/System/test_*.cpp")
     FOREACH (SYSTEM_TEST ${SYSTEM_TESTS})
-        x_add_executable(${SYSTEM_TEST} "${TESTS_DIR}/System/${SYSTEM_TEST}.cpp")
-        TARGET_LINK_LIBRARIES(${SYSTEM_TEST} ${SELECTED_LINK_TARGET})
+        GET_FILENAME_COMPONENT(SYSTEM_TEST_NAME ${SYSTEM_TEST} NAME_WE)
+        ADD_EXECUTABLE(${SYSTEM_TEST_NAME} ${SYSTEM_TEST})
+        TARGET_LINK_LIBRARIES(${SYSTEM_TEST_NAME}
+            ${SELECTED_LINK_TARGET}
+            ${OTHER_LIBRARIES}
+        )
     ENDFOREACH ()
-    IF (NOT MSVC)
-        TARGET_COMPILE_OPTIONS(test_async_pipeline PRIVATE "-ggdb3")
-    ENDIF ()
 ENDIF ()
 
 

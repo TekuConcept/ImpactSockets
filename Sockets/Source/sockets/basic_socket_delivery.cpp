@@ -3,14 +3,14 @@
  */
 
 #include "sockets/basic_socket.h"
-#include "basic_socket_common.inc"
+#include "basic_socket_common.h"
 
 using namespace impact;
 
 void
 basic_socket::bind(unsigned short __port)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     struct sockaddr_in socket_address;
 
     ::memset(&socket_address, 0, sizeof(socket_address));
@@ -24,7 +24,7 @@ basic_socket::bind(unsigned short __port)
         sizeof(socket_address)
     );
 
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 }
 
 
@@ -33,11 +33,11 @@ basic_socket::bind(
     std::string    __address,
     unsigned short __port)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     std::shared_ptr<struct sockaddr> socket_address;
 
     size_t size;
-    CATCH_ASSERT(
+    IMPACT_TRY_BEGIN
         size = internal::fill_address(
             m_info_->domain,
             m_info_->type,
@@ -46,7 +46,7 @@ basic_socket::bind(
             __port,
             &socket_address
         );
-    )
+    IMPACT_TRY_END
 
     auto status = ::bind(
         m_info_->descriptor,
@@ -54,14 +54,14 @@ basic_socket::bind(
         size
     );
 
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 }
 
 
 void
 basic_socket::bind(const struct sockaddr& __address)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
 
     auto status = ::bind(
         m_info_->descriptor,
@@ -69,23 +69,23 @@ basic_socket::bind(const struct sockaddr& __address)
         sizeof(__address)
     );
 
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 }
 
-#include <iostream>
-#include <iomanip>
-#include "sockets/networking.h"
-#define VERBOSE(x) std::cout << x << std::endl
+// #include <iostream>
+// #include <iomanip>
+// #include "sockets/networking.h"
+// #define VERBOSE(x) std::cout << x << std::endl
 void
 basic_socket::connect(
     unsigned short __port,
     std::string    __address)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     std::shared_ptr<struct sockaddr> destination_address;
 
     size_t size;
-    CATCH_ASSERT(
+    IMPACT_TRY_BEGIN
         size = internal::fill_address(
             m_info_->domain,
             m_info_->type,
@@ -94,7 +94,7 @@ basic_socket::connect(
             __port,
             &destination_address
         );
-    )
+    IMPACT_TRY_END
 
     auto status = ::connect(
         m_info_->descriptor,
@@ -102,26 +102,26 @@ basic_socket::connect(
         size
     );
 
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 }
 
 
 void
 basic_socket::listen(int __backlog)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     auto status = ::listen(m_info_->descriptor, __backlog);
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 }
 
 
 basic_socket
 basic_socket::accept()
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     basic_socket peer;
     peer.m_info_->descriptor = ::accept(m_info_->descriptor, NULL, NULL);
-    ASSERT(peer.m_info_->descriptor != INVALID_SOCKET)
+    IMPACT_ASSERT(peer.m_info_->descriptor != INVALID_SOCKET)
     peer.m_info_->wsa        = false;
     peer.m_info_->domain     = m_info_->domain;
     peer.m_info_->type       = m_info_->type;
@@ -133,9 +133,9 @@ basic_socket::accept()
 void
 basic_socket::shutdown(socket_channel __channel)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     auto status = ::shutdown(m_info_->descriptor, (int)__channel);
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 }
 
 
@@ -144,7 +144,7 @@ basic_socket::group(
     std::string            __name,
     group_application      __method)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     struct ip_mreq multicast_request;
     multicast_request.imr_multiaddr.s_addr = inet_addr(__name.c_str());
     multicast_request.imr_interface.s_addr = htonl(INADDR_ANY);
@@ -155,14 +155,14 @@ basic_socket::group(
         (CCHAR_PTR)&multicast_request,
         sizeof(multicast_request)
     );
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 }
 
 
 void
 basic_socket::keepalive(struct keep_alive_options __options)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     // http://helpdoco.com/C++-C/how-to-use-tcp-keepalive.htm
     std::ostringstream os;
     auto errors = 0;
@@ -186,7 +186,7 @@ basic_socket::keepalive(struct keep_alive_options __options)
         NULL
     );
 
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 #else /* OSX|LINUX */
     status = setsockopt(
         m_info_->descriptor,
@@ -258,14 +258,14 @@ basic_socket::send(
     int                __length,
     message_flags      __flags)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     auto status = ::send(
         m_info_->descriptor,
         (CCHAR_PTR)__buffer,
         __length,
         (int)__flags
     );
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     return status;
 }
 
@@ -278,11 +278,11 @@ basic_socket::sendto(
     const std::string& __address,
     message_flags      __flags)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     std::shared_ptr<struct sockaddr> destination_address;
 
     size_t size;
-    CATCH_ASSERT(
+    IMPACT_TRY_BEGIN
         size = internal::fill_address(
             m_info_->domain,
             m_info_->type,
@@ -291,7 +291,7 @@ basic_socket::sendto(
             __port,
             &destination_address
         );
-    )
+    IMPACT_TRY_END
 
     auto status = ::sendto(
         m_info_->descriptor,
@@ -302,7 +302,7 @@ basic_socket::sendto(
         size
     );
 
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     return status;
 }
 
@@ -313,14 +313,14 @@ basic_socket::recv(
     int                __length,
     message_flags      __flags)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     int status = ::recv(
         m_info_->descriptor,
         (CHAR_PTR)__buffer,
         __length,
         (int)__flags
     );
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
     return status; /* number of bytes received or EOF */
 }
 
@@ -333,7 +333,7 @@ basic_socket::recvfrom(
     std::string*       __address,
     message_flags      __flags)
 {
-    ASSERT_MOVED
+    IMPACT_ASSERT_MOVED
     struct sockaddr_in client_address;
     socklen_t address_length = sizeof(client_address);
 
@@ -346,7 +346,7 @@ basic_socket::recvfrom(
         (socklen_t*)&address_length
     );
 
-    ASSERT(status != SOCKET_ERROR)
+    IMPACT_ASSERT(status != SOCKET_ERROR)
 
     if (__address)
         *__address = inet_ntoa(client_address.sin_addr);

@@ -22,7 +22,7 @@
     #undef ASSERT
 #endif
 
-#define ASSERT(cond)\
+#define IMPACT_ASSERT(cond)\
     if (!(cond)) throw impact_error(internal::error_message());
 
 
@@ -94,7 +94,7 @@ internal::fill_address(
     auto status = ::getaddrinfo(&__address[0], &port[0], &hints, &result);
 
 #if !defined(__OS_WINDOWS__)
-    ASSERT(status != EAI_SYSTEM);
+    IMPACT_ASSERT(status != EAI_SYSTEM);
 #endif
     if (status != 0)
         throw impact_error(::gai_strerror(status));
@@ -425,7 +425,7 @@ internal::no_sigpipe()
         // EFAULT on 'act' and 'oldact' should never happen
         // EINVAL should never happen since SIGPIPE is a valid signal
         // however, some systems might not consider the signal as valid
-        ASSERT(status != -1)
+        IMPACT_ASSERT(status != -1)
         _s_sigpipe_blocked_ = true;
     }
 }
