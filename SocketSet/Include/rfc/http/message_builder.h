@@ -2,8 +2,8 @@
  * Created by TekuConcept on October 5, 2019
  */
 
-#ifndef _IMPACT_HTTP_MESSAGE_BUILDER_H_
-#define _IMPACT_HTTP_MESSAGE_BUILDER_H_
+#ifndef IMPACT_HTTP_MESSAGE_BUILDER_H
+#define IMPACT_HTTP_MESSAGE_BUILDER_H
 
 #include <iostream>
 #include <string>

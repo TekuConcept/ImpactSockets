@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 8, 2018
  */
 
-#ifndef _IMPACT_PROBE_H_
-#define _IMPACT_PROBE_H_
+#ifndef IMPACT_PROBE_H
+#define IMPACT_PROBE_H
 
 #include <vector>
 

@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 7, 2018
  */
 
-#ifndef _IMPACT_NETWORKING_H_
-#define _IMPACT_NETWORKING_H_
+#ifndef IMPACT_NETWORKING_H
+#define IMPACT_NETWORKING_H
 
 #include <string>
 #include <vector>

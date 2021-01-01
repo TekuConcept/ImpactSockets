@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 7, 2018
  */
 
-#ifndef _IMPACT_GENERIC_H_
-#define _IMPACT_GENERIC_H_
+#ifndef IMPACT_GENERIC_H
+#define IMPACT_GENERIC_H
 
 #include <string>
 #include <vector>

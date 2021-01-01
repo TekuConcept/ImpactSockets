@@ -1,10 +1,10 @@
 /**
  * Created by TekuConcept on September 24, 2018
- * WARNING: Experimental across platforms
+ * Experimental across platforms
  */
 
-#ifndef _IMPACT_RAW_SOCKET_H_
-#define _IMPACT_RAW_SOCKET_H_
+#ifndef IMPACT_RAW_SOCKET_H
+#define IMPACT_RAW_SOCKET_H
 
 #include <memory>
 #include <string>

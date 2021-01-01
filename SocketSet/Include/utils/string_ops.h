@@ -2,8 +2,8 @@
  * Created by TekuConcept on January 4, 2019
  */
 
-#ifndef _IMPACT_UTILS_STRING_OPS_H_
-#define _IMPACT_UTILS_STRING_OPS_H_
+#ifndef IMPACT_UTILS_STRING_OPS_H
+#define IMPACT_UTILS_STRING_OPS_H
 
 #include <string>
 #include <vector>

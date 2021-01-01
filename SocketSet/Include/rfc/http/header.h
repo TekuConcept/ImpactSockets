@@ -2,8 +2,8 @@
  * Created by TekuConcept on December 28, 2018
  */
 
-#ifndef _IMPACT_HTTP_HEADER_H_
-#define _IMPACT_HTTP_HEADER_H_
+#ifndef IMPACT_HTTP_HEADER_H
+#define IMPACT_HTTP_HEADER_H
 
 #include <iostream>
 #include <string>

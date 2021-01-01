@@ -2,8 +2,8 @@
  * Created by TekuConcept on December 30, 2018
  */
 
-#ifndef _IMPACT_HTTP_MESSAGE_TRAITS_H_
-#define _IMPACT_HTTP_MESSAGE_TRAITS_H_
+#ifndef IMPACT_HTTP_MESSAGE_TRAITS_H
+#define IMPACT_HTTP_MESSAGE_TRAITS_H
 
 #include <iostream>
 #include <string>

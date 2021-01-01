@@ -3,8 +3,8 @@
  * Note: Case-insensitive string implementation
  */
 
-#ifndef _IMPACT_UTILS_CASE_STRING_H
-#define _IMPACT_UTILS_CASE_STRING_H
+#ifndef IMPACT_UTILS_CASE_STRING_H
+#define IMPACT_UTILS_CASE_STRING_H
 
 #include <string>
 #include <iostream>

@@ -5,8 +5,8 @@
  * Copyright (C) The Internet Society (2001). All Rights Reserved.
  */
 
-#ifndef SHA1_H
-#define SHA1_H
+#ifndef IMPACT_RFC_SHA1_H
+#define IMPACT_RFC_SHA1_H
 
 #include <string>
 

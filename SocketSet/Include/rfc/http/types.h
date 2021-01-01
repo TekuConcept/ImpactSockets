@@ -2,8 +2,8 @@
  * Created by TekuConcept on December 15, 2018
  */
 
-#ifndef _IMPACT_HTTP_TYPES_H_
-#define _IMPACT_HTTP_TYPES_H_
+#ifndef IMPACT_HTTP_TYPES_H
+#define IMPACT_HTTP_TYPES_H
 
 #include <string>
 

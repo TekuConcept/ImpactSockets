@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 25, 2017
  */
 
-#ifndef _IMPACT_RFC_URI_H_
-#define _IMPACT_RFC_URI_H_
+#ifndef IMPACT_RFC_URI_H
+#define IMPACT_RFC_URI_H
 
 #include <string>
 #include <sstream>

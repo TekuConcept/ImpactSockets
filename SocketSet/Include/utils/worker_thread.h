@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 25, 2018
  */
 
-#ifndef _IMPACT_WORKER_THREAD_H_
-#define _IMPACT_WORKER_THREAD_H_
+#ifndef IMPACT_WORKER_THREAD_H
+#define IMPACT_WORKER_THREAD_H
 
 #include <vector>
 #include <thread>

@@ -2,8 +2,8 @@
  * Created by TekuConcept on August 15, 2018
  */
 
-#ifndef _IMPACT_REGEX_H_
-#define _IMPACT_REGEX_H_
+#ifndef IMPACT_REGEX_H
+#define IMPACT_REGEX_H
 
 #include <string>
 #include <vector>

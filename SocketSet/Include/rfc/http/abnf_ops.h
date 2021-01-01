@@ -2,8 +2,8 @@
  * Created by TekuConcept on December 28, 2018
  */
 
-#ifndef _IMPACT_HTTP_ABNF_OPS_H_
-#define _IMPACT_HTTP_ABNF_OPS_H_
+#ifndef IMPACT_HTTP_ABNF_OPS_H
+#define IMPACT_HTTP_ABNF_OPS_H
 
 #include <string>
 

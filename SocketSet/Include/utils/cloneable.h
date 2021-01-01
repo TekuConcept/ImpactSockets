@@ -2,8 +2,8 @@
  * Created by TekuConcept on January 5, 2018
  */
 
-#ifndef _IMPACT_UTILS_ICLONEABLE_H_
-#define _IMPACT_UTILS_ICLONEABLE_H_
+#ifndef IMPACT_UTILS_ICLONEABLE_H
+#define IMPACT_UTILS_ICLONEABLE_H
 
 namespace impact {
     template <class T>

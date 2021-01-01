@@ -2,8 +2,8 @@
  * Created by TekuConcept on July 31, 2018
  */
 
-#ifndef _IMPACT_ARCHITECTURE_H_
-#define _IMPACT_ARCHITECTURE_H_
+#ifndef IMPACT_ARCHITECTURE_H
+#define IMPACT_ARCHITECTURE_H
 
 #include <cstdint>
 #include <vector>

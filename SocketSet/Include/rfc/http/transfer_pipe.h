@@ -2,8 +2,8 @@
  * Created by TekuConcept on October 4, 2019
  */
 
-#ifndef _IMPACT_HTTP_TRANSFER_PIPE_H_
-#define _IMPACT_HTTP_TRANSFER_PIPE_H_
+#ifndef IMPACT_HTTP_TRANSFER_PIPE_H
+#define IMPACT_HTTP_TRANSFER_PIPE_H
 
 #include <vector>
 #include <memory>
