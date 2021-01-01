@@ -20,10 +20,20 @@ Tested on:<br>
 This project has also been tested by others and found to work on Chrome OS and PCDuino.
 <br><br>
 
+## Supported Features
+ImpactSockets wraps platform-dependent socket APIs within its own unifying, platform-independent API. In addition, various utilities and protocols are included for convinience with the socket-set.
+
+What is included:
+- Raw Sockets
+- UDP Sockets
+- TCP Sockets
+- Network Interfaces
+- SocketStream
+- HTTP Messages (parse/create)
+
 ## Features Comming Soon
 An attempt is underway to add full support for the following protocols - though it may take several years to fully implement.
 - Websockets (RFC 6455)
-- Real-Time Streaming Protocol (RTSP v2, RFC 7826)
 - HyperText Transfer Protocol (HTTP v1.1, RFC 7230 - 7235)
 
 ## External Libraries
