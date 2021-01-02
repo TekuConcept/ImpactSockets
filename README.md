@@ -23,7 +23,7 @@ This project has also been tested by others and found to work on Chrome OS and P
 ## Supported Features
 ImpactSockets wraps platform-dependent socket APIs within its own unifying, platform-independent API. In addition, various utilities and protocols are included for convinience with the socket-set.
 
-What is included:
+**What is included:**
 - Raw Sockets
 - UDP Sockets
 - TCP Sockets
