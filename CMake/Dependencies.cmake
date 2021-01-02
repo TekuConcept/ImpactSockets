@@ -38,3 +38,14 @@ IF (WIN32) # This library is only necessary for Windows builds
         MESSAGE(SEND_ERROR "Cannot Find Npcap - Used for raw sockets")
     ENDIF ()
 ENDIF ()
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Find libuv (libuv1-dev)                                                     #
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+INCLUDE("${CMAKE_SOURCE_DIR}/CMake/FindLibUV.cmake")
+IF (UV_LIBRARIES)
+    MESSAGE(STATUS "Found libuv: ${UV_INCLUDE_DIRS}")
+ELSE ()
+    MESSAGE(SEND_ERROR "libuv missing")
+ENDIF ()

@@ -22,6 +22,7 @@ INCLUDE_DIRECTORIES(
     ${SOCKETS_INCLUDE_DIR}
     ${SOCKETS_INCLUDE_DIR}/placeholder
     ${NPCAP_INCLUDE_DIR}
+    ${UV_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR} # location of configure.h
 )
 FILE(GLOB_RECURSE SOC_SOURCE_FILES "${SOCKETS_SOURCE_DIR}/*.cpp")
@@ -99,16 +100,15 @@ INSTALL (
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
 IF (BUILD_EXAMPLES)
-    SET(EXAMPLES
-        "DemoTCPClient"
-        "DemoTCPServer"
-        "Discovery"
-        "ListInterfaces"
-        "EthernetDemo"
-    )
-    FOREACH (EXAMPLE ${EXAMPLES})
-        x_add_executable(${EXAMPLE} "${EXAMPLES_DIR}/${EXAMPLE}.cpp")
-        TARGET_LINK_LIBRARIES(${EXAMPLE} ${SELECTED_LINK_TARGET})
+    FILE(GLOB_RECURSE DEMO_PROGRAMS "${CMAKE_SOURCE_DIR}/Examples/*.cpp")
+    FOREACH (DEMO_PROGRAM ${DEMO_PROGRAMS})
+        GET_FILENAME_COMPONENT(DEMO_NAME ${DEMO_PROGRAM} NAME_WE)
+        ADD_EXECUTABLE(${DEMO_NAME} ${DEMO_PROGRAM})
+        ADD_DEPENDENCIES(${DEMO_NAME} ${PROJECT_NAME}_obj)
+        TARGET_LINK_LIBRARIES(${DEMO_NAME}
+            $<TARGET_OBJECTS:${PROJECT_NAME}_obj>
+            ${UV_LIBRARIES}
+        )
     ENDFOREACH ()
 ENDIF ()
 
@@ -151,6 +151,7 @@ IF (BUILD_UNIT_TESTS)
                 ${GTEST_LIBRARIES}
                 ${GMOCK_LIBRARIES}
                 ${SELECTED_LINK_TARGET}
+                ${UV_LIBRARIES}
                 ${OTHER_LIBRARIES}
             )
         ENDFOREACH ()
@@ -164,6 +165,7 @@ IF (BUILD_SYSTEM_TESTS)
         ADD_EXECUTABLE(${SYSTEM_TEST_NAME} ${SYSTEM_TEST})
         TARGET_LINK_LIBRARIES(${SYSTEM_TEST_NAME}
             ${SELECTED_LINK_TARGET}
+            ${UV_LIBRARIES}
             ${OTHER_LIBRARIES}
         )
     ENDFOREACH ()
