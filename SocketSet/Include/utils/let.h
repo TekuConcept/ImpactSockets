@@ -58,9 +58,9 @@ namespace impact {
 
     class abstract_variable {
     public:
-        abstract_variable();
+        abstract_variable() noexcept;
         virtual ~abstract_variable() = default;
-        virtual bool truthy() const;
+        virtual bool truthy() const noexcept;
         std::string class_name() const { return m_sym; }
         template <typename T>
         inline T& get() const { return *reinterpret_cast<T*>(m_data); }
@@ -89,7 +89,7 @@ namespace impact {
         impact_variable& operator=(const impact_variable& right);
         impact_variable& operator=(impact_variable&& right);
         inline T& value() { return m_value; }
-        bool truthy() const override;
+        bool truthy() const noexcept override;
 
         static std::shared_ptr<impact_variable> create()
         { return std::make_shared<impact_variable>(); }
@@ -106,9 +106,9 @@ namespace impact {
 
     private:
         void _M_base_init();
-        bool _M_number_object_truthy(std::true_type) const
+        bool _M_number_object_truthy(std::true_type) const noexcept
         { return ( this->m_value != 0 ); }
-        bool _M_number_object_truthy(std::false_type) const
+        bool _M_number_object_truthy(std::false_type) const noexcept
         { return abstract_variable::truthy(); }
         static void _M_private_class_name(std::string* __name) {
             // #if defined(RTTI_ENABLED)
@@ -160,25 +160,25 @@ namespace impact {
 
     class let {
     public:
-        let();
-        let(const let& other);
-        let(let&& other);
-        let(std::shared_ptr<abstract_variable> variable);
+        let() noexcept;
+        let(const let& other) noexcept;
+        let(let&& other) noexcept;
+        let(std::shared_ptr<abstract_variable> variable) noexcept;
         let(const char* value);
         template <typename T>
-        let(std::shared_ptr<impact_variable<T>> variable)
+        let(std::shared_ptr<impact_variable<T>> variable) noexcept
         : m_var(variable) { }
         template <typename T>
         let(T variable)
         : m_var(std::make_shared<impact_variable<T>>(variable)) { }
         ~let() = default;
 
-        let& operator=(const let& right);
-        let& operator=(let&& right);
-        let& operator=(std::shared_ptr<abstract_variable> right);
+        let& operator=(const let& right) noexcept;
+        let& operator=(let&& right) noexcept;
+        let& operator=(std::shared_ptr<abstract_variable> right) noexcept;
         let& operator=(const char* right);
         template <typename T>
-        let& operator=(std::shared_ptr<impact_variable<T>> right) {
+        let& operator=(std::shared_ptr<impact_variable<T>> right) noexcept {
             this->m_var = right;
             return *this;
         }
@@ -187,7 +187,7 @@ namespace impact {
             this->m_var = std::make_shared<impact_variable<T>>(right);
             return *this;
         }
-        operator bool() const;
+        operator bool() const noexcept;
 
         template <typename T>
         inline T& get() const
@@ -195,10 +195,10 @@ namespace impact {
             if (m_var == nullptr) throw impact_error("undefined variable");
             return *reinterpret_cast<T*>(m_var->m_data);
         }
-        bool truthy() const;
+        bool truthy() const noexcept;
         inline std::string class_name() const
         { return (m_var != nullptr) ? m_var->class_name() : "undefined"; }
-        inline bool is_undefined() const
+        inline bool is_undefined() const noexcept
         { return m_var == nullptr; }
 
     private:
@@ -260,7 +260,7 @@ namespace impact {
 
     template <typename T>
     bool
-    impact_variable<T>::truthy() const
+    impact_variable<T>::truthy() const noexcept
     {
         typedef typename std::remove_cv<T>::type simple_type;
         return (std::is_same<std::string, simple_type>::value &&

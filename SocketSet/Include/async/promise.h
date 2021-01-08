@@ -57,13 +57,13 @@ namespace impact {
     protected:
         promise();
 
-        promise& _M_done(std::vector<callback_t> callbacks);
-        promise& _M_fail(std::vector<callback_t> callbacks);
-        promise& _M_progress(std::vector<callback_t> callbacks);
+        promise& _M_done(const std::vector<callback_t>& callbacks);
+        promise& _M_fail(const std::vector<callback_t>& callbacks);
+        promise& _M_progress(const std::vector<callback_t>& callbacks);
 
-        void _M_resolve(std::vector<let> args);
-        void _M_reject(std::vector<let> args);
-        void _M_notify(std::vector<let> args);
+        void _M_resolve(const std::vector<let>& args);
+        void _M_reject(const std::vector<let>& args);
+        void _M_notify(const std::vector<let>& args);
 
         enum class state_t { PENDING, RESOLVED, REJECTED };
         struct link_t {
@@ -92,7 +92,7 @@ namespace impact {
         static void _S_notify(
             const std::shared_ptr<struct link_t>& link,
             const std::vector<let>& args);
-        static void _M_cleanup(const std::shared_ptr<struct link_t>& link);
+        static void _S_cleanup(const std::shared_ptr<struct link_t>& link);
 
         inline callback_t _M_wrap_callback(
             const std::shared_ptr<struct link_t>& link,

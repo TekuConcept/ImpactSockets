@@ -329,16 +329,14 @@ TEST(test_promises, chaining) {
         deferred d;
         std::string value;
         d
-        .then(PROMISE_CALLBACK_R() {
-            return deferred().resolve("yes").promise();
-        })
+        .then(PROMISE_CALLBACK_R() { return "test"; })
         .then(PROMISE_CALLBACK(args, &) {
-            if (args.size() > 0)
+            if (args.size() == 1)
                 value = args[0].get<std::string>();
         })
         .then(PROMISE_CALLBACK(args) { EXPECT_EQ(args.size(), 0); });
         d.resolve();
-        EXPECT_EQ(value, "yes");
+        EXPECT_EQ(value, "test");
     }
 
     // chain ordering

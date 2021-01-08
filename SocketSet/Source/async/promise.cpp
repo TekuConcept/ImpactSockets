@@ -32,9 +32,7 @@ promise::_M_wrap_callback(
     return PROMISE_CALLBACK_R(args, __link, __callback, __action) {
         let result = __callback(args);
         if (result.is_undefined()) __action(__link, { });
-        else if (result.class_name() == std::string("impact::promise") &&
-            result.get<promise>().m_link != nullptr)
-        {
+        else if (result.class_name() == std::string("impact::promise")) {
             result.get<promise>()
             .done(PROMISE_CALLBACK_R(a, __link) {
                 _S_resolve(__link, a);
@@ -50,7 +48,7 @@ promise::_M_wrap_callback(
             });
         }
         else __action(__link, { result });
-        return promise(nullptr);
+        return let();
     };
 }
 
@@ -95,7 +93,7 @@ promise::then(
 
 
 promise&
-promise::_M_done(std::vector<callback_t> __callbacks)
+promise::_M_done(const std::vector<callback_t>& __callbacks)
 {
     for (const auto& callback : __callbacks) {
         if (!callback) continue;
@@ -108,7 +106,7 @@ promise::_M_done(std::vector<callback_t> __callbacks)
 
 
 promise&
-promise::_M_fail(std::vector<callback_t> __callbacks)
+promise::_M_fail(const std::vector<callback_t>& __callbacks)
 {
     for (const auto& callback : __callbacks) {
         if (!callback) continue;
@@ -121,7 +119,7 @@ promise::_M_fail(std::vector<callback_t> __callbacks)
 
 
 promise&
-promise::_M_progress(std::vector<callback_t> __callbacks)
+promise::_M_progress(const std::vector<callback_t>& __callbacks)
 {
     if (m_link->state_id != state_t::PENDING) return *this;
     for (const auto& callback : __callbacks) {
@@ -148,17 +146,17 @@ promise::state() const
 
 
 void
-promise::_M_resolve(std::vector<let> __args)
+promise::_M_resolve(const std::vector<let>& __args)
 { _S_resolve(m_link, __args); }
 
 
 void
-promise::_M_reject(std::vector<let> __args)
+promise::_M_reject(const std::vector<let>& __args)
 { _S_reject(m_link, __args); }
 
 
 void
-promise::_M_notify(std::vector<let> __args)
+promise::_M_notify(const std::vector<let>& __args)
 { _S_notify(m_link, __args); }
 
 
@@ -173,7 +171,7 @@ promise::_S_resolve(
     for (const auto& callback : __link->done_callbacks)
         callback(__link->final_args);
 
-    _M_cleanup(__link);
+    _S_cleanup(__link);
 }
 
 
@@ -188,7 +186,7 @@ promise::_S_reject(
     for (const auto& callback : __link->fail_callbacks)
         callback(__link->final_args);
 
-    _M_cleanup(__link);
+    _S_cleanup(__link);
 }
 
 
@@ -204,7 +202,7 @@ promise::_S_notify(
 
 
 void
-promise::_M_cleanup(const std::shared_ptr<struct link_t>& __link)
+promise::_S_cleanup(const std::shared_ptr<struct link_t>& __link)
 {
     // these callbacks are no longer needed,
     // so free up unused memory
