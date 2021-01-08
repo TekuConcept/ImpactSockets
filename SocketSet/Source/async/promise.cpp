@@ -10,10 +10,7 @@ using namespace impact;
 
 promise::link_t::link_t()
 : state_id(state_t::PENDING)
-{
-    static size_t next_id = 0;
-    this->id = next_id++;
-}
+{ }
 
 
 promise::promise()
@@ -176,7 +173,7 @@ promise::_S_resolve(
     for (const auto& callback : __link->done_callbacks)
         callback(__link->final_args);
 
-    // TODO clear all callback lists
+    _M_cleanup(__link);
 }
 
 
@@ -191,7 +188,7 @@ promise::_S_reject(
     for (const auto& callback : __link->fail_callbacks)
         callback(__link->final_args);
 
-    // TODO clear all callback lists
+    _M_cleanup(__link);
 }
 
 
@@ -203,6 +200,23 @@ promise::_S_notify(
     if (__link->state_id != state_t::PENDING) return;
     for (const auto& callback : __link->progress_callbacks)
         callback(__args);
+}
+
+
+void
+promise::_M_cleanup(const std::shared_ptr<struct link_t>& __link)
+{
+    // these callbacks are no longer needed,
+    // so free up unused memory
+    __link->done_callbacks.clear();
+    __link->fail_callbacks.clear();
+    __link->progress_callbacks.clear();
+    // also disolve the chain;
+    // any externally referenced links will be preserved
+    __link->children.clear();
+    // the chain is no longer needed because every link
+    // will have either resolved or rejected; any new
+    // links added will be fired immediately
 }
 
 

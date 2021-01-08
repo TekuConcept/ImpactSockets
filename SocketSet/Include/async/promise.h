@@ -67,7 +67,6 @@ namespace impact {
 
         enum class state_t { PENDING, RESOLVED, REJECTED };
         struct link_t {
-            size_t id;
             state_t state_id;
             std::vector<let> final_args;
             std::vector<callback_t> done_callbacks;
@@ -93,6 +92,8 @@ namespace impact {
         static void _S_notify(
             const std::shared_ptr<struct link_t>& link,
             const std::vector<let>& args);
+        static void _M_cleanup(const std::shared_ptr<struct link_t>& link);
+
         inline callback_t _M_wrap_callback(
             const std::shared_ptr<struct link_t>& link,
             const callback_t& callback,
