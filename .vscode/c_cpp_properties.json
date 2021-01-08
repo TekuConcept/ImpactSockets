@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/SocketSet/Include"
+                "${workspaceFolder}/SocketSet/Include",
+                "${workspaceFolder}/Libraries/json"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

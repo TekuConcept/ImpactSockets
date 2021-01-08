@@ -10,11 +10,11 @@
 #include <vector>
 #include <memory>
 #include "uv.h"
-#include "async/abstract_event_loop.h"
+#include "async/event_loop_interface.h"
 
 namespace impact {
 
-    class uv_event_loop : public abstract_event_loop {
+    class uv_event_loop : public event_loop_interface {
     public:
         uv_event_loop();
         ~uv_event_loop();

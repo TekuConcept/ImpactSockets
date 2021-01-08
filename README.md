@@ -1,7 +1,7 @@
 
 ![](Docs/logo.svg)
 
-# Cross-Platform C++ Sockets
+# Cross-Platform C++ Socket-Set
 
 [![progress](https://img.shields.io/badge/OSX-unkown-yellow.svg)]()&nbsp;
 [![progress](https://img.shields.io/badge/Win32-unknown-yellow.svg)]()&nbsp;

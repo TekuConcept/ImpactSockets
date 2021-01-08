@@ -2,11 +2,12 @@
  * Created by TekuConcept on December 31, 2020
  */
 
-#ifndef IMPACT_ABSTRACT_EVENT_LOOP_H
-#define IMPACT_ABSTRACT_EVENT_LOOP_H
+#ifndef IMPACT_EVENT_LOOP_INTERFACE_H
+#define IMPACT_EVENT_LOOP_INTERFACE_H
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 
 namespace impact {
@@ -16,9 +17,9 @@ namespace impact {
     typedef unsigned long long int etimer_time_t;
     typedef std::function<void()> etimer_callback_t;
 
-    class abstract_event_loop {
+    class event_loop_interface {
     public:
-        virtual ~abstract_event_loop() = default;
+        virtual ~event_loop_interface() = default;
 
         virtual void run() = 0;
         virtual void run_async() = 0;
@@ -34,6 +35,10 @@ namespace impact {
         // async IO (send, receive)
     };
 
+    typedef std::shared_ptr<event_loop_interface> event_loop_ptr;
+    event_loop_ptr default_event_loop();
+    void default_event_loop(event_loop_ptr event_loop);
+
 } /* namespace impact */
 
-#endif
+#endif /* IMPACT_EVENT_LOOP_INTERFACE_H */
