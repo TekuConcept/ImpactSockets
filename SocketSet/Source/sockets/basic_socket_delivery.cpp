@@ -72,10 +72,7 @@ basic_socket::bind(const struct sockaddr& __address)
     IMPACT_ASSERT(status != SOCKET_ERROR)
 }
 
-// #include <iostream>
-// #include <iomanip>
-// #include "sockets/networking.h"
-// #define VERBOSE(x) std::cout << x << std::endl
+
 void
 basic_socket::connect(
     unsigned short __port,

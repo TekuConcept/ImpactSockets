@@ -90,10 +90,8 @@ namespace impact {
         void reuse_address(bool enabled)
             /* throw(impact_error) */;
 
-        friend basic_socket make_socket(
-            address_family, socket_type, internet_protocol);
-        friend basic_socket make_tcp_socket();
-        friend basic_socket make_udp_socket();
+        static basic_socket create_tcp() /* throw(impact_error) */;
+        static basic_socket create_udp() /* throw(impact_error) */;
 
     private:
         struct basic_socket_info {
@@ -114,10 +112,6 @@ namespace impact {
         void _M_dtor();
     };
 
-    basic_socket make_socket(address_family domain, socket_type type,
-        internet_protocol proto)   /* throw(impact_error) */;
-    basic_socket make_tcp_socket() /* throw(impact_error) */;
-    basic_socket make_udp_socket() /* throw(impact_error) */;
 }
 
 #endif

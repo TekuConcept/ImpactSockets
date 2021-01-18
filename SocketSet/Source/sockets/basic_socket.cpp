@@ -107,17 +107,7 @@ basic_socket::basic_socket(basic_socket&& __rvalue)
 
 
 basic_socket
-impact::make_socket(
-    address_family    __domain,
-    socket_type       __type,
-    internet_protocol __proto)
-{
-    return basic_socket(__domain, __type, __proto);
-}
-
-
-basic_socket
-impact::make_tcp_socket()
+basic_socket::create_tcp()
 {
     IMPACT_TRY_BEGIN
         return basic_socket(
@@ -130,7 +120,7 @@ impact::make_tcp_socket()
 
 
 basic_socket
-impact::make_udp_socket()
+basic_socket::create_udp()
 {
     IMPACT_TRY_BEGIN
         return basic_socket(
