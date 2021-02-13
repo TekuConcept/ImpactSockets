@@ -42,7 +42,8 @@ An attempt is underway to add full support for the following protocols - though 
 ## External Libraries
 While one of the primary goals of this library is to be self contained, requiring only the C++ standard library, there are some critical features like security that need to be delegated elsewhere.
 
-- _GnuTLS_ for Transparent Layer Security. Optional for all security enabled protocols. As of this writing, GnuTLS uses the LGPLv2.1 software license, which is compatible with the license(s) provided for ImpactSockets.
+- _GnuTLS_ for protocol Transparent Layer Security.
+- _LibUV_ for quick and convenient event-loop systems with additional support for timers and cross-platform event-polling.
 
 
 ___
