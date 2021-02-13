@@ -257,7 +257,7 @@ std::shared_ptr<tcp_server_interface>
 uv_event_loop::create_tcp_server()
 {
     return std::shared_ptr<tcp_server_interface>(
-        new uv_tcp_server(m_context));
+        new uv_tcp_server(this));
 }
 
 

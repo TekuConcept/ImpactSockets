@@ -11,7 +11,6 @@
 #include <memory>
 #include "uv.h"
 #include "async/event_loop_interface.h"
-#include "sockets/basic_socket.h"
 
 namespace impact {
 

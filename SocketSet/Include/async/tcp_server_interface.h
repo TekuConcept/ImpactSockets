@@ -6,7 +6,7 @@
 #define IMPACT_TCP_SERVER_INTERFACE_H
 
 #include "utils/event_emitter.h"
-#include "sockets/tcp_client_interface.h"
+#include "async/tcp_client_interface.h"
 
 namespace impact {
 

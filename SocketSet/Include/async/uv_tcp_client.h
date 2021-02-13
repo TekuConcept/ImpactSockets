@@ -7,12 +7,14 @@
 
 #include <memory>
 #include <atomic>
+#include <future>
 #include "uv.h"
-#include "sockets/tcp_client_interface.h"
+#include "async/tcp_client_interface.h"
 #include "async/uv_event_loop.h"
 
 namespace impact {
 
+    class uv_tcp_server;
     class uv_tcp_client : public tcp_client_interface {
     public:
         uv_tcp_client(uv_event_loop* event_loop);
@@ -73,17 +75,8 @@ namespace impact {
             std::string encoding = "utf8",
             event_emitter::callback_t cb = nullptr) override;
 
-        // * on('close', (hadError: bool) => void)
-        // * on('connect', () => void)
-        // * on('data', (data: string) => void)
-        // on('drain', () => void)
-        // * on('end', () => void)
-        // * on('error', (error: Error) => void)
-        // on('lookup', (err?: Error, address: string, family: address_family, host: string) => void)
-        // * on('ready', () => void)
-        // on('timeout', () => void)
-
     private:
+
         std::shared_ptr<struct uv_event_loop::context_t> m_elctx;
         uv_event_loop*  m_event_loop;
         tcp_address_t   m_address;
@@ -98,6 +91,7 @@ namespace impact {
         bool            m_has_timeout;
         std::string     m_encoding;
         etimer_id_t     m_timeout_handle;
+        uv_tcp_server*  m_server;
 
         enum class ready_state_t {
             PENDING,
@@ -152,6 +146,7 @@ namespace impact {
 
         uv_tcp_client() = default;
 
+        void _M_init(uv_event_loop* __event_loop);
         void _M_set_keepalive(bool, unsigned int);
         void _M_set_keepalive_async(bool, unsigned int);
         void _M_set_no_delay(bool);
@@ -176,8 +171,9 @@ namespace impact {
         void _M_emit_error_code(std::string, int);
         void _M_update_addresses();
         void _M_fill_address_info(const struct sockaddr*, tcp_address_t*);
+        void _M_on_close();
 
-        friend class uv_tcp_server;
+        friend void uv_tcp_server_on_connection(uv_stream_t*, int);
         friend void uv_tcp_client_on_path_resolved(
             uv_getaddrinfo_t*, int, struct addrinfo*);
         friend void uv_tcp_client_on_connect(uv_connect_t*, int);

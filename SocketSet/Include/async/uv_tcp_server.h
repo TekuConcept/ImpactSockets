@@ -10,15 +10,14 @@
 #include <vector>
 #include <future>
 #include "uv.h"
-#include "sockets/tcp_server_interface.h"
+#include "async/tcp_server_interface.h"
 #include "async/uv_event_loop.h"
 
 namespace impact {
 
     class uv_tcp_server : public tcp_server_interface {
     public:
-        uv_tcp_server(
-            std::shared_ptr<struct uv_event_loop::context_t> event_loop);
+        uv_tcp_server(uv_event_loop* event_loop);
         ~uv_tcp_server();
 
         tcp_address_t address() const override;
@@ -39,7 +38,8 @@ namespace impact {
             event_emitter::callback_t cb = nullptr) override;
 
     private:
-        std::shared_ptr<struct uv_event_loop::context_t> m_event_loop;
+        std::shared_ptr<struct uv_event_loop::context_t> m_elctx;
+        uv_event_loop*      m_event_loop;
         std::atomic<bool>   m_is_listening;
         size_t              m_max_connections;
         tcp_address_t       m_address;
@@ -69,6 +69,7 @@ namespace impact {
         void _M_listen_async(std::string path);
         void _M_emit_listen_error(int status);
 
+        friend class uv_tcp_client;
         friend void uv_tcp_server_on_close(uv_handle_t*);
         friend void uv_tcp_server_on_connection(uv_stream_t*, int);
         friend void uv_tcp_server_on_path_resolved(

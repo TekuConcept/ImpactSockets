@@ -8,7 +8,6 @@
 #include <chrono>
 #include <future>
 #include "async/uv_event_loop.h"
-#include "sockets/tcp_server.h"
 
 using namespace impact;
 
@@ -22,13 +21,13 @@ int main() {
 
     std::thread t([&](){
         std::this_thread::sleep_for(std::chrono::seconds(2));
-        tcp_server server(event_loop);
+        tcp_server_pt server = event_loop->create_tcp_server();
 
         std::promise<void> p1, p2;
         std::future<void> f1 = p1.get_future();
         std::future<void> f2 = p2.get_future();
 
-        server.listen(7000, EVENT_LISTENER(, &) {
+        server->listen(7000, EVENT_LISTENER(, &) {
             std::cout << "server is listening" << std::endl;
             p1.set_value();
         });
@@ -37,7 +36,7 @@ int main() {
         std::this_thread::sleep_for(std::chrono::seconds(15));
         std::cout << "thread is closing" << std::endl;
 
-        server.close(EVENT_LISTENER(, &) {
+        server->close(EVENT_LISTENER(, &) {
             std::cout << "closing server" << std::endl;
             p2.set_value();
         });

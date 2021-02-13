@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include "async/uv_tcp_client.h"
+#include "async/uv_tcp_server.h"
 
 using namespace impact;
 
@@ -86,10 +87,8 @@ namespace impact {
                 client->_M_set_timeout(0);
             if (client->m_ready_state == ready_state::OPEN)
                 client->m_ready_state = ready_state::WRITE_ONLY;
-            else if (client->m_ready_state == ready_state::READ_ONLY) {
-                client->m_ready_state = ready_state::DESTROYED;
-                client->emit("close");
-            }
+            else if (client->m_ready_state == ready_state::READ_ONLY)
+                client->_M_on_close();
         }
         else client->_M_emit_error_code("read", __nread);
     }
@@ -103,14 +102,15 @@ namespace impact {
         auto result = __status;
         auto* context =
             reinterpret_cast<uv_tcp_client::write_context_t*>(__request->data);
-        if (result == UV_ECONNRESET) {
-            context->client->m_ready_state = uv_tcp_client::ready_state_t::DESTROYED;
-            context->client->emit("close");
-        }
+        if (result == UV_ECONNRESET)
+            context->client->_M_on_close();
         if (result < 0)
             context->client->_M_emit_error_code("write", result);
-        else if (context->cb)
-            context->cb({});
+        else {
+            context->client->m_bytes_written += context->data.size();
+            if (context->cb)
+                context->cb({});
+        }
         delete context;
     }
 
@@ -131,10 +131,7 @@ namespace impact {
                 client->m_ready_state = ready_state_t::READ_ONLY;
                 client->emit("end");
             }
-            else { /* WRITE_ONLY state assumed */
-                client->m_ready_state = ready_state_t::DESTROYED;
-                client->emit("close", false);
-            }
+            else client->_M_on_close(); /* WRITE_ONLY state assumed */
         }
         delete __request;
     }
@@ -145,8 +142,7 @@ namespace impact {
     {
         auto* client =
             reinterpret_cast<uv_tcp_client*>(__handle->data);
-        client->m_ready_state = uv_tcp_client::ready_state_t::DESTROYED;
-        client->emit("close");
+        client->_M_on_close();
     }
 
 
@@ -223,14 +219,39 @@ uv_tcp_client::async_request_t::async_request_t()
 
 
 uv_tcp_client::uv_tcp_client(uv_event_loop* __event_loop)
-: m_event_loop(__event_loop),
-  m_bytes_read(0),
-  m_bytes_written(0),
-  m_timeout(0),
-  m_has_timeout(false),
-  m_encoding("utf8"),
-  m_ready_state(ready_state_t::PENDING)
 {
+    _M_init(__event_loop);
+
+    int result = uv_tcp_init(&m_elctx->loop, &m_handle);
+    if (result != 0) throw impact_error("unexpected uv error");
+    m_handle.data = (void*)this;
+}
+
+
+uv_tcp_client::~uv_tcp_client()
+{
+    if (!uv_is_closing((uv_handle_t*)&m_handle)) {
+        if (std::this_thread::get_id() == m_elctx->isolate)
+            _M_destroy("");
+        else _M_destroy_async("", /*blocking=*/true);
+    }
+    uv_close(reinterpret_cast<uv_handle_t*>(&m_async_handle), nullptr);
+    uv_rwlock_destroy(&m_lock);
+}
+
+
+void
+uv_tcp_client::_M_init(uv_event_loop* __event_loop)
+{
+    m_event_loop             = (__event_loop);
+    m_bytes_read             = (0);
+    m_bytes_written          = (0);
+    m_timeout                = (0);
+    m_has_timeout            = (false);
+    m_encoding               = ("utf8");
+    m_ready_state            = (ready_state_t::PENDING);
+    m_server                 = (nullptr);
+
     m_address.address        = "";
     m_address.family         = address_family::UNSPECIFIED;
     m_address.port           = 0;
@@ -249,9 +270,6 @@ uv_tcp_client::uv_tcp_client(uv_event_loop* __event_loop)
     m_hints.ai_flags         = 0;
 
     m_elctx = m_event_loop->m_context;
-    int result = uv_tcp_init(&m_elctx->loop, &m_handle);
-    if (result != 0) throw impact_error("unexpected uv error");
-    m_handle.data = (void*)this;
 
     uv_rwlock_init(&m_lock);
     uv_async_init(
@@ -259,18 +277,6 @@ uv_tcp_client::uv_tcp_client(uv_event_loop* __event_loop)
         &m_async_handle,
         uv_tcp_client_async_callback);
     m_async_handle.data = (void*)this;
-}
-
-
-uv_tcp_client::~uv_tcp_client()
-{
-    if (!uv_is_closing((uv_handle_t*)&m_handle)) {
-        if (std::this_thread::get_id() == m_elctx->isolate)
-            _M_destroy("");
-        else _M_destroy_async("", /*blocking=*/true);
-    }
-    uv_close(reinterpret_cast<uv_handle_t*>(&m_async_handle), nullptr);
-    uv_rwlock_destroy(&m_lock);
 }
 
 
@@ -922,4 +928,14 @@ uv_tcp_client::_M_fill_address_info(
     if (status2 == nullptr)
         event_emitter::emit("error",
             std::string("unexpected address error"));
+}
+
+
+void
+uv_tcp_client::_M_on_close()
+{
+    if (m_server != nullptr)
+        m_server->m_client_count--;
+    m_ready_state = uv_tcp_client::ready_state_t::DESTROYED;
+    event_emitter::emit("close");
 }

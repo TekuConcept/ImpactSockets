@@ -3,7 +3,9 @@
  */
 
 #include <iostream>
+#include <cstring>
 #include "async/uv_tcp_server.h"
+#include "async/uv_tcp_client.h"
 #include "utils/impact_error.h"
 
 using namespace impact;
@@ -28,40 +30,41 @@ namespace impact {
         auto result = __status;
         auto* server =
             reinterpret_cast<uv_tcp_server*>(__server->data);
-        if (result < 0) goto error;
 
-        {
-            uv_tcp_t* client = new uv_tcp_t();
-            uv_tcp_init(&server->m_event_loop->loop, client);
-            if (uv_accept(__server, (uv_stream_t*)client) == 0) {
-            //     if (server->m_client_count.load() >= server->m_max_connections)
-            //         uv_close((uv_handle_t*)&client, NULL);
-            //     else {
-            //         // server->m_clients->count++; // decremented in uv_tcp_socket
-
-            //         // TODO
-            //         // setup async callbacks
-            //         // wrap raw connection
-            //         // event_emitter::emit("connection", connection);
-
-            //         std::cout << "new connection accepted" << std::endl;
-            //         uv_close((uv_handle_t*)&client, NULL);
-            //     }
-            }
-            // else uv_close((uv_handle_t*)&client, NULL);
-
-            uv_close((uv_handle_t*)client,
-                [](uv_handle_t* handle) { delete handle; });
+        if (result < 0) {
+            std::string message = "connection error: ";
+            message += std::to_string(result) + std::string(" ");
+            message += uv_strerror(result);
+            server->emit("error", message);
+            return;
         }
 
-        VERBOSE("connection received event");
-        return;
+        uv_tcp_t* socket = new uv_tcp_t();
+        uv_tcp_init(&server->m_elctx->loop, socket);
 
-        error:
-        std::string message = "connection error: ";
-        message += std::to_string(result) + std::string(" ");
-        message += uv_strerror(result);
-        server->emit("error", message);
+        if (uv_accept(__server, (uv_stream_t*)socket) == 0) {
+            if (server->m_client_count.load() >= server->m_max_connections)
+                uv_close((uv_handle_t*)socket,
+                    [](uv_handle_t* handle) { delete handle; });
+            else {
+                server->m_client_count++; // decremented in uv_tcp_client
+                std::shared_ptr<uv_tcp_client> client =
+                    std::shared_ptr<uv_tcp_client>(new uv_tcp_client());
+                memcpy(&client->m_handle, socket, sizeof(uv_tcp_t));
+                delete socket;
+
+                client->_M_init(server->m_event_loop);
+                client->m_server = server;
+                client->m_handle.data = client.get();
+                client->m_connect_handle.data = client.get();
+                client->m_connect_handle.handle =
+                    (uv_stream_t*)&client->m_handle;
+
+                server->emit("connection", client);
+            }
+        }
+        else uv_close((uv_handle_t*)socket,
+            [](uv_handle_t* handle) { delete handle; });
     }
 
 
@@ -92,7 +95,7 @@ namespace impact {
         auto* server =
             reinterpret_cast<uv_tcp_server*>(__async->data);
         std::vector<struct uv_tcp_server::async_request_t> queue;
-        if (std::this_thread::get_id() != server->m_event_loop->isolate)
+        if (std::this_thread::get_id() != server->m_elctx->isolate)
             return;
 
         uv_rwlock_wrlock(&server->m_lock);
@@ -127,8 +130,7 @@ uv_tcp_server::async_request_t::async_request_t()
 { }
 
 
-uv_tcp_server::uv_tcp_server(
-    std::shared_ptr<struct uv_event_loop::context_t> __event_loop)
+uv_tcp_server::uv_tcp_server(uv_event_loop* __event_loop)
 : m_event_loop(__event_loop),
   m_is_listening(false),
   m_max_connections((size_t)-1),
@@ -143,13 +145,15 @@ uv_tcp_server::uv_tcp_server(
     m_hints.ai_protocol = IPPROTO_TCP;
     m_hints.ai_flags    = 0;
 
-    int result = uv_tcp_init(&m_event_loop->loop, &m_handle);
+    m_elctx = m_event_loop->m_context;
+
+    int result = uv_tcp_init(&m_elctx->loop, &m_handle);
     if (result != 0) throw impact_error("unexpected uv error");
     m_handle.data = (void*)this;
 
     uv_rwlock_init(&m_lock);
     uv_async_init(
-        &m_event_loop->loop,
+        &m_elctx->loop,
         &m_async_handle,
         uv_tcp_server_async_callback);
     m_async_handle.data = (void*)this;
@@ -159,7 +163,7 @@ uv_tcp_server::uv_tcp_server(
 uv_tcp_server::~uv_tcp_server()
 {
     if (!uv_is_closing((uv_handle_t*)&m_handle)) {
-        if (std::this_thread::get_id() == m_event_loop->isolate)
+        if (std::this_thread::get_id() == m_elctx->isolate)
             _M_close();
         else _M_close_async(/*blocking=*/true);
     }
@@ -192,7 +196,7 @@ void
 uv_tcp_server::close(event_emitter::callback_t __cb)
 {
     event_emitter::on("close", __cb);
-    if (std::this_thread::get_id() == m_event_loop->isolate)
+    if (std::this_thread::get_id() == m_elctx->isolate)
         _M_close();
     else _M_close_async();
 }
@@ -204,7 +208,7 @@ uv_tcp_server::listen(
     event_emitter::callback_t __cb)
 {
     event_emitter::on("listening", __cb);
-    if (std::this_thread::get_id() == m_event_loop->isolate)
+    if (std::this_thread::get_id() == m_elctx->isolate)
         _M_listen(__path);
     else _M_listen_async(__path);
 }
@@ -224,7 +228,7 @@ uv_tcp_server::listen(
     event_emitter::callback_t __cb)
 {
     event_emitter::on("listening", __cb);
-    if (std::this_thread::get_id() == m_event_loop->isolate)
+    if (std::this_thread::get_id() == m_elctx->isolate)
         _M_listen(__port, __host);
     else _M_listen_async(__port, __host);
 }
@@ -332,7 +336,7 @@ uv_tcp_server::_M_listen(std::string __path)
 
     resolver = new uv_getaddrinfo_t();
     resolver->data = (void*)this;
-    result = uv_getaddrinfo(&m_event_loop->loop, resolver,
+    result = uv_getaddrinfo(&m_elctx->loop, resolver,
         uv_tcp_server_on_path_resolved, __path.c_str(), nullptr, &m_hints);
     if (result) goto error;
     return;
