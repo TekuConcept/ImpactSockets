@@ -11,6 +11,7 @@
 #include <memory>
 #include "uv.h"
 #include "async/event_loop_interface.h"
+#include "sockets/basic_socket.h"
 
 namespace impact {
 
@@ -23,24 +24,17 @@ namespace impact {
         void run_async() override;
         void stop() override;
 
-        etimer_id_t set_timeout(etimer_callback_t cb, etimer_time_t ms);
-        etimer_id_t set_interval(etimer_callback_t cb, etimer_time_t ms);
-        etimer_id_t set_immediate(etimer_callback_t cb);
-        void clear_timeout(etimer_id_t id);
-        void clear_interval(etimer_id_t id);
-        void clear_immediate(etimer_id_t id);
+        etimer_id_t set_timeout(etimer_callback_t cb, etimer_time_t ms) override;
+        etimer_id_t set_interval(etimer_callback_t cb, etimer_time_t ms) override;
+        etimer_id_t set_immediate(etimer_callback_t cb) override;
+        void clear_timeout(etimer_id_t id) override;
+        void clear_interval(etimer_id_t id) override;
+        void clear_immediate(etimer_id_t id) override;
+
+        std::shared_ptr<tcp_server_interface> create_tcp_server() override;
+        std::shared_ptr<tcp_client_interface> create_tcp_client() override;
 
     private:
-        bool              m_is_async_thread;
-        std::atomic<bool> m_is_running;
-        std::thread::id   m_isolate;
-        std::thread       m_async_thread;
-        uv_async_t        m_async_stop_handle;
-        uv_async_t        m_async_call_handle;
-        uv_timer_t        m_keep_alive_timer;
-        uv_loop_t         m_loop;
-        uv_rwlock_t       m_lock;
-
         struct timer_request_info {
             bool clear;
             std::shared_ptr<uv_timer_t> timer;
@@ -49,8 +43,23 @@ namespace impact {
             etimer_time_t interval;
             etimer_callback_t callback;
         };
-        std::vector<struct timer_request_info> m_timer_queue;
-        std::vector<std::shared_ptr<uv_timer_t>> m_timers;
+
+        struct context_t {
+            bool              is_async_thread;
+            std::atomic<bool> is_running;
+            std::thread::id   isolate;
+            std::thread       async_thread;
+            uv_async_t        async_stop_handle;
+            uv_async_t        async_call_handle;
+            uv_timer_t        keep_alive_timer;
+            uv_loop_t         loop;
+            uv_rwlock_t       lock;
+
+            std::vector<struct timer_request_info> timer_queue;
+            std::vector<std::shared_ptr<uv_timer_t>> timers;
+        };
+
+        std::shared_ptr<struct context_t> m_context;
 
         void _M_cleanup_thread();
 
@@ -67,6 +76,8 @@ namespace impact {
         void _M_cleanup_timer_async(etimer_id_t id);
 
         friend void async_uvcall_callback(uv_async_t* async);
+        friend class uv_tcp_server;
+        friend class uv_tcp_client;
     };
 
 } /* namespace impact */

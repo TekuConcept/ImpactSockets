@@ -209,7 +209,7 @@ raw_socket::_M_attach(const char* __iface_name)
 raw_socket::raw_socket()
 {
 #if defined(__OS_LINUX__)
-    m_socket_ = make_socket(
+    m_socket_ = basic_socket(
         address_family::PACKET,
         socket_type::RAW,
         (internet_protocol)htons(ETH_P_ALL)

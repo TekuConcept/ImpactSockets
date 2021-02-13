@@ -282,6 +282,15 @@ test_set_interval()
 }
 
 
+void
+test_async_tcp_socket()
+{
+    // can we async read
+    // can we async write
+    // can we run the loop then create a new async socket
+}
+
+
 int main() {
     VERBOSE("- BEGIN uv_event_loop TEST -");
     VERBOSE("--------------------");
@@ -291,6 +300,7 @@ int main() {
     test_set_immediate();
     test_set_timeout();
     test_set_interval();
+    // test_async_tcp_socket();
 
     VERBOSE("- END OF LINE -");
     return 0;    

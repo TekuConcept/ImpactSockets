@@ -11,7 +11,7 @@ std::string
 basic_socket::local_address()
 {
     IMPACT_ASSERT_MOVED
-    struct sockaddr_in address;
+    struct sockaddr_storage address;
     auto address_length = sizeof(address);
 
     auto status = ::getsockname(
@@ -19,9 +19,28 @@ basic_socket::local_address()
         (struct sockaddr*)&address,
         (socklen_t*)&address_length
     );
-
     IMPACT_ASSERT(status != SOCKET_ERROR)
-    return inet_ntoa(address.sin_addr);
+
+    void* source;
+    std::string result;
+    switch ((address_family)address.ss_family) {
+    case address_family::INET:
+        source = &((sockaddr_in* )&address)->sin_addr;
+        result.resize(INET_ADDRSTRLEN);
+        break;
+    case address_family::INET6:
+        source = &((sockaddr_in6*)&address)->sin6_addr;
+        result.resize(INET6_ADDRSTRLEN);
+        break;
+    default: throw impact_error("feature not supported"); break;
+    }
+
+    auto status2 = inet_ntop(
+        address.ss_family, source, &result[0], result.size());
+    if (status2 == nullptr)
+        throw impact_error("unexpected error");
+
+    return result;
 }
 
 
@@ -29,7 +48,7 @@ unsigned short
 basic_socket::local_port()
 {
     IMPACT_ASSERT_MOVED
-    sockaddr_in address;
+    struct sockaddr_storage address;
     auto address_length = sizeof(address);
 
     auto status = ::getsockname(
@@ -37,9 +56,16 @@ basic_socket::local_port()
         (struct sockaddr*)&address,
         (socklen_t*)&address_length
     );
-
     IMPACT_ASSERT(status != SOCKET_ERROR)
-    return ntohs(address.sin_port);
+
+    unsigned short port;
+    switch ((address_family)address.ss_family) {
+    case address_family::INET:  port = ((sockaddr_in* )&address)->sin_port;  break;
+    case address_family::INET6: port = ((sockaddr_in6*)&address)->sin6_port; break;
+    default: throw impact_error("feature not supported"); break;
+    }
+
+    return ntohs(port);
 }
 
 
@@ -47,7 +73,7 @@ std::string
 basic_socket::peer_address()
 {
     IMPACT_ASSERT_MOVED
-    struct sockaddr_in address;
+    struct sockaddr_storage address;
     unsigned int address_length = sizeof(address);
 
     auto status = ::getpeername(
@@ -55,9 +81,28 @@ basic_socket::peer_address()
         (struct sockaddr*)&address,
         (socklen_t*)&address_length
     );
-
     IMPACT_ASSERT(status != SOCKET_ERROR)
-    return inet_ntoa(address.sin_addr);
+
+    void* source;
+    std::string result;
+    switch ((address_family)address.ss_family) {
+    case address_family::INET:
+        source = &((sockaddr_in* )&address)->sin_addr;
+        result.resize(INET_ADDRSTRLEN);
+        break;
+    case address_family::INET6:
+        source = &((sockaddr_in6*)&address)->sin6_addr;
+        result.resize(INET6_ADDRSTRLEN);
+        break;
+    default: throw impact_error("feature not supported"); break;
+    }
+
+    auto status2 = inet_ntop(
+        address.ss_family, source, &result[0], result.size());
+    if (status2 == nullptr)
+        throw impact_error("unexpected error");
+
+    return result;
 }
 
 
@@ -65,7 +110,7 @@ unsigned short
 basic_socket::peer_port()
 {
     IMPACT_ASSERT_MOVED
-    struct sockaddr_in address;
+    struct sockaddr_storage address;
     unsigned int address_length = sizeof(address);
 
     auto status = ::getpeername(
@@ -73,9 +118,16 @@ basic_socket::peer_port()
         (struct sockaddr*)&address,
         (socklen_t*)&address_length
     );
-
     IMPACT_ASSERT(status != SOCKET_ERROR)
-    return ntohs(address.sin_port);
+
+    unsigned short port;
+    switch ((address_family)address.ss_family) {
+    case address_family::INET:  port = ((sockaddr_in* )&address)->sin_port;  break;
+    case address_family::INET6: port = ((sockaddr_in6*)&address)->sin6_port; break;
+    default: throw impact_error("feature not supported"); break;
+    }
+
+    return ntohs(port);
 }
 
 

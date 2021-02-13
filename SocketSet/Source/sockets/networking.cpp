@@ -544,7 +544,7 @@ internal::set_interface_type_mac(netinterface* __token)
 {
     basic_socket handle;
     CATCH_ASSERT(
-        handle = make_socket(
+        handle = basic_socket(
             address_family::INET,
             socket_type::DATAGRAM,
             internet_protocol::DEFAULT
@@ -601,7 +601,7 @@ networking::find_default_route()
 {
     basic_socket kernel_socket;
     CATCH_ASSERT(
-        kernel_socket = make_socket(
+        kernel_socket = basic_socket(
             address_family::NETLINK,
             socket_type::DATAGRAM,
             internet_protocol::ROUTE

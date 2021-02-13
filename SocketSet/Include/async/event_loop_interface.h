@@ -8,7 +8,8 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-
+#include "sockets/tcp_server_interface.h"
+#include "sockets/tcp_client_interface.h"
 
 namespace impact {
 
@@ -32,7 +33,9 @@ namespace impact {
         virtual void clear_interval(etimer_id_t id) = 0;
         virtual void clear_immediate(etimer_id_t id) = 0;
 
-        // async IO (send, receive)
+        virtual std::shared_ptr<tcp_server_interface> create_tcp_server() = 0;
+        virtual std::shared_ptr<tcp_client_interface> create_tcp_client() = 0;
+        // virtual async_socket_ptr make_async(basic_socket socket) = 0;
     };
 
     typedef std::shared_ptr<event_loop_interface> event_loop_ptr;

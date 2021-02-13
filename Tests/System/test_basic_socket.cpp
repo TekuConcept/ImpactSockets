@@ -40,7 +40,7 @@ test_create_constructor()
     basic_socket socket;
     assert(socket.use_count() == 1);
     VERBOSE("[2]");
-    socket = make_tcp_socket();
+    socket = basic_socket::create_tcp();
     assert(socket.use_count() == 1);
     {
         VERBOSE("[3]");
@@ -74,7 +74,7 @@ test_close()
         assert(false);
     } catch (...) { }
 
-    socket = make_tcp_socket();
+    socket = basic_socket::create_tcp();
 
     VERBOSE("[2]");
     try {
@@ -90,7 +90,7 @@ test_sigpipe()
     VERBOSE("\nTest Pipe Error Signal");
     VERBOSE("[1]");
     basic_socket socket;
-    try { socket = make_tcp_socket(); } catch (...) { assert(false); }
+    try { socket = basic_socket::create_tcp(); } catch (...) { assert(false); }
   
     try {
         const char* buffer = NULL;
