@@ -27,7 +27,10 @@ ImpactSockets wraps platform-dependent socket APIs within its own unifying, plat
 - Raw Sockets
 - UDP Sockets
 - TCP Sockets
+- EventLoop (async sockets, timers)
 - Network Interfaces
+- Deferred Promises
+- JS-Style EventEmitter
 - SocketStream
 - HTTP Messages (parse/create)
 
