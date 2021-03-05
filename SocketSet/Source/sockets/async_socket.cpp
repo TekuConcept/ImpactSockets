@@ -7,11 +7,11 @@
 using namespace impact;
 
 
-tcp_client_pt
-async_socket::create_tcp_client(event_loop_pt __event_loop)
+tcp_client_t
+async_socket::create_tcp_client(event_loop_t __event_loop)
 { return __event_loop->create_tcp_client(); }
 
 
-tcp_server_pt
-async_socket::create_tcp_server(event_loop_pt __event_loop)
+tcp_server_t
+async_socket::create_tcp_server(event_loop_t __event_loop)
 { return __event_loop->create_tcp_server(); }

@@ -16,12 +16,12 @@ namespace impact {
     public:
         async_socket() = delete;
 
-        static tcp_client_pt create_tcp_client(
-            event_loop_pt event_loop = default_event_loop());
-        static tcp_server_pt create_tcp_server(
-            event_loop_pt event_loop = default_event_loop());
-        // static udp_socket_pt create_udp_socket(
-        //     event_loop_pt event_loop = default_event_loop());
+        static tcp_client_t create_tcp_client(
+            event_loop_t event_loop = default_event_loop());
+        static tcp_server_t create_tcp_server(
+            event_loop_t event_loop = default_event_loop());
+        // static udp_socket_t create_udp_socket(
+        //     event_loop_t event_loop = default_event_loop());
     };
 
 } /* namespace impact */

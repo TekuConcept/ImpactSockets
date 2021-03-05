@@ -283,11 +283,31 @@ test_set_interval()
 
 
 void
-test_async_tcp_socket()
+test_invoke()
 {
-    // can we async read
-    // can we async write
-    // can we run the loop then create a new async socket
+    VERBOSE("TEST ASYNC INVOKE");
+
+    uv_event_loop event_loop;
+    event_loop.run_async();
+
+    {
+        std::promise<void> p;
+        std::future<void> f = p.get_future();
+        event_loop.invoke([&]() {
+            VERBOSE("> non-blocking invoke");
+            p.set_value();
+        });
+        f.get();
+    }
+
+    {
+        event_loop.invoke([]() {
+            VERBOSE("> blocking invoke");
+        }, /*blocking=*/true);
+    }
+
+    VERBOSE("END TEST");
+    VERBOSE("--------------------");
 }
 
 
@@ -300,7 +320,7 @@ int main() {
     test_set_immediate();
     test_set_timeout();
     test_set_interval();
-    // test_async_tcp_socket();
+    test_invoke();
 
     VERBOSE("- END OF LINE -");
     return 0;    

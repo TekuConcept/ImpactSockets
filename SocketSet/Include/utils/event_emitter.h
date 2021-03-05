@@ -27,8 +27,10 @@ namespace impact {
             // a copy is saved in case the external source
             // goes out of scope eg anonymous lambdas
             callback_t cb;
-            // should this callback be removed after being invoked
+            // should this callback be removed after it is invoked
             bool once;
+            // initialize defaults
+            callback_info();
         };
 
         event_emitter();
@@ -69,6 +71,7 @@ namespace impact {
             std::vector<callback_info> empty_list;
             std::map<std::string,std::vector<callback_info>> listeners;
             size_t max_listeners;
+            context_t();
         };
 
         std::shared_ptr<struct context_t> m_context;

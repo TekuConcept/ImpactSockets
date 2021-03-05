@@ -30,9 +30,6 @@ namespace impact {
             std::string path,
             event_emitter::callback_t cb = nullptr) override;
         void listen(
-            unsigned short port,
-            event_emitter::callback_t cb) override;
-        void listen(
             unsigned short port = 0,
             std::string host = "127.0.0.1",
             event_emitter::callback_t cb = nullptr) override;
@@ -47,26 +44,10 @@ namespace impact {
         struct addrinfo     m_hints;
         std::atomic<size_t> m_client_count;
 
-        enum class request_type { CLOSE, LISTEN1, LISTEN2 };
-        struct async_request_t {
-            request_type type;
-            std::string host;
-            unsigned short port;
-            std::promise<void>* promise;
-
-            async_request_t();
-        };
-        uv_rwlock_t                         m_lock;
-        uv_async_t                          m_async_handle;
-        std::vector<struct async_request_t> m_requests;
-
         void _M_close();
-        void _M_close_async(bool blocking = false);
         void _M_listen(unsigned short port, std::string host);
         void _M_listen(std::string path);
         void _M_listen(const struct sockaddr*);
-        void _M_listen_async(unsigned short port, std::string host);
-        void _M_listen_async(std::string path);
         void _M_emit_listen_error(int status);
 
         friend class uv_tcp_client;
@@ -74,7 +55,6 @@ namespace impact {
         friend void uv_tcp_server_on_connection(uv_stream_t*, int);
         friend void uv_tcp_server_on_path_resolved(
             uv_getaddrinfo_t*, int, struct addrinfo*);
-        friend void uv_tcp_server_async_callback(uv_async_t*);
     };
 
 } /* namespace impact */

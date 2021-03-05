@@ -9,6 +9,7 @@
 #include <atomic>
 #include <vector>
 #include <memory>
+#include <future>
 #include "uv.h"
 #include "async/event_loop_interface.h"
 
@@ -30,17 +31,20 @@ namespace impact {
         void clear_interval(etimer_id_t id) override;
         void clear_immediate(etimer_id_t id) override;
 
-        std::shared_ptr<tcp_server_interface> create_tcp_server() override;
-        std::shared_ptr<tcp_client_interface> create_tcp_client() override;
+        tcp_server_t create_tcp_server() override;
+        tcp_client_t create_tcp_client() override;
+        udp_socket_t create_udp_socket() override;
+
+        void invoke(invoke_callback_t cb, bool blocking = false) override;
 
     private:
-        struct timer_request_info {
-            bool clear;
-            std::shared_ptr<uv_timer_t> timer;
-            etimer_id_t id;
-            etimer_time_t timeout;
-            etimer_time_t interval;
-            etimer_callback_t callback;
+        enum class request_type { NONE, INVOKE };
+        struct async_request_t {
+            request_type type;
+            invoke_callback_t invoke_callback;
+            std::promise<void>* promise;
+
+            async_request_t();
         };
 
         struct context_t {
@@ -48,13 +52,12 @@ namespace impact {
             std::atomic<bool> is_running;
             std::thread::id   isolate;
             std::thread       async_thread;
-            uv_async_t        async_stop_handle;
             uv_async_t        async_call_handle;
             uv_timer_t        keep_alive_timer;
             uv_loop_t         loop;
             uv_rwlock_t       lock;
 
-            std::vector<struct timer_request_info> timer_queue;
+            std::vector<struct async_request_t> requests;
             std::vector<std::shared_ptr<uv_timer_t>> timers;
         };
 
@@ -67,16 +70,12 @@ namespace impact {
             etimer_time_t timeout_ms,
             etimer_time_t interval_ms,
             std::shared_ptr<uv_timer_t> timer = nullptr);
-        etimer_id_t _M_create_timer_async(
-            const etimer_callback_t& cb,
-            etimer_time_t timeout_ms,
-            etimer_time_t interval_ms);
         void _M_cleanup_timer(etimer_id_t id);
-        void _M_cleanup_timer_async(etimer_id_t id);
 
         friend void async_uvcall_callback(uv_async_t* async);
         friend class uv_tcp_server;
         friend class uv_tcp_client;
+        friend class uv_udp_socket;
     };
 
 } /* namespace impact */

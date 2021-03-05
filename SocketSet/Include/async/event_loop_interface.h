@@ -6,10 +6,11 @@
 #define IMPACT_EVENT_LOOP_INTERFACE_H
 
 #include <cstdint>
-#include <functional>
 #include <memory>
+#include <functional>
 #include "async/tcp_server_interface.h"
 #include "async/tcp_client_interface.h"
+#include "async/udp_socket_interface.h"
 
 namespace impact {
 
@@ -17,9 +18,10 @@ namespace impact {
     typedef std::uintptr_t etimer_id_t;
     typedef unsigned long long int etimer_time_t;
     typedef std::function<void()> etimer_callback_t;
-    typedef std::shared_ptr<tcp_client_interface> tcp_client_pt;
-    typedef std::shared_ptr<tcp_server_interface> tcp_server_pt;
-    // typedef std::shared_ptr<udp_socket_interface> udp_socket_pt;
+    typedef std::function<void()> invoke_callback_t;
+    typedef std::shared_ptr<tcp_client_interface> tcp_client_t;
+    typedef std::shared_ptr<tcp_server_interface> tcp_server_t;
+    typedef std::shared_ptr<udp_socket_interface> udp_socket_t;
 
     class event_loop_interface {
     public:
@@ -36,14 +38,16 @@ namespace impact {
         virtual void clear_interval(etimer_id_t id) = 0;
         virtual void clear_immediate(etimer_id_t id) = 0;
 
-        virtual tcp_server_pt create_tcp_server() = 0;
-        virtual tcp_client_pt create_tcp_client() = 0;
-        // virtual udp_socket_pt create_udp_socket() = 0;
+        virtual tcp_server_t create_tcp_server() = 0;
+        virtual tcp_client_t create_tcp_client() = 0;
+        virtual udp_socket_t create_udp_socket() = 0;
+
+        virtual void invoke(invoke_callback_t cb, bool blocking = false) = 0;
     };
 
-    typedef std::shared_ptr<event_loop_interface> event_loop_pt;
-    event_loop_pt default_event_loop();
-    void default_event_loop(event_loop_pt event_loop);
+    typedef std::shared_ptr<event_loop_interface> event_loop_t;
+    event_loop_t default_event_loop();
+    void default_event_loop(event_loop_t event_loop);
 
 } /* namespace impact */
 

@@ -37,44 +37,49 @@ namespace impact {
 
         virtual tcp_client_interface* connect(
             std::string path,
-            event_emitter::callback_t cb/* = nullptr*/) = 0;
+            event_emitter::callback_t cb = nullptr) = 0;
         virtual tcp_client_interface* connect(
             unsigned short port,
-            event_emitter::callback_t cb) = 0;
-        virtual tcp_client_interface* connect(
+            std::string host = "127.0.0.1",
+            event_emitter::callback_t cb = nullptr) = 0;
+        inline tcp_client_interface* connect(
             unsigned short port,
-            std::string host/* = 127.0.0.1*/,
-            event_emitter::callback_t cb/* = nullptr*/) = 0;
+            event_emitter::callback_t cb)
+        { return connect(port, "127.0.0.1", cb); }
         virtual tcp_client_interface* destroy(std::string error = "") = 0;
-        virtual tcp_client_interface* end(event_emitter::callback_t cb) = 0;
         virtual tcp_client_interface* end(
+            std::string data = std::string(),
+            std::string encoding = "utf8",
+            event_emitter::callback_t cb = nullptr) = 0;
+        inline tcp_client_interface* end(
             std::string data,
-            event_emitter::callback_t cb) = 0;
-        virtual tcp_client_interface* end(
-            std::string data/* = ""*/,
-            std::string encoding/* = "utf8"*/,
-            event_emitter::callback_t cb/* = nullptr*/) = 0;
+            event_emitter::callback_t cb)
+        { return end(data, "utf8", cb); }
+        inline tcp_client_interface* end(event_emitter::callback_t cb)
+        { return end(std::string(), "utf8", cb); }
         virtual tcp_client_interface* pause() = 0;
         virtual tcp_client_interface* resume() = 0;
         virtual tcp_client_interface* set_encoding(
-            std::string encoding/* = "utf8"*/) = 0;
+            std::string encoding = "utf8") = 0;
         virtual tcp_client_interface* set_keep_alive(
-            unsigned int initial_delay) = 0;
-        virtual tcp_client_interface* set_keep_alive(
-            bool enable/* = false*/,
-            unsigned int initial_delay/* = 0*/) = 0;
+            bool enable = false,
+            unsigned int initial_delay = 0) = 0;
+        inline tcp_client_interface* set_keep_alive(
+            unsigned int initial_delay)
+        { return set_keep_alive(false, initial_delay); }
         virtual tcp_client_interface* set_no_delay(
-            bool no_delay/* = true*/) = 0;
+            bool no_delay = true) = 0;
         virtual tcp_client_interface* set_timeout(
             unsigned int timeout,
-            event_emitter::callback_t cb/* = nullptr*/) = 0;
+            event_emitter::callback_t cb = nullptr) = 0;
         virtual bool write(
             std::string data,
-            event_emitter::callback_t cb/* = nullptr*/) = 0;
-        virtual bool write(
+            std::string encoding = "utf8",
+            event_emitter::callback_t cb = nullptr) = 0;
+        inline bool write(
             std::string data,
-            std::string encoding/* = "utf8"*/,
-            event_emitter::callback_t cb/* = nullptr*/) = 0;
+            event_emitter::callback_t cb)
+        { return write(data, "utf8", cb); }
 
         // on('close', (hadError: bool) => void)
         // on('connect', () => void)

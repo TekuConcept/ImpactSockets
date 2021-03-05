@@ -19,17 +19,18 @@ namespace impact {
         virtual size_t max_connections() const = 0;
         virtual void max_connections(size_t value) = 0;
 
-        virtual void close(event_emitter::callback_t cb) = 0;
+        virtual void close(event_emitter::callback_t cb = nullptr) = 0;
         virtual void listen(
             std::string path,
-            event_emitter::callback_t cb/* = nullptr*/) = 0;
+            event_emitter::callback_t cb = nullptr) = 0;
         virtual void listen(
+            unsigned short port = 0,
+            std::string host = "127.0.0.1",
+            event_emitter::callback_t cb = nullptr) = 0;
+        inline void listen(
             unsigned short port,
-            event_emitter::callback_t cb) = 0;
-        virtual void listen(
-            unsigned short port/* = 0*/,
-            std::string host/* = "localhost"*/,
-            event_emitter::callback_t cb/* = nullptr*/) = 0;
+            event_emitter::callback_t cb)
+        { listen(port, "127.0.0.1", cb); }
 
         // on('close', () -> void { })
         // on('connection', (connection) -> void { })

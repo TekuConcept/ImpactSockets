@@ -13,6 +13,16 @@ using namespace impact;
 size_t event_emitter::default_max_listeners = 10;
 
 
+event_emitter::callback_info::callback_info()
+: id(0), cb(nullptr), once(false)
+{ }
+
+
+event_emitter::context_t::context_t()
+: max_listeners(0)
+{ }
+
+
 event_emitter::event_emitter()
 : m_context(std::make_shared<struct context_t>())
 { m_context->max_listeners = default_max_listeners; }
@@ -91,11 +101,10 @@ event_emitter::_M_emit(
     for (const auto& info : listeners)
         info.cb(__args);
 
-    for (size_t i = 0; i < listeners.size(); i++) {
-        if (listeners[i].once) {
-            listeners.erase(listeners.begin() + i);
-            i--;
-        }
+    size_t i = listeners.size(); // fixes "invalid read"
+    for (; i > 0; i--) {
+        if (listeners[i - 1].once)
+            listeners.erase(listeners.begin() + i - 1);
     }
 
     // erase event name if no more listeners
@@ -114,7 +123,7 @@ event_emitter::_M_add_listener(
     if (__name.size() == 0) return;
     if (!__listener) return;
 
-    auto& list = m_context->listeners[__name];
+    auto& list = m_context->listeners[__name]; // -- ALLOC --
     if (list.size() == m_context->max_listeners) return;
 
     callback_info info;
