@@ -61,11 +61,21 @@ namespace impact {
         unsigned             /*__flags*/)
     {
         auto* socket = reinterpret_cast<uv_udp_socket*>(__handle->data);
-        if (__nread > 0) {
-            std::string data(__buffer->base, sizeof(char) * __nread);
-            free(__buffer->base);
+        if (__nread >= 0) {
+            std::string data;
             udp_address_t address;
-            socket->_M_fill_address_info(__address, &address);
+            if (__buffer->base != NULL) {
+                data = std::string(__buffer->base, sizeof(char) * __nread);
+                socket->_M_free_buffer(__buffer->base);
+            }
+            // else empty datagram: return an empty string
+            if (__address != NULL)
+                socket->_M_fill_address_info(__address, &address);
+            else {
+                address.address = "";
+                address.family  = address_family::UNSPECIFIED;
+                address.port    = 0;
+            }
             socket->emit("message", data, address);
         }
         else socket->_M_emit_error_code("read", __nread);

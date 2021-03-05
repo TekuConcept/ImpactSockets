@@ -14,8 +14,8 @@ using namespace impact;
 #define VERBOSE(x) std::cout << x << std::endl
 #define AS_STRING(arg) (arg).get<std::string>()
 
-static std::string test_message;
-static std::shared_ptr<event_loop_interface> s_event_loop;
+std::string test_message;
+std::shared_ptr<event_loop_interface> s_event_loop;
 tcp_server_t server;
 tcp_client_t server_connection;
 tcp_client_t client_connection;
