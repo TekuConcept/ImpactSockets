@@ -22,7 +22,7 @@ INCLUDE_DIRECTORIES(
     ${SOCKETS_INCLUDE_DIR}
     ${SOCKETS_INCLUDE_DIR}/placeholder
     ${NPCAP_INCLUDE_DIR}
-    ${UV_INCLUDE_DIRS}
+    ${THIRD_PARTY_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR} # location of configure.h
 )
 FILE(GLOB_RECURSE SOC_SOURCE_FILES "${SOCKETS_SOURCE_DIR}/*.cpp")
@@ -107,7 +107,7 @@ IF (BUILD_EXAMPLES)
         ADD_DEPENDENCIES(${DEMO_NAME} ${PROJECT_NAME}_obj)
         TARGET_LINK_LIBRARIES(${DEMO_NAME}
             $<TARGET_OBJECTS:${PROJECT_NAME}_obj>
-            ${UV_LIBRARIES}
+            ${THIRD_PARTY_LIBRARIES}
         )
     ENDFOREACH ()
 ENDIF ()
@@ -151,7 +151,7 @@ IF (BUILD_UNIT_TESTS)
                 ${GTEST_LIBRARIES}
                 ${GMOCK_LIBRARIES}
                 ${SELECTED_LINK_TARGET}
-                ${UV_LIBRARIES}
+                ${THIRD_PARTY_LIBRARIES}
                 ${OTHER_LIBRARIES}
             )
         ENDFOREACH ()
@@ -165,7 +165,7 @@ IF (BUILD_SYSTEM_TESTS)
         ADD_EXECUTABLE(${SYSTEM_TEST_NAME} ${SYSTEM_TEST})
         TARGET_LINK_LIBRARIES(${SYSTEM_TEST_NAME}
             ${SELECTED_LINK_TARGET}
-            ${UV_LIBRARIES}
+            ${THIRD_PARTY_LIBRARIES}
             ${OTHER_LIBRARIES}
         )
     ENDFOREACH ()

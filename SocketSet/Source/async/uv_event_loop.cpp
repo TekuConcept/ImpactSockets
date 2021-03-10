@@ -76,51 +76,12 @@ uv_event_loop::uv_event_loop()
 
     uv_rwlock_init(&m_context->lock);
     uv_loop_init(&m_context->loop);
-    uv_async_init(
-        &m_context->loop,
-        &m_context->async_call_handle,
-        async_uvcall_callback);
-    uv_timer_init(&m_context->loop, &m_context->keep_alive_timer);
-
-    m_context->async_call_handle.data = this;
 }
 
 
 uv_event_loop::~uv_event_loop()
 {
-    this->invoke([this]() {
-        uv_timer_stop(&m_context->keep_alive_timer);
-
-        uv_close(reinterpret_cast<uv_handle_t*>
-            (&m_context->keep_alive_timer), nullptr);
-        uv_close(reinterpret_cast<uv_handle_t*>
-            (&m_context->async_call_handle), nullptr);
-
-        uv_stop(&m_context->loop);
-    }, /*blocking=*/true);
-
-    int result;
-
-    do {
-        result = uv_loop_close(&m_context->loop);
-        switch (result) {
-            case 0:            /* loop closed           */ break;
-            case UV_ECANCELED: /* cancelled             */ break;
-            case UV_EBUSY:     /* busy                  */ break;
-            default:           /* unexpected error code */ break;
-        }
-        // try again in 250ms
-        // WARNING: possible infinite loop
-        // NOTE: returning from dtor without successfully closing
-        //       the loop will result in a memory leak
-        if (result != 0)
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
-    } while (result != 0);
-
-    // join async threads
-    if (std::this_thread::get_id() != m_context->isolate)
-        _M_cleanup_thread();
-
+    stop();
     uv_rwlock_destroy(&m_context->lock);
 }
 
@@ -135,6 +96,13 @@ uv_event_loop::run()
 
     m_context->isolate = std::this_thread::get_id();
     m_context->is_running = true;
+
+    uv_async_init(
+        &m_context->loop,
+        &m_context->async_call_handle,
+        async_uvcall_callback);
+    uv_timer_init(&m_context->loop, &m_context->keep_alive_timer);
+    m_context->async_call_handle.data = this;
 
     uv_timer_start(
         &m_context->keep_alive_timer,
@@ -158,6 +126,13 @@ uv_event_loop::run_async()
     m_context->is_running = true;
     m_context->is_async_thread = true;
 
+    uv_async_init(
+        &m_context->loop,
+        &m_context->async_call_handle,
+        async_uvcall_callback);
+    uv_timer_init(&m_context->loop, &m_context->keep_alive_timer);
+    m_context->async_call_handle.data = this;
+
     uv_timer_start(
         &m_context->keep_alive_timer,
         keep_alive_callback,
@@ -179,11 +154,53 @@ uv_event_loop::run_async()
 void
 uv_event_loop::stop()
 {
-    this->invoke([&]() {
-        uv_timer_stop(&m_context->keep_alive_timer);
-        uv_stop(&m_context->loop);
-    }, /*blocking=*/true);
+    _M_blocking_stop();
+    if (std::this_thread::get_id() != m_context->isolate)
+        _M_cleanup_thread();
+}
 
+
+void
+uv_event_loop::_M_blocking_stop()
+{
+    if (m_context->is_running) {
+        {
+            std::lock_guard<std::mutex> lock(m_context->child_signal_mtx);
+            for (const auto& child : m_context->children)
+                child->send_signal(uv_node_signal_t::STOP);
+        }
+
+        this->invoke([&]() {
+            uv_timer_stop(&m_context->keep_alive_timer);
+            if (!uv_is_closing((uv_handle_t*)&m_context->keep_alive_timer))
+                uv_close(reinterpret_cast<uv_handle_t*>
+                    (&m_context->keep_alive_timer), nullptr);
+            if (!uv_is_closing((uv_handle_t*)&m_context->async_call_handle))
+                uv_close(reinterpret_cast<uv_handle_t*>
+                    (&m_context->async_call_handle), nullptr);
+            uv_stop(&m_context->loop);
+        }, /*blocking=*/true);
+
+        int result;
+        do {
+            result = uv_loop_close(&m_context->loop);
+            switch (result) {
+                case 0:            /* loop closed           */ break;
+                case UV_ECANCELED: /* cancelled             */ break;
+                case UV_EBUSY:     /* busy                  */ break;
+                default:           /* unexpected error code */ break;
+            }
+            // try again in 250ms
+            // WARNING: possible infinite loop
+            // NOTE: returning from dtor without successfully closing
+            //       the loop will result in a memory leak
+            if (result != 0)
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        } while (result != 0);
+        m_context->is_running = false;
+    }
+
+    // join async threads
     if (std::this_thread::get_id() != m_context->isolate)
         _M_cleanup_thread();
 }
@@ -295,6 +312,34 @@ uv_event_loop::invoke(
         if (__blocking) try { f.get(); } catch (...) { /* ignore */ }
     }
 }
+
+
+void
+uv_event_loop::add_child(uv_child_interface* __child)
+{
+    if (__child == nullptr) return;
+    std::lock_guard<std::mutex> lock(m_context->child_signal_mtx);
+    m_context->children.push_back(__child);
+}
+
+
+void
+uv_event_loop::remove_child(uv_child_interface* __child)
+{
+    std::lock_guard<std::mutex> lock(m_context->child_signal_mtx);
+    auto child = std::find(
+        m_context->children.begin(),
+        m_context->children.end(),
+        __child
+    );
+    if (child == m_context->children.end()) return;
+    m_context->children.erase(child);
+}
+
+
+uv_loop_t*
+uv_event_loop::get_loop_handle() const
+{ return &m_context->loop; }
 
 
 etimer_id_t

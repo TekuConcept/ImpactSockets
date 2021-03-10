@@ -9,12 +9,17 @@
 #include <vector>
 #include <future>
 #include <string>
+#include "interfaces/udp_socket_interface.h"
+#include "interfaces/uv_node_interface.h"
 #include "async/uv_event_loop.h"
-#include "async/udp_socket_interface.h"
 
 namespace impact {
 
-    class uv_udp_socket : public udp_socket_interface {
+    class uv_udp_socket :
+        public udp_socket_interface,
+        public uv_child_interface,
+        protected udp_socket_observer_interface
+    {
     public:
         uv_udp_socket(uv_event_loop* event_loop);
         ~uv_udp_socket();
@@ -65,14 +70,27 @@ namespace impact {
         void set_multicast_ttl(unsigned char time_to_live) override;
         void set_ttl(unsigned char time_to_live) override;
 
+        void set_event_observer(udp_socket_observer_interface*) override;
+
+        void send_signal(uv_node_signal_t op) override;
+
+    protected:
+        void on_close() override;
+        void on_connect() override;
+        void on_error(const std::string& message) override;
+        void on_listening() override;
+        void on_message(
+            const std::string& data,
+            const udp_address_t& address) override;
+
     private:
-        std::shared_ptr<struct uv_event_loop::context_t> m_elctx;
-        uv_event_loop*  m_event_loop;
-        udp_address_t   m_address;
-        udp_address_t   m_remote_address;
-        struct addrinfo m_hints;
-        std::shared_ptr<uv_udp_t> m_handle;
-        std::vector<char*> m_malloc_buffers;
+        uv_event_loop*                 m_event_loop;
+        udp_address_t                  m_address;
+        udp_address_t                  m_remote_address;
+        struct addrinfo                m_hints;
+        std::shared_ptr<uv_udp_t>      m_handle;
+        std::vector<char*>             m_malloc_buffers;
+        udp_socket_observer_interface* m_fast_events;
         // std::atomic<size_t> m_send_buffer_size;
         // std::atomic<size_t> m_recv_buffer_size;
 

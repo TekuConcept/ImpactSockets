@@ -164,3 +164,18 @@ TEST(event_emitter, once) {
     ASSERT_EQ(listeners.size(), 1);
     EXPECT_EQ(listeners[0].id, (size_t)&cb3);
 }
+
+
+TEST(event_emitter, forward) {
+    event_emitter parent;
+    event_emitter child;
+    size_t calls = 0;
+
+    child.forward(&parent);
+    child.on("check", EVENT_LISTENER(, &) { calls++; });
+
+    parent.emit("check");
+    child.emit("check");
+
+    EXPECT_EQ(calls, 2);
+}

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <set>
 #include <algorithm>
+#include <numeric>
 #include "utils/event_emitter.h"
 
 using namespace impact;
@@ -26,6 +27,11 @@ event_emitter::context_t::context_t()
 event_emitter::event_emitter()
 : m_context(std::make_shared<struct context_t>())
 { m_context->max_listeners = default_max_listeners; }
+
+
+event_emitter::event_emitter(const event_emitter* __forward)
+: m_context(__forward->m_context)
+{ }
 
 
 std::vector<std::string>
@@ -97,19 +103,26 @@ event_emitter::_M_emit(
     const auto& token = m_context->listeners.find(__name);
     if (token == m_context->listeners.end()) return;
 
+    // invoke all listeners under the given name
     auto& listeners = token->second;
     for (const auto& info : listeners)
         info.cb(__args);
 
-    size_t i = listeners.size(); // fixes "invalid read"
-    for (; i > 0; i--) {
-        if (listeners[i - 1].once)
-            listeners.erase(listeners.begin() + i - 1);
+    { // remove all once listeners
+        // attempt O(n) removal of listeners
+        size_t size = listeners.size();
+        size_t next_size = 0;
+        for (size_t i = 0; i < size; i++) {
+            if (listeners[i].once) continue;
+            if (next_size != i)
+                listeners[next_size] = std::move(listeners[i]);
+            next_size++;
+        }
+        if (next_size == 0)
+            // erase event name if no more listeners
+            m_context->listeners.erase(token);
+        else listeners.resize(next_size/* = size - once_count*/);
     }
-
-    // erase event name if no more listeners
-    if (listeners.size() == 0)
-        m_context->listeners.erase(token);
 }
 
 

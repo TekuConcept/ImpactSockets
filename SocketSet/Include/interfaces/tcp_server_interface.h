@@ -5,11 +5,23 @@
 #ifndef IMPACT_TCP_SERVER_INTERFACE_H
 #define IMPACT_TCP_SERVER_INTERFACE_H
 
+#include <memory>
+#include <functional>
 #include "utils/event_emitter.h"
-#include "async/tcp_client_interface.h"
+#include "interfaces/tcp_client_interface.h"
 
 namespace impact {
 
+    class tcp_server_observer_interface {
+    public:
+        virtual ~tcp_server_observer_interface() = default;
+        virtual void on_close() = 0;
+        virtual void on_connection(const tcp_client_t& connection) = 0;
+        virtual void on_error(const std::string& message) = 0;
+        virtual void on_listening() = 0;
+    };
+
+    class tcp_client_interface;
     class tcp_server_interface : public event_emitter {
     public:
         virtual ~tcp_server_interface() = default;
@@ -32,11 +44,10 @@ namespace impact {
             event_emitter::callback_t cb)
         { listen(port, "127.0.0.1", cb); }
 
-        // on('close', () -> void { })
-        // on('connection', (connection) -> void { })
-        // on('error', (message) -> void { })
-        // on('listening', () -> void { })
+        virtual void set_event_observer(tcp_server_observer_interface*) = 0;
     };
+
+    typedef std::shared_ptr<tcp_server_interface> tcp_server_t;
 
 } /* namespace impact */
 

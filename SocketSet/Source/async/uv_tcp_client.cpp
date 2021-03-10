@@ -7,10 +7,12 @@
 #include <algorithm>
 #include "async/uv_tcp_client.h"
 #include "async/uv_tcp_server.h"
+#include "utils/impact_error.h"
 
 using namespace impact;
 
 #define V(x) std::cout << x << std::endl
+
 
 namespace impact {
 
@@ -23,14 +25,26 @@ namespace impact {
         auto result = __status;
         auto* server =
             reinterpret_cast<uv_tcp_client*>(__resolver->data);
+        tcp_address_t hr_address;
+        std::string error, host;
         if (result < 0) {
-            server->_M_emit_error_code("connect", result);
-            delete __resolver;
-            return;
+            error = uv_strerror(result);
+            server->_M_emit_error_code(__FUNCTION__, result);
         }
-        server->_M_connect(__info->ai_addr);
+        else {
+            server->_M_fill_address_info(__info->ai_addr, &hr_address);
+            if (__info->ai_canonname)
+                host = std::string(__info->ai_canonname);
+            server->_M_connect(__info->ai_addr);
+            uv_freeaddrinfo(__info);
+        }
+        server->m_fast_events->on_lookup(
+            error,
+            hr_address.address,
+            hr_address.family,
+            host
+        );
         delete __resolver;
-        uv_freeaddrinfo(__info);
     }
 
 
@@ -50,8 +64,8 @@ namespace impact {
             client->_M_update_addresses();
             client->m_ready_state = uv_tcp_client::ready_state_t::OPEN;
             client->_M_resume();
-            client->emit("connect");
-            client->emit("ready");
+            client->m_fast_events->on_connect();
+            client->m_fast_events->on_ready();
         }
         delete __request;
     }
@@ -63,10 +77,6 @@ namespace impact {
         size_t       __suggested_size,
         uv_buf_t*    __buffer)
     {
-        // FIXME: alloc_buffer called but memory is never
-        // sent to the final destination where it is freed
-        // aka "memory-leak".
-        // SUGGESTION: create a memory pool instead of malloc
         auto* client = reinterpret_cast<uv_tcp_client*>(__handle->data);
         __buffer->base = client->_M_alloc_buffer(__suggested_size);
         __buffer->len  = __suggested_size;
@@ -86,7 +96,7 @@ namespace impact {
             std::string data(__buffer->base, sizeof(char) * __nread);
             client->_M_free_buffer(__buffer->base);
             client->m_bytes_read += data.size();
-            client->emit("data", data);
+            client->m_fast_events->on_data(data);
             // reset timeout
             if (client->m_has_timeout)
                 client->_M_set_timeout(client->m_timeout);
@@ -140,7 +150,7 @@ namespace impact {
             using ready_state_t = uv_tcp_client::ready_state_t;
             if (client->m_ready_state == ready_state_t::OPEN) {
                 client->m_ready_state = ready_state_t::READ_ONLY;
-                client->emit("end");
+                client->m_fast_events->on_end();
             }
             else client->_M_on_close(); /* WRITE_ONLY state assumed */
         }
@@ -164,7 +174,7 @@ uv_tcp_client::uv_tcp_client(uv_event_loop* __event_loop)
     _M_init(__event_loop);
 
     m_handle = std::make_shared<uv_tcp_t>();
-    int result = uv_tcp_init(&m_elctx->loop, m_handle.get());
+    int result = uv_tcp_init(m_event_loop->get_loop_handle(), m_handle.get());
     if (result != 0) throw impact_error("unexpected uv error");
     m_handle->data = (void*)this;
 }
@@ -172,6 +182,8 @@ uv_tcp_client::uv_tcp_client(uv_event_loop* __event_loop)
 
 uv_tcp_client::~uv_tcp_client()
 {
+    m_event_loop->remove_child(this);
+
     if (!uv_is_closing((uv_handle_t*)m_handle.get()))
         m_event_loop->invoke([this]() { _M_destroy(""); }, /*blocking=*/true);
 
@@ -209,9 +221,11 @@ uv_tcp_client::_M_init(uv_event_loop* __event_loop)
     m_hints.ai_family        = PF_INET;
     m_hints.ai_socktype      = SOCK_STREAM;
     m_hints.ai_protocol      = IPPROTO_TCP;
-    m_hints.ai_flags         = 0;
+    m_hints.ai_flags         = AI_CANONNAME;
 
-    m_elctx = m_event_loop->m_context;
+    m_fast_events            = this;
+
+    m_event_loop->add_child(this);
 }
 
 
@@ -275,19 +289,9 @@ uv_tcp_client::timeout() const
 { return m_timeout; }
 
 
-std::string
+tcp_client_interface::ready_state_t
 uv_tcp_client::ready_state() const
-{
-    switch (m_ready_state) {
-    case ready_state_t::PENDING:    return "pending";
-    case ready_state_t::OPENING:    return "opening";
-    case ready_state_t::OPEN:       return "open";
-    case ready_state_t::READ_ONLY:  return "readOnly";
-    case ready_state_t::WRITE_ONLY: return "writeOnly";
-    case ready_state_t::DESTROYED:  return "destroyed";
-    }
-    return "";
-}
+{ return m_ready_state.load(); }
 
 
 tcp_client_interface*
@@ -318,8 +322,8 @@ uv_tcp_client::connect(
 tcp_client_interface*
 uv_tcp_client::destroy(std::string __error)
 {
-    if (m_ready_state == ready_state_t::DESTROYED)
-        return this;
+    // if (m_ready_state == ready_state_t::DESTROYED)
+    //     return this;
     m_event_loop->invoke([this, __error]() { _M_destroy(__error); });
     return this;
 }
@@ -406,7 +410,7 @@ uv_tcp_client::write(
 {
     if (m_ready_state != ready_state_t::OPEN &&
         m_ready_state != ready_state_t::WRITE_ONLY) {
-        event_emitter::emit("error", std::string("soc not open"));
+        m_fast_events->on_error("soc not open");
         return false;
     }
 
@@ -416,6 +420,66 @@ uv_tcp_client::write(
     }, /*blocking=*/true);
     return result;
 }
+
+
+void
+uv_tcp_client::set_event_observer(tcp_client_observer_interface* __fast_events)
+{ m_fast_events = (__fast_events != nullptr) ? __fast_events : this; }
+
+
+void
+uv_tcp_client::send_signal(uv_node_signal_t __op)
+{
+    switch (__op) {
+    case uv_node_signal_t::STOP:
+        this->destroy();
+        break;
+    }
+}
+
+
+void
+uv_tcp_client::on_close(bool __transmission_error)
+{ event_emitter::emit("close", __transmission_error); }
+
+
+void
+uv_tcp_client::on_connect()
+{ event_emitter::emit("connect"); }
+
+
+void
+uv_tcp_client::on_data(std::string& __data)
+{ event_emitter::emit("data", __data); }
+
+
+void
+uv_tcp_client::on_end()
+{ event_emitter::emit("end"); }
+
+
+void
+uv_tcp_client::on_error(const std::string& __message)
+{ event_emitter::emit("error", __message); }
+
+
+void
+uv_tcp_client::on_lookup(
+    std::string& __error,
+    std::string& __address,
+    address_family     __family,
+    std::string& __host)
+{ event_emitter::emit("lookup", __error, __address, __family, __host); }
+
+
+void
+uv_tcp_client::on_ready()
+{ event_emitter::emit("ready"); }
+
+
+void
+uv_tcp_client::on_timeout()
+{ event_emitter::emit("timeout"); }
 
 
 void
@@ -445,7 +509,7 @@ uv_tcp_client::_M_connect(std::string __path)
 
     resolver = new uv_getaddrinfo_t();
     resolver->data = (void*)this;
-    result = uv_getaddrinfo(&m_elctx->loop, resolver,
+    result = uv_getaddrinfo(m_event_loop->get_loop_handle(), resolver,
         uv_tcp_client_on_path_resolved, __path.c_str(), nullptr, &m_hints);
     if (result != 0) goto error;
     return;
@@ -520,10 +584,13 @@ uv_tcp_client::_M_resume()
 bool
 uv_tcp_client::_M_write(
     std::string               __data,
-    std::string               __encoding,
+    std::string             /*__encoding*/,
     event_emitter::callback_t __cb)
 {
-    (void)__encoding; // always use UTF8 encoding for now
+    if (__data.size() == 0) {
+        if (__cb) __cb({});
+        return true;
+    }
 
     uv_buf_t buffers[1];
     write_context_t* context = new write_context_t;
@@ -568,7 +635,7 @@ uv_tcp_client::_M_set_timeout(unsigned int __timeout)
         if (m_has_timeout)
             m_event_loop->clear_timeout(m_timeout_handle);
         m_timeout_handle = m_event_loop->set_timeout([&]() {
-            event_emitter::emit("timeout");
+            m_fast_events->on_timeout();
         }, m_timeout);
     }
 }
@@ -597,7 +664,7 @@ uv_tcp_client::_M_destroy(std::string __error)
         uv_close((uv_handle_t*)m_handle.get(), uv_tcp_client_on_close);
 
     if (__error.size() > 0)
-        event_emitter::emit("error", __error);
+        m_fast_events->on_error(__error);
 }
 
 
@@ -610,7 +677,7 @@ uv_tcp_client::_M_emit_error_code(
     message += std::string(": ");
     message += std::to_string(__code) + std::string(" ");
     message += uv_strerror(__code);
-    event_emitter::emit("error", message);
+    m_fast_events->on_error(message);
 }
 
 
@@ -629,8 +696,7 @@ uv_tcp_client::_M_update_addresses()
 
         auto result = item.second(m_handle.get(), (sockaddr*)&address, &size);
         if (result != 0) {
-            event_emitter::emit("error",
-                std::string("failed to update addresses"));
+            m_fast_events->on_error("failed to update addresses");
             return;
         }
 
@@ -667,18 +733,20 @@ uv_tcp_client::_M_fill_address_info(
         &__dest->address[0],
         __dest->address.size());
     if (status2 == nullptr)
-        event_emitter::emit("error",
-            std::string("unexpected address error"));
+        m_fast_events->on_error("unexpected address error");
 }
 
 
 void
 uv_tcp_client::_M_on_close()
 {
-    if (m_server != nullptr)
-        m_server->m_client_count--;
-    m_ready_state = uv_tcp_client::ready_state_t::DESTROYED;
-    event_emitter::emit("close");
+    auto old_state = m_ready_state.load();
+    m_ready_state = ready_state_t::DESTROYED;
+    if (old_state != ready_state_t::DESTROYED) {
+        if (m_server != nullptr)
+            m_server->m_client_count--;
+        m_fast_events->on_close("");
+    }
 }
 
 
@@ -699,7 +767,7 @@ uv_tcp_client::_M_free_buffer(char* __buffer)
         m_malloc_buffers.end(),
         __buffer);
     if (source == m_malloc_buffers.end())
-        event_emitter::emit("error", "pausible memory leak");
+        m_fast_events->on_error("pausible memory leak");
     else {
         free((void*)__buffer);
         m_malloc_buffers.erase(source);

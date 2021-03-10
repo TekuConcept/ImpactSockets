@@ -10,12 +10,17 @@
 #include <vector>
 #include <memory>
 #include <future>
+#include <mutex>
 #include "uv.h"
-#include "async/event_loop_interface.h"
+#include "interfaces/event_loop_interface.h"
+#include "interfaces/uv_node_interface.h"
 
 namespace impact {
 
-    class uv_event_loop : public event_loop_interface {
+    class uv_event_loop :
+        public event_loop_interface,
+        public uv_parent_interface
+    {
     public:
         uv_event_loop();
         ~uv_event_loop();
@@ -36,6 +41,10 @@ namespace impact {
         udp_socket_t create_udp_socket() override;
 
         void invoke(invoke_callback_t cb, bool blocking = false) override;
+
+        void add_child(uv_child_interface* child) override;
+        void remove_child(uv_child_interface* child) override;
+        uv_loop_t* get_loop_handle() const override;
 
     private:
         enum class request_type { NONE, INVOKE };
@@ -59,10 +68,14 @@ namespace impact {
 
             std::vector<struct async_request_t> requests;
             std::vector<std::shared_ptr<uv_timer_t>> timers;
+
+            std::mutex child_signal_mtx;
+            std::vector<uv_child_interface*> children;
         };
 
         std::shared_ptr<struct context_t> m_context;
 
+        void _M_blocking_stop();
         void _M_cleanup_thread();
 
         etimer_id_t _M_create_timer(
@@ -73,9 +86,6 @@ namespace impact {
         void _M_cleanup_timer(etimer_id_t id);
 
         friend void async_uvcall_callback(uv_async_t* async);
-        friend class uv_tcp_server;
-        friend class uv_tcp_client;
-        friend class uv_udp_socket;
     };
 
 } /* namespace impact */

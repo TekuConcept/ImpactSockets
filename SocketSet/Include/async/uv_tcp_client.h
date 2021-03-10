@@ -10,13 +10,18 @@
 #include <future>
 #include <vector>
 #include "uv.h"
-#include "async/tcp_client_interface.h"
+#include "interfaces/tcp_client_interface.h"
+#include "interfaces/uv_node_interface.h"
 #include "async/uv_event_loop.h"
 
 namespace impact {
 
     class uv_tcp_server;
-    class uv_tcp_client : public tcp_client_interface {
+    class uv_tcp_client :
+        public tcp_client_interface,
+        public uv_child_interface,
+        protected tcp_client_observer_interface
+    {
     public:
         uv_tcp_client(uv_event_loop* event_loop);
         ~uv_tcp_client();
@@ -33,7 +38,7 @@ namespace impact {
         address_family remote_family() const override;
         unsigned short remote_port() const override;
         size_t timeout() const override;
-        std::string ready_state() const override;
+        ready_state_t ready_state() const override;
 
         tcp_client_interface* connect(
             std::string path,
@@ -64,33 +69,42 @@ namespace impact {
             std::string encoding = "utf8",
             event_emitter::callback_t cb = nullptr) override;
 
-    private:
-        std::shared_ptr<struct uv_event_loop::context_t> m_elctx;
-        uv_event_loop*  m_event_loop;
-        tcp_address_t   m_address;
-        tcp_address_t   m_local_address;
-        tcp_address_t   m_remote_address;
-        struct addrinfo m_hints;
-        size_t          m_bytes_read;
-        size_t          m_bytes_written;
-        size_t          m_timeout;
-        bool            m_has_timeout;
-        std::string     m_encoding;
-        etimer_id_t     m_timeout_handle;
-        uv_tcp_server*  m_server;
-        uv_stream_t*    m_stream;
-        std::shared_ptr<uv_tcp_t> m_handle;
-        std::vector<char*> m_malloc_buffers;
+        void set_event_observer(tcp_client_observer_interface*) override;
 
-        enum class ready_state_t {
-            PENDING,
-            OPENING,
-            OPEN,
-            READ_ONLY,
-            WRITE_ONLY,
-            DESTROYED
-        };
-        std::atomic<ready_state_t> m_ready_state;
+        void send_signal(uv_node_signal_t op) override;
+
+    protected:
+        void on_close(bool transmission_error) override;
+        void on_connect() override;
+        void on_data(std::string& data) override;
+        void on_end() override;
+        void on_error(const std::string& message) override;
+        void on_lookup(
+            std::string& error,
+            std::string& address,
+            address_family family,
+            std::string& host) override;
+        void on_ready() override;
+        void on_timeout() override;
+
+    private:
+        uv_event_loop*                 m_event_loop;
+        tcp_address_t                  m_address;
+        tcp_address_t                  m_local_address;
+        tcp_address_t                  m_remote_address;
+        struct addrinfo                m_hints;
+        size_t                         m_bytes_read;
+        size_t                         m_bytes_written;
+        size_t                         m_timeout;
+        bool                           m_has_timeout;
+        std::string                    m_encoding;
+        etimer_id_t                    m_timeout_handle;
+        uv_tcp_server*                 m_server;
+        uv_stream_t*                   m_stream;
+        std::shared_ptr<uv_tcp_t>      m_handle;
+        std::vector<char*>             m_malloc_buffers;
+        tcp_client_observer_interface* m_fast_events;
+        std::atomic<ready_state_t>     m_ready_state;
 
         struct write_context_t {
             uv_tcp_client* client;

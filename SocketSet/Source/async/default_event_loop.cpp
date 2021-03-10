@@ -2,7 +2,7 @@
  * Created by TekuConcept on January 3, 2021
  */
 
-#include "async/event_loop_interface.h"
+#include "interfaces/event_loop_interface.h"
 #include "async/uv_event_loop.h"
 
 namespace impact {

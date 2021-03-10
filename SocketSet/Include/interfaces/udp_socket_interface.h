@@ -6,7 +6,9 @@
 #define IMPACT_UDP_SOCKET_INTERFACE_H
 
 #include <string>
+#include <functional>
 #include "utils/event_emitter.h"
+#include "sockets/types.h"
 
 namespace impact {
 
@@ -14,6 +16,18 @@ namespace impact {
         unsigned short port;
         address_family family;
         std::string address;
+    };
+
+    class udp_socket_observer_interface {
+    public:
+        virtual ~udp_socket_observer_interface() = default;
+        virtual void on_close() = 0;
+        virtual void on_connect() = 0;
+        virtual void on_error(const std::string& message) = 0;
+        virtual void on_listening() = 0;
+        virtual void on_message(
+            const std::string& data,
+            const udp_address_t& address) = 0;
     };
 
     class udp_socket_interface : public event_emitter {
@@ -93,12 +107,10 @@ namespace impact {
         virtual void set_multicast_ttl(unsigned char time_to_live) = 0;
         virtual void set_ttl(unsigned char time_to_live) = 0;
 
-        // on('close', () -> void { })
-        // on('connect', () -> void { })
-        // on('error', (message) -> void { })
-        // on('listening', () -> void { })
-        // on('message', (data, address) -> void { })
+        virtual void set_event_observer(udp_socket_observer_interface*) = 0;
     };
+
+    typedef std::shared_ptr<udp_socket_interface> udp_socket_t;
 
 } /* namespace impact */
 

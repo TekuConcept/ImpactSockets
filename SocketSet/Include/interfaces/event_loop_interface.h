@@ -8,9 +8,9 @@
 #include <cstdint>
 #include <memory>
 #include <functional>
-#include "async/tcp_server_interface.h"
-#include "async/tcp_client_interface.h"
-#include "async/udp_socket_interface.h"
+#include "interfaces/tcp_server_interface.h"
+#include "interfaces/tcp_client_interface.h"
+#include "interfaces/udp_socket_interface.h"
 
 namespace impact {
 
@@ -19,9 +19,6 @@ namespace impact {
     typedef unsigned long long int etimer_time_t;
     typedef std::function<void()> etimer_callback_t;
     typedef std::function<void()> invoke_callback_t;
-    typedef std::shared_ptr<tcp_client_interface> tcp_client_t;
-    typedef std::shared_ptr<tcp_server_interface> tcp_server_t;
-    typedef std::shared_ptr<udp_socket_interface> udp_socket_t;
 
     class event_loop_interface {
     public:

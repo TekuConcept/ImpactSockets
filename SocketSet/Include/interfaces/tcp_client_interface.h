@@ -6,6 +6,8 @@
 #define IMPACT_TCP_CLIENT_INTERFACE_H
 
 #include <string>
+#include <memory>
+#include <functional>
 #include "sockets/types.h"
 #include "utils/event_emitter.h"
 
@@ -17,8 +19,34 @@ namespace impact {
         std::string address;
     };
 
+    class tcp_client_observer_interface {
+    public:
+        virtual ~tcp_client_observer_interface() = default;
+        virtual void on_close(bool transmission_error) = 0;
+        virtual void on_connect() = 0;
+        virtual void on_data(std::string& data) = 0;
+        virtual void on_end() = 0;
+        virtual void on_error(const std::string& message) = 0;
+        virtual void on_lookup(
+            std::string& error,
+            std::string& address,
+            address_family family,
+            std::string& host) = 0;
+        virtual void on_ready() = 0;
+        virtual void on_timeout() = 0;
+    };
+
     class tcp_client_interface : public event_emitter {
     public:
+        enum class ready_state_t {
+            PENDING,
+            OPENING,
+            OPEN,
+            READ_ONLY,
+            WRITE_ONLY,
+            DESTROYED
+        };
+
         virtual ~tcp_client_interface() = default;
 
         virtual tcp_address_t address() const = 0;
@@ -33,7 +61,7 @@ namespace impact {
         virtual address_family remote_family() const = 0;
         virtual unsigned short remote_port() const = 0;
         virtual size_t timeout() const = 0;
-        virtual std::string ready_state() const = 0;
+        virtual ready_state_t ready_state() const = 0;
 
         virtual tcp_client_interface* connect(
             std::string path,
@@ -81,16 +109,10 @@ namespace impact {
             event_emitter::callback_t cb)
         { return write(data, "utf8", cb); }
 
-        // on('close', (hadError: bool) => void)
-        // on('connect', () => void)
-        // on('data', (data: string) => void)
-        // on('drain', () => void)
-        // on('end', () => void)
-        // on('error', (error: Error) => void)
-        // on('lookup', (err?: Error, address: string, family: address_family, host: string) => void)
-        // on('ready', () => void)
-        // on('timeout', () => void)
+        virtual void set_event_observer(tcp_client_observer_interface*) = 0;
     };
+
+    typedef std::shared_ptr<tcp_client_interface> tcp_client_t;
 
 } /* namespace impact */
 

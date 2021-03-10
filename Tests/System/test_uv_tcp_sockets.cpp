@@ -8,6 +8,7 @@
 #include <chrono>
 #include <future>
 #include "async/uv_event_loop.h"
+#include "utils/impact_error.h"
 
 using namespace impact;
 
@@ -26,7 +27,10 @@ void create_connection() {
     client_connection->on("data", EVENT_LISTENER(data, &) {
         auto response = AS_STRING(data[0]);
         VERBOSE("EVENT: [data] " << response);
-        if (response == test_message) VERBOSE("ECHO TEST: PASS");
+        if (response == test_message) {
+            VERBOSE("ECHO TEST: PASS");
+            client_connection->destroy();
+        }
         else VERBOSE("ECHO TEST: FAIL\nUnexpected response: " << response);
     });
     client_connection->on("connect", EVENT_LISTENER(, &) {
@@ -84,6 +88,8 @@ int main() {
      */
 
     std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    s_event_loop->stop();
 
     VERBOSE("- END OF LINE -");
     return 0;

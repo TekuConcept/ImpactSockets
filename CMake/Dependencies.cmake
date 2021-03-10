@@ -19,6 +19,13 @@ ELSE ()
 ENDIF ()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Dependencies                                                                #
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+SET(THIRD_PARTY_INCLUDE_DIRS "")
+SET(THIRD_PARTY_LIBRARIES "")
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 # Find Npcap                                                                  #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
@@ -45,7 +52,22 @@ ENDIF ()
 
 INCLUDE("${CMAKE_SOURCE_DIR}/CMake/FindLibUV.cmake")
 IF (UV_LIBRARIES)
+    LIST(APPEND THIRD_PARTY_INCLUDES ${UV_INCLUDE_DIRS})
+    LIST(APPEND THIRD_PARTY_LIBRARIES ${UV_LIBRARIES})
     MESSAGE(STATUS "Found libuv: ${UV_INCLUDE_DIRS}")
 ELSE ()
     MESSAGE(SEND_ERROR "libuv missing")
+ENDIF ()
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Find libgnutls (libgnutls28-dev)                                                     #
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+INCLUDE("${CMAKE_SOURCE_DIR}/CMake/FindLibGnuTLS.cmake")
+IF (GNUTLS_LIBRARIES)
+    LIST(APPEND THIRD_PARTY_INCLUDES ${GNUTLS_INCLUDE_DIRS})
+    LIST(APPEND THIRD_PARTY_LIBRARIES ${GNUTLS_LIBRARIES})
+    MESSAGE(STATUS "Found libgnutls: ${GNUTLS_INCLUDE_DIRS}")
+ELSE ()
+    MESSAGE(SEND_ERROR "libgnutls missing")
 ENDIF ()

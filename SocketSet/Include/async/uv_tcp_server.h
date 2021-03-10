@@ -10,12 +10,17 @@
 #include <vector>
 #include <future>
 #include "uv.h"
-#include "async/tcp_server_interface.h"
+#include "interfaces/tcp_server_interface.h"
+#include "interfaces/uv_node_interface.h"
 #include "async/uv_event_loop.h"
 
 namespace impact {
 
-    class uv_tcp_server : public tcp_server_interface {
+    class uv_tcp_server :
+        public tcp_server_interface,
+        public uv_child_interface,
+        protected tcp_server_observer_interface
+    {
     public:
         uv_tcp_server(uv_event_loop* event_loop);
         ~uv_tcp_server();
@@ -34,15 +39,25 @@ namespace impact {
             std::string host = "127.0.0.1",
             event_emitter::callback_t cb = nullptr) override;
 
+        void set_event_observer(tcp_server_observer_interface*) override;
+
+        void send_signal(uv_node_signal_t op) override;
+
+    protected:
+        void on_close() override;
+        void on_connection(const tcp_client_t& connection) override;
+        void on_error(const std::string& message) override;
+        void on_listening() override;
+
     private:
-        std::shared_ptr<struct uv_event_loop::context_t> m_elctx;
-        uv_event_loop*      m_event_loop;
-        std::atomic<bool>   m_is_listening;
-        size_t              m_max_connections;
-        tcp_address_t       m_address;
-        uv_tcp_t            m_handle;
-        struct addrinfo     m_hints;
-        std::atomic<size_t> m_client_count;
+        uv_event_loop*                 m_event_loop;
+        tcp_server_observer_interface* m_fast_events;
+        std::atomic<bool>              m_is_listening;
+        size_t                         m_max_connections;
+        tcp_address_t                  m_address;
+        uv_tcp_t                       m_handle;
+        struct addrinfo                m_hints;
+        std::atomic<size_t>            m_client_count;
 
         void _M_close();
         void _M_listen(unsigned short port, std::string host);

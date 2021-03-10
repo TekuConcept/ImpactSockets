@@ -34,7 +34,11 @@ namespace impact {
         };
 
         event_emitter();
+        event_emitter(const event_emitter* forward);
         virtual ~event_emitter() = default;
+
+        inline void forward(const event_emitter* forward)
+        { if (forward) this->m_context = forward->m_context; }
 
         template <class ... ARGS>
         void emit(const std::string& name, ARGS ... args)

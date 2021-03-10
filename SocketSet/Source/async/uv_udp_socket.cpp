@@ -17,7 +17,7 @@ namespace impact {
     uv_udp_socket_on_close(uv_handle_t* __handle)
     {
         auto* socket = reinterpret_cast<uv_udp_socket*>(__handle->data);
-        socket->emit("close");
+        socket->m_fast_events->on_close();
     }
 
 
@@ -76,7 +76,7 @@ namespace impact {
                 address.family  = address_family::UNSPECIFIED;
                 address.port    = 0;
             }
-            socket->emit("message", data, address);
+            socket->m_fast_events->on_message(data, address);
         }
         else socket->_M_emit_error_code("read", __nread);
     }
@@ -101,17 +101,20 @@ uv_udp_socket::uv_udp_socket(uv_event_loop* __event_loop)
     m_hints.ai_protocol      = IPPROTO_UDP;
     m_hints.ai_flags         = 0;
 
-    m_elctx = m_event_loop->m_context;
-
     m_handle = std::make_shared<uv_udp_t>();
-    int result = uv_udp_init(&m_elctx->loop, m_handle.get());
+    int result = uv_udp_init(m_event_loop->get_loop_handle(), m_handle.get());
     if (result != 0) throw impact_error("unexpected uv error");
     m_handle->data = (void*)this;
+
+    m_fast_events = this;
+
+    m_event_loop->add_child(this);
 }
 
 
 uv_udp_socket::~uv_udp_socket()
 {
+    m_event_loop->remove_child(this);
     m_event_loop->invoke([this]() { _M_destroy(); }, /*blocking=*/true);
 
     // free all allocated memory
@@ -332,6 +335,49 @@ uv_udp_socket::set_ttl(unsigned char __time_to_live)
 
 
 void
+uv_udp_socket::set_event_observer(udp_socket_observer_interface* __fast_events)
+{ m_fast_events = (__fast_events != nullptr) ? __fast_events : this; }
+
+
+void
+uv_udp_socket::send_signal(uv_node_signal_t __op)
+{
+    switch (__op) {
+    case uv_node_signal_t::STOP:
+        this->close();
+        break;
+    }
+}
+
+
+void
+uv_udp_socket::on_close()
+{ event_emitter::emit("close"); }
+
+
+void
+uv_udp_socket::on_connect()
+{ event_emitter::emit("connect"); }
+
+
+void
+uv_udp_socket::on_error(const std::string& __message)
+{ event_emitter::emit("error", __message); }
+
+
+void
+uv_udp_socket::on_listening()
+{ event_emitter::emit("listening"); }
+
+
+void
+uv_udp_socket::on_message(
+    const std::string&   __data,
+    const udp_address_t& __address)
+{ event_emitter::emit("message", __data, __address); }
+
+
+void
 uv_udp_socket::_M_add_membership(
     const std::string& __address,
     const std::string& __interface)
@@ -442,7 +488,7 @@ uv_udp_socket::_M_bind(
     _M_resume();
 
     if (__cb) __cb({});
-    event_emitter::emit("listening");
+    m_fast_events->on_listening();
     return;
 
     error:
@@ -574,7 +620,7 @@ uv_udp_socket::_M_emit_error_code(
     message += std::string(": ");
     message += std::to_string(__code) + std::string(" ");
     message += uv_strerror(__code);
-    event_emitter::emit("error", message);
+    m_fast_events->on_error(message);
 }
 
 
@@ -606,8 +652,7 @@ uv_udp_socket::_M_fill_address_info(
         &__dest->address[0],
         __dest->address.size());
     if (status2 == nullptr)
-        event_emitter::emit("error",
-            std::string("unexpected address error"));
+        m_fast_events->on_error("unexpected address error");
 }
 
 
@@ -647,7 +692,7 @@ uv_udp_socket::_M_free_buffer(char* __buffer)
         m_malloc_buffers.end(),
         __buffer);
     if (source == m_malloc_buffers.end())
-        event_emitter::emit("error", "pausible memory leak");
+        m_fast_events->on_error("pausible memory leak");
     else {
         free((void*)__buffer);
         m_malloc_buffers.erase(source);

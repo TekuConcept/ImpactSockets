@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cstring>
 #include <memory>
+#include <algorithm>
 #include "async/uv_tcp_server.h"
 #include "async/uv_tcp_client.h"
 #include "utils/impact_error.h"
@@ -21,7 +22,7 @@ namespace impact {
         auto* server =
             reinterpret_cast<uv_tcp_server*>(__handle->data);
         server->m_is_listening = false;
-        server->emit("close");
+        server->m_fast_events->on_close();
     }
 
     void
@@ -37,12 +38,12 @@ namespace impact {
             std::string message = "connection error: ";
             message += std::to_string(result) + std::string(" ");
             message += uv_strerror(result);
-            server->emit("error", message);
+            server->m_fast_events->on_error(message);
             return;
         }
 
         uv_tcp_t* socket = new uv_tcp_t();
-        uv_tcp_init(&server->m_elctx->loop, socket);
+        uv_tcp_init(server->m_event_loop->get_loop_handle(), socket);
 
         if (uv_accept(__server, (uv_stream_t*)socket) == 0) {
             if (server->m_client_count.load() >= server->m_max_connections)
@@ -61,7 +62,7 @@ namespace impact {
                 client->m_ready_state = uv_tcp_client::ready_state_t::OPEN;
                 client->_M_resume(); // enable receiving data
 
-                server->emit("connection", client);
+                server->m_fast_events->on_connection(client);
             }
         }
         else uv_close((uv_handle_t*)socket,
@@ -107,16 +108,20 @@ uv_tcp_server::uv_tcp_server(uv_event_loop* __event_loop)
     m_hints.ai_protocol = IPPROTO_TCP;
     m_hints.ai_flags    = 0;
 
-    m_elctx = m_event_loop->m_context;
-
-    int result = uv_tcp_init(&m_elctx->loop, &m_handle);
+    int result = uv_tcp_init(m_event_loop->get_loop_handle(), &m_handle);
     if (result != 0) throw impact_error("unexpected uv error");
     m_handle.data = (void*)this;
+
+    m_fast_events = this;
+    m_event_loop->add_child(this);
 }
 
 
 uv_tcp_server::~uv_tcp_server()
-{ m_event_loop->invoke([this]() { _M_close(); }, /*blocking=*/true); }
+{
+    m_event_loop->remove_child(this);
+    m_event_loop->invoke([this]() { _M_close(); }, /*blocking=*/true);
+}
 
 
 tcp_address_t
@@ -171,6 +176,43 @@ uv_tcp_server::listen(
 
 
 void
+uv_tcp_server::set_event_observer(
+    tcp_server_observer_interface* __fast_events)
+{ m_fast_events = __fast_events != nullptr ? __fast_events : this; }
+
+
+void
+uv_tcp_server::send_signal(uv_node_signal_t __op)
+{
+    switch (__op) {
+    case uv_node_signal_t::STOP:
+        this->close();
+        break;
+    }
+}
+
+
+void
+uv_tcp_server::on_close()
+{ event_emitter::emit("close"); }
+
+
+void
+uv_tcp_server::on_connection(const tcp_client_t& __connection)
+{ event_emitter::emit("connection", __connection); }
+
+
+void
+uv_tcp_server::on_error(const std::string& __message)
+{ event_emitter::emit("error", __message); }
+
+
+void
+uv_tcp_server::on_listening()
+{ event_emitter::emit("listening"); }
+
+
+void
 uv_tcp_server::_M_close()
 {
     if (!uv_is_closing((uv_handle_t*)&m_handle))
@@ -213,7 +255,7 @@ uv_tcp_server::_M_listen(std::string __path)
 
     resolver = new uv_getaddrinfo_t();
     resolver->data = (void*)this;
-    result = uv_getaddrinfo(&m_elctx->loop, resolver,
+    result = uv_getaddrinfo(m_event_loop->get_loop_handle(), resolver,
         uv_tcp_server_on_path_resolved, __path.c_str(), nullptr, &m_hints);
     if (result) goto error;
     return;
@@ -255,7 +297,7 @@ uv_tcp_server::_M_listen(const struct sockaddr* __addr)
     if (result) goto error;
 
     m_is_listening = true;
-    event_emitter::emit("listening");
+    m_fast_events->on_listening();
     return;
 
     error:
@@ -269,5 +311,5 @@ uv_tcp_server::_M_emit_listen_error(int __status)
     std::string message = "listen error: ";
     message += std::to_string(__status) + std::string(" ");
     message += uv_strerror(__status);
-    event_emitter::emit("error", message);
+    m_fast_events->on_error(message);
 }

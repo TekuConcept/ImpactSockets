@@ -6,9 +6,9 @@
 #define IMPACT_ASYNC_SOCKET_H
 
 #include <memory>
-#include "async/tcp_client_interface.h"
-#include "async/tcp_server_interface.h"
-#include "async/event_loop_interface.h"
+#include "interfaces/tcp_client_interface.h"
+#include "interfaces/tcp_server_interface.h"
+#include "interfaces/event_loop_interface.h"
 
 namespace impact {
 
