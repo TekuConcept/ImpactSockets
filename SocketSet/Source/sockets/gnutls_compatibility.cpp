@@ -21,6 +21,9 @@ namespace impact {
             else std::cout << "GnuTLS Version: " << version << std::endl;
         }
         ~gnutls_compatibility() { gnutls_global_deinit(); }
-    } s_gnutls_compatibility = gnutls_compatibility();
+    };
+
+    extern gnutls_compatibility s_gnutls_compatibility;
+    gnutls_compatibility s_gnutls_compatibility;
 
 } /* namespace impact */

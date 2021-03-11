@@ -50,9 +50,15 @@ namespace impact {
         { /* begin lock */
             std::lock_guard<std::mutex> lock(client->m_gnutls_mtx);
 
+            using ready_state = tcp_client_interface::ready_state_t;
             if (client->m_recv_buffer.size() == 0) {
-                errno = EAGAIN;
-                return -1;
+                if (client->m_base->ready_state() == ready_state::DESTROYED ||
+                    client->m_base->ready_state() == ready_state::WRITE_ONLY)
+                    return 0;
+                else {
+                    errno = EAGAIN;
+                    return -1;
+                }
             }
 
             size = std::min(__length, client->m_recv_buffer.size());
@@ -69,13 +75,15 @@ namespace impact {
 } /* namespace impact */
 
 
-gnutls_secure_client::gnutls_secure_client(tcp_client_t __base)
+gnutls_secure_client::gnutls_secure_client(
+    tcp_client_t             __base,
+    secure_connection_type_t __connection_type)
 : m_base(__base),
   m_session(nullptr),
   m_x509_credentials(nullptr),
   m_fast_events(nullptr),
   m_cert_verify_enabled(false),
-  m_update_handshake(true)
+  m_state(secure_state_t::CLOSED)
 {
     /**
      * If client is in read-only or write-only state, then a key
@@ -89,29 +97,66 @@ gnutls_secure_client::gnutls_secure_client(tcp_client_t __base)
      * 
      * For now the only allowed states should be PENDING and OPEN
      */
-    if (m_base != nullptr &&
-        m_base->ready_state() != ready_state_t::PENDING &&
-        m_base->ready_state() != ready_state_t::OPEN)
+    if (m_base == nullptr ||
+        (m_base->ready_state() != ready_state_t::PENDING &&
+         m_base->ready_state() != ready_state_t::OPEN))
         throw impact_error("provided TCP client is not usable");
+
+    _M_init_gnutls_session(nullptr, nullptr, __connection_type);
 
     this->forward(m_base.get());
     m_base->set_event_observer(this);
 
-    _M_init_gnutls_session();
-
-    if (m_base->ready_state() == ready_state_t::OPEN)
+    if (m_base->ready_state() == ready_state_t::OPEN) {
+        m_state = secure_state_t::OPENING;
         _M_try_handshake();
+    }
+}
+
+
+gnutls_secure_client::gnutls_secure_client(
+    tcp_client_t  __base,
+    credentials_t __credentials,
+    priority_t    __priority)
+: m_base(__base),
+  m_session(nullptr),
+  m_x509_credentials(nullptr),
+  m_fast_events(nullptr),
+  m_cert_verify_enabled(false),
+  m_state(secure_state_t::OPENING)
+{
+    // called by gnutls_secure_server
+
+    _M_init_gnutls_session(
+        __credentials,
+        __priority,
+        secure_connection_type_t::SERVER);
+
+    this->forward(m_base.get());
+    m_base->set_event_observer(this);
+    _M_try_handshake();
 }
 
 
 void
-gnutls_secure_client::_M_init_gnutls_session()
+gnutls_secure_client::_M_init_gnutls_session(
+    credentials_t            __credentials,
+    priority_t               __priority,
+    secure_connection_type_t __connection_type)
 {
     int result;
+    int session_flags = GNUTLS_NONBLOCK;
+
+    switch (__connection_type) {
+    case secure_connection_type_t::CLIENT:
+        session_flags |= GNUTLS_CLIENT; break;
+    case secure_connection_type_t::SERVER:
+        session_flags |= GNUTLS_SERVER; break;
+    }
 
     {
         gnutls_session_t session;
-        result = gnutls_init(&session, GNUTLS_CLIENT | GNUTLS_NONBLOCK);
+        result = gnutls_init(&session, session_flags);
         if (result < 0) goto error;
         m_session = std::shared_ptr<gnutls_session_int>(session,
         [](gnutls_session_int* p) { gnutls_deinit(p); });
@@ -125,7 +170,8 @@ gnutls_secure_client::_M_init_gnutls_session()
         gnutls_transport_set_ptr(m_session.get(), this);
     }
 
-    {
+    if (__credentials) m_x509_credentials = __credentials;
+    else {
         gnutls_certificate_credentials_t credentials;
         result = gnutls_certificate_allocate_credentials(&credentials);
         if (result < 0) goto error;
@@ -140,8 +186,11 @@ gnutls_secure_client::_M_init_gnutls_session()
         if (result < 0) goto error;
     }
 
-    /* It is recommended to use the default priorities */
-    result = gnutls_set_default_priority(m_session.get());
+    if (__priority)
+        result = gnutls_priority_set(m_session.get(), __priority.get());
+    else
+        /* It is recommended to use the default priorities */
+        result = gnutls_set_default_priority(m_session.get());
     if (result < 0) goto error;
 
     /* Put the x509 credentials to the current session */
@@ -150,6 +199,10 @@ gnutls_secure_client::_M_init_gnutls_session()
         GNUTLS_CRD_CERTIFICATE,
         m_x509_credentials.get());
     if (result < 0) goto error;
+
+    if (__connection_type == secure_connection_type_t::SERVER)
+        gnutls_certificate_server_set_request(
+            m_session.get(), GNUTLS_CERT_IGNORE);
 
     return;
 
@@ -175,8 +228,17 @@ gnutls_secure_client::_M_emit_error_code(
 }
 
 
+inline void
+gnutls_secure_client::_M_emit_error_message(std::string __message)
+{
+    if (m_fast_events)
+        m_fast_events->on_error(__message);
+    else event_emitter::emit("error", __message);
+}
+
+
 // ----------------------------------------------------------------------------
-// secure_client_interfaces
+// secure_client_interface
 // ----------------------------------------------------------------------------
 
 
@@ -218,9 +280,20 @@ gnutls_secure_client::cert_verify_enabled(bool __enabled)
 
 void
 gnutls_secure_client::set_x509_credentials(
-    std::string __key,
-    std::string __certificate)
+    std::string     __key,
+    std::string     __certificate,
+    secure_format_t __format)
 {
+    if (__key.size() == 0 || __certificate.size() == 0) {
+        _M_emit_error_message("[security] X509 credentials are empty");
+        return;
+    }
+    gnutls_x509_crt_fmt_t format;
+    switch (__format) {
+    case secure_format_t::DER: format = GNUTLS_X509_FMT_DER; break;
+    case secure_format_t::PEM: format = GNUTLS_X509_FMT_PEM; break;
+    default: format = GNUTLS_X509_FMT_PEM; break;
+    }
     gnutls_datum_t key;
     key.data = (unsigned char*)&__key[0];
     key.size = (unsigned int)__key.size();
@@ -228,9 +301,7 @@ gnutls_secure_client::set_x509_credentials(
     certificate.data = (unsigned char*)&__certificate[0];
     certificate.size = (unsigned int)__certificate.size();
     auto result = gnutls_certificate_set_x509_key_mem(
-        m_x509_credentials.get(),
-        &certificate, &key,
-        GNUTLS_X509_FMT_PEM);
+        m_x509_credentials.get(), &certificate, &key, format);
     if (result < 0) _M_emit_error_code(__FUNCTION__, result);
 }
 
@@ -246,7 +317,7 @@ gnutls_secure_client::_M_set_verify_cert()
 
 
 // ----------------------------------------------------------------------------
-// tcp_client_interfaces
+// tcp_client_interface
 // ----------------------------------------------------------------------------
 
 
@@ -339,14 +410,37 @@ gnutls_secure_client::connect(
 tcp_client_interface*
 gnutls_secure_client::destroy(std::string __error)
 {
+    _M_destroy();
+    if (__error.size() > 0)
+        _M_emit_error_message(__error);
+    return this;
+}
+
+
+void
+gnutls_secure_client::_M_destroy()
+{
     int result = 0;
-    if (!m_update_handshake &&
+
+    if ((m_state == secure_state_t::OPEN ||
+         m_state == secure_state_t::CLOSING) &&
         (m_base->ready_state() == ready_state_t::OPEN ||
          m_base->ready_state() == ready_state_t::WRITE_ONLY))
         result = gnutls_bye(m_session.get(), GNUTLS_SHUT_RDWR);
-    m_base->destroy(__error);
-    if (result < 0) _M_emit_error_code(__FUNCTION__, result);
-    return this;
+
+    if (result == 0) m_state = secure_state_t::CLOSED;
+    else if (result == GNUTLS_E_AGAIN || result == GNUTLS_E_INTERRUPTED)
+    { m_state = secure_state_t::CLOSING; }
+
+    if (m_state == secure_state_t::CLOSED)
+        m_base->destroy();
+    else if (m_state != secure_state_t::CLOSING && result < 0) {
+        // forcefully closed
+        m_base->destroy();
+        m_state = secure_state_t::CLOSED;
+        if (result < 0)
+            _M_emit_error_code(__FUNCTION__, result);
+    }
 }
 
 
@@ -356,15 +450,36 @@ gnutls_secure_client::end(
     std::string               __encoding,
     event_emitter::callback_t __cb)
 {
-    int result = 0;
-    if (m_base->ready_state() == ready_state_t::OPEN ||
-        m_base->ready_state() == ready_state_t::WRITE_ONLY) {
-        write(__data, __encoding);
-        result = gnutls_bye(m_session.get(), GNUTLS_SHUT_WR);
-    }
-    m_base->end(__cb);
-    if (result < 0) _M_emit_error_code(__FUNCTION__, result);
+    event_emitter::once("end", __cb);
+    write(__data, __encoding);
+    _M_end();
     return this;
+}
+
+
+void
+gnutls_secure_client::_M_end()
+{
+    int result = 0;
+    if ((m_state == secure_state_t::OPEN ||
+         m_state == secure_state_t::ENDING) &&
+        (m_base->ready_state() == ready_state_t::OPEN ||
+         m_base->ready_state() == ready_state_t::WRITE_ONLY))
+        result = gnutls_bye(m_session.get(), GNUTLS_SHUT_WR);
+
+    if (result == 0) m_state = secure_state_t::ENDED;
+    else if (result == GNUTLS_E_AGAIN || result == GNUTLS_E_INTERRUPTED)
+    { m_state = secure_state_t::ENDING; }
+
+    if (m_state == secure_state_t::ENDED)
+        m_base->end();
+    else if (m_state != secure_state_t::ENDING && result < 0) {
+        // forcefully ended
+        m_base->end();
+        m_state = secure_state_t::ENDED;
+        if (result < 0)
+            _M_emit_error_code(__FUNCTION__, result);
+    }
 }
 
 
@@ -417,7 +532,7 @@ gnutls_secure_client::set_timeout(
 }
 
 
-bool // TODO: how to invoke __cb?
+bool
 gnutls_secure_client::write(
     std::string               __data,
     std::string             /*__encoding*/,
@@ -429,10 +544,13 @@ gnutls_secure_client::write(
     }
     auto result = gnutls_record_send(
         m_session.get(), &__data[0], __data.size());
-    if (result < 0 && result != EAGAIN) {
-        impact_error error(__FUNCTION__);
-        _M_emit_error_code(error.what(), result);
+    if (result < 0) {
+        if (result != GNUTLS_E_AGAIN) {
+            impact_error error(__FUNCTION__);
+            _M_emit_error_code(error.what(), result);
+        }
     }
+    else { if (__cb) __cb({}); }
     return result < 0;
 }
 
@@ -444,7 +562,7 @@ gnutls_secure_client::set_event_observer(
 
 
 // ----------------------------------------------------------------------------
-// tcp_client_observer_interfaces
+// tcp_client_observer_interface
 // ----------------------------------------------------------------------------
 
 
@@ -459,7 +577,13 @@ gnutls_secure_client::on_close(bool __transmission_error)
 
 void
 gnutls_secure_client::on_connect()
-{ _M_try_handshake(); }
+{
+    if (m_fast_events)
+        m_fast_events->on_connect();
+    else event_emitter::emit("connect");
+    m_state = secure_state_t::OPENING;
+    _M_try_handshake();
+}
 
 
 void
@@ -473,31 +597,89 @@ gnutls_secure_client::on_data(std::string& __data)
     buffer_size = m_recv_buffer.size();
     LOCKED_END
 
-    do_handshake:
-    while (m_update_handshake && buffer_size > 0) {
-        _M_try_handshake();
-        LOCKED_BEGIN
-        buffer_size = m_recv_buffer.size();
-        LOCKED_END
-    }
-    if (m_update_handshake) return; // no more data
-
-    while (buffer_size > 0) {
-        ssize_t result = gnutls_record_recv(
-            m_session.get(), &block_buffer[0], block_buffer.size());
-        LOCKED_BEGIN
-        buffer_size = m_recv_buffer.size();
-        LOCKED_END
-        if (result == GNUTLS_E_REHANDSHAKE) goto do_handshake;
-        else if (result < 0 && gnutls_error_is_fatal(result) == 0)
-        { if (buffer_size == 0) return; }
-        else if (result < 0)
-            _M_fatal_error(result);
-        else {
-            std::string data = block_buffer.substr(0, result);
-            if (m_fast_events) m_fast_events->on_data(data);
-            else event_emitter::emit("data", data);
+    change_state:
+    switch (m_state) {
+    case secure_state_t::OPEN: {
+        while (buffer_size > 0) {
+            ssize_t result = gnutls_record_recv(
+                m_session.get(), &block_buffer[0], block_buffer.size());
+            LOCKED_BEGIN
+            buffer_size = m_recv_buffer.size();
+            LOCKED_END
+            if (result == GNUTLS_E_REHANDSHAKE) {
+                m_state = secure_state_t::OPENING;
+                goto change_state;
+            }
+            else if (result < 0 && gnutls_error_is_fatal(result) == 0)
+            { if (buffer_size == 0) return; }
+            else if (result < 0)
+                _M_fatal_error(result);
+            else {
+                std::string data = block_buffer.substr(0, result);
+                if (m_fast_events) m_fast_events->on_data(data);
+                else event_emitter::emit("data", data);
+            }
+            // TODO: process GNUTLS_E_WARNING_ALERT_RECEIVED
         }
+    } break;
+    case secure_state_t::OPENING: {
+        while (m_state == secure_state_t::OPENING && buffer_size > 0) {
+            _M_try_handshake();
+            LOCKED_BEGIN
+            buffer_size = m_recv_buffer.size();
+            LOCKED_END
+        }
+        if (m_state == secure_state_t::OPEN)
+            goto change_state;
+    } break;
+    case secure_state_t::ENDING: {
+        while (m_state == secure_state_t::ENDING && buffer_size > 0) {
+            _M_end();
+            LOCKED_BEGIN
+            buffer_size = m_recv_buffer.size();
+            LOCKED_END
+        }
+        if (m_state == secure_state_t::ENDED && buffer_size > 0)
+            goto change_state;
+    } break;
+    case secure_state_t::CLOSING: {
+        while (m_state == secure_state_t::CLOSING && buffer_size > 0) {
+            _M_destroy();
+            LOCKED_BEGIN
+            buffer_size = m_recv_buffer.size();
+            LOCKED_END
+        }
+    } break;
+    case secure_state_t::ENDED: {
+        ssize_t result;
+        bool again = false;
+        //
+        // return any data that is received until EOF
+        //
+        do {
+            result = gnutls_record_recv(
+                m_session.get(), &block_buffer[0], block_buffer.size());
+            LOCKED_BEGIN
+            buffer_size = m_recv_buffer.size();
+            LOCKED_END
+            if (result == 0) _M_destroy();
+            else if (result > 0) {
+                std::string data = block_buffer.substr(0, result);
+                if (m_fast_events) m_fast_events->on_data(data);
+                else event_emitter::emit("data", data);
+            }
+            again = (result > 0) || ((
+                result == GNUTLS_E_AGAIN ||
+                result == GNUTLS_E_INTERRUPTED
+            ) && buffer_size > 0);
+        } while (again);
+    } break;
+    case secure_state_t::CLOSED: {
+        // session is closed, any new data is invalid
+        LOCKED_BEGIN
+        m_recv_buffer.clear();
+        LOCKED_END
+    } break;
     }
 }
 
@@ -534,13 +716,11 @@ gnutls_secure_client::_M_try_handshake()
 {
     int status = gnutls_handshake(m_session.get());
     if (status == GNUTLS_E_SUCCESS) {
-        m_update_handshake = false;
-        if (m_fast_events) {
-            m_fast_events->on_connect();
+        m_state = secure_state_t::OPEN;
+        if (m_fast_events)
             m_fast_events->on_ready();
-        }
         else {
-            event_emitter::emit("connect");
+            event_emitter::emit("secure-connect");
             event_emitter::emit("ready");
         }
         return;
@@ -563,11 +743,7 @@ gnutls_secure_client::on_end()
 
 void
 gnutls_secure_client::on_error(const std::string& __message)
-{
-    if (m_fast_events)
-        m_fast_events->on_error(__message);
-    else event_emitter::emit("error", __message);
-}
+{ _M_emit_error_message(__message); }
 
 
 void

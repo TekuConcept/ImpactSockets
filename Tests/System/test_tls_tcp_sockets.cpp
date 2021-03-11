@@ -70,7 +70,7 @@ int main() {
     size_t state = 0;
     secure_client->on("error", EVENT_LISTENER(args, &) {
         VERBOSE("[EVENT] error: " << AS_STRING(args[0]));
-        // secure_client->destroy();
+        secure_client->destroy();
     });
     secure_client->on("data", EVENT_LISTENER(args, &) {
         VERBOSE("[EVENT] data: " << AS_STRING(args[0]));
@@ -80,6 +80,12 @@ int main() {
     });
     secure_client->on("connect", EVENT_LISTENER() {
         VERBOSE("[EVENT] connect");
+    });
+    secure_client->on("ready", EVENT_LISTENER() {
+        VERBOSE("[EVENT] ready");
+    });
+    secure_client->on("close", EVENT_LISTENER() {
+        VERBOSE("[EVENT] close");
     });
 
     //

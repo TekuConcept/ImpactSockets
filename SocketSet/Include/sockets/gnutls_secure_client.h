@@ -23,9 +23,16 @@ namespace impact {
         protected tcp_client_observer_interface
     {
     public:
-        gnutls_secure_client(tcp_client_t base =
-            default_event_loop()->create_tcp_client());
+        gnutls_secure_client(
+            tcp_client_t base =
+                default_event_loop()->create_tcp_client(),
+            secure_connection_type_t connection_type =
+                secure_connection_type_t::CLIENT);
         ~gnutls_secure_client() = default;
+
+        // prevent copying
+        gnutls_secure_client(const gnutls_secure_client&) = delete;
+        gnutls_secure_client& operator=(const gnutls_secure_client&) = delete;
 
         //
         // -- secure_client_interface --
@@ -37,7 +44,9 @@ namespace impact {
         void cert_verify_enabled(bool enabled) override;
 
         void set_x509_credentials(
-            std::string key, std::string certificate) override;
+            std::string key,
+            std::string certificate,
+            secure_format_t format = secure_format_t::PEM) override;
 
         //
         // -- tcp_client_interface --
@@ -107,25 +116,44 @@ namespace impact {
         void on_timeout() override;
 
     private:
-        //
-        // TODO: move variables to context pointer
-        //
+        enum class secure_state_t {
+            OPEN,
+            OPENING,
+            ENDING,
+            ENDED,
+            CLOSING,
+            CLOSED
+        };
+
+        typedef std::shared_ptr<gnutls_session_int> session_t;
+        typedef std::shared_ptr<gnutls_certificate_credentials_st>
+            credentials_t;
+        typedef std::shared_ptr<gnutls_priority_st> priority_t;
 
         tcp_client_t m_base;
-        std::shared_ptr<gnutls_session_int> m_session;
-        std::shared_ptr<gnutls_certificate_credentials_st> m_x509_credentials;
+        session_t m_session;
+        credentials_t m_x509_credentials;
         tcp_client_observer_interface* m_fast_events;
         std::string m_server_name;
         std::string m_recv_buffer;
         std::mutex m_gnutls_mtx;
         bool m_cert_verify_enabled;
-        bool m_update_handshake;
+        secure_state_t m_state;
 
-        void _M_init_gnutls_session();
+        gnutls_secure_client(tcp_client_t, credentials_t, priority_t);
+
+        void _M_init_gnutls_session(
+            credentials_t,
+            priority_t,
+            secure_connection_type_t);
         void _M_emit_error_code(std::string message, int code);
+        inline void _M_emit_error_message(std::string message);
         void _M_fatal_error(int code);
         void _M_try_handshake();
+        void _M_destroy();
+        void _M_end();
 
+        friend class gnutls_secure_server;
         friend ssize_t gnutls_secure_client_send_callback(
             gnutls_transport_ptr_t, const void*, size_t);
         friend ssize_t gnutls_secure_client_recv_callback(
