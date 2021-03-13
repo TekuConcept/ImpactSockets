@@ -12,6 +12,7 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
 
+#include "sockets/gnutls_x509_certificate.h"
 #include "interfaces/secure_client_interface.h"
 #include "interfaces/tcp_client_interface.h"
 #include "interfaces/event_loop_interface.h"
@@ -23,11 +24,17 @@ namespace impact {
         protected tcp_client_observer_interface
     {
     public:
+        typedef std::shared_ptr<gnutls_session_int> session_t;
+        typedef std::shared_ptr<gnutls_priority_st> priority_t;
+
         gnutls_secure_client(
             tcp_client_t base =
                 default_event_loop()->create_tcp_client(),
             secure_connection_type_t connection_type =
-                secure_connection_type_t::CLIENT);
+                secure_connection_type_t::CLIENT,
+            gnutls_x509_certificate certificate =
+                gnutls_x509_certificate(),
+            priority_t priority = nullptr);
         ~gnutls_secure_client() = default;
 
         // prevent copying
@@ -43,6 +50,20 @@ namespace impact {
         bool cert_verify_enabled() const override;
         void cert_verify_enabled(bool enabled) override;
 
+        //
+        // -- secure_x509_certificate_interface --
+        //
+
+        void set_x509_trust(
+            std::string trust,
+            secure_format_t format = secure_format_t::PEM) override;
+        void set_x509_cert_revoke_list(
+            std::string crl,
+            secure_format_t format = secure_format_t::PEM) override;
+        // ocsp: online certificate status protocol
+        void set_x509_ocsp_request_file(
+            std::string ocsp_request_file,
+            size_t index = 0) override;
         void set_x509_credentials(
             std::string key,
             std::string certificate,
@@ -125,14 +146,9 @@ namespace impact {
             CLOSED
         };
 
-        typedef std::shared_ptr<gnutls_session_int> session_t;
-        typedef std::shared_ptr<gnutls_certificate_credentials_st>
-            credentials_t;
-        typedef std::shared_ptr<gnutls_priority_st> priority_t;
-
         tcp_client_t m_base;
         session_t m_session;
-        credentials_t m_x509_credentials;
+        gnutls_x509_certificate m_certificate;
         tcp_client_observer_interface* m_fast_events;
         std::string m_server_name;
         std::string m_recv_buffer;
@@ -140,12 +156,7 @@ namespace impact {
         bool m_cert_verify_enabled;
         secure_state_t m_state;
 
-        gnutls_secure_client(tcp_client_t, credentials_t, priority_t);
-
-        void _M_init_gnutls_session(
-            credentials_t,
-            priority_t,
-            secure_connection_type_t);
+        void _M_init_gnutls_session(priority_t, secure_connection_type_t);
         void _M_emit_error_code(std::string message, int code);
         inline void _M_emit_error_message(std::string message);
         void _M_fatal_error(int code);

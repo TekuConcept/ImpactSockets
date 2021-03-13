@@ -112,7 +112,10 @@ namespace impact {
             event_emitter::callback_t cb;
         };
 
-        uv_tcp_client() = default;
+        uv_tcp_client(
+            uv_event_loop*,
+            uv_tcp_server*,
+            std::shared_ptr<uv_tcp_t>);
 
         void _M_init(uv_event_loop* __event_loop);
         void _M_set_keepalive(bool, unsigned int);
@@ -133,15 +136,19 @@ namespace impact {
         char* _M_alloc_buffer(size_t size);
         void _M_free_buffer(char* buffer);
 
-        friend void uv_tcp_server_on_connection(uv_stream_t*, int);
-        friend void uv_tcp_client_on_path_resolved(
+        static void _S_on_path_resolved_callback(
             uv_getaddrinfo_t*, int, struct addrinfo*);
-        friend void uv_tcp_client_on_connect(uv_connect_t*, int);
-        friend void uv_tcp_client_on_data(uv_stream_t*, ssize_t, const uv_buf_t*);
-        friend void uv_tcp_client_on_write(uv_write_t*, int);
-        friend void uv_tcp_client_on_shutdown(uv_shutdown_t*, int);
-        friend void uv_tcp_client_on_close(uv_handle_t* __handle);
-        friend void uv_tcp_client_alloc_buffer(uv_handle_t*, size_t, uv_buf_t*);
+        static void _S_on_connect_callback(uv_connect_t*, int);
+        static void _S_on_data_callback(uv_stream_t*, ssize_t, const uv_buf_t*);
+        static void _S_on_write_callback(uv_write_t*, int);
+        static void _S_on_shutdown_callback(uv_shutdown_t*, int);
+        static void _S_on_close_callback(uv_handle_t* __handle);
+        static void _S_alloc_buffer_callback(uv_handle_t*, size_t, uv_buf_t*);
+
+        // enable constructing special-case uv_tcp_client from server
+        // this is only meant to allow the server to call the private
+        // uv_tcp_client constructor and nothing else
+        friend class uv_tcp_server;
     };
 
 } /* namespace impact */

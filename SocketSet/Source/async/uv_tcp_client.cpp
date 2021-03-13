@@ -14,161 +14,6 @@ using namespace impact;
 #define V(x) std::cout << x << std::endl
 
 
-namespace impact {
-
-    void
-    uv_tcp_client_on_path_resolved(
-        uv_getaddrinfo_t* __resolver,
-        int               __status,
-        struct addrinfo*  __info)
-    {
-        auto result = __status;
-        auto* server =
-            reinterpret_cast<uv_tcp_client*>(__resolver->data);
-        tcp_address_t hr_address;
-        std::string error, host;
-        if (result < 0) {
-            error = uv_strerror(result);
-            server->_M_emit_error_code(__FUNCTION__, result);
-        }
-        else {
-            server->_M_fill_address_info(__info->ai_addr, &hr_address);
-            if (__info->ai_canonname)
-                host = std::string(__info->ai_canonname);
-            server->_M_connect(__info->ai_addr);
-            uv_freeaddrinfo(__info);
-        }
-        server->m_fast_events->on_lookup(
-            error,
-            hr_address.address,
-            hr_address.family,
-            host
-        );
-        delete __resolver;
-    }
-
-
-    void
-    uv_tcp_client_on_connect(
-        uv_connect_t* __request,
-        int           __status)
-    {
-        auto result = __status;
-        auto* client =
-            reinterpret_cast<uv_tcp_client*>(__request->data);
-        if (result < 0)
-            client->_M_emit_error_code("connect", result);
-        else {
-            client->m_stream = __request->handle;
-            client->m_stream->data = __request->data;
-            client->_M_update_addresses();
-            client->m_ready_state = uv_tcp_client::ready_state_t::OPEN;
-            client->_M_resume();
-            client->m_fast_events->on_connect();
-            client->m_fast_events->on_ready();
-        }
-        delete __request;
-    }
-
-
-    void
-    uv_tcp_client_alloc_buffer(
-        uv_handle_t* __handle,
-        size_t       __suggested_size,
-        uv_buf_t*    __buffer)
-    {
-        auto* client = reinterpret_cast<uv_tcp_client*>(__handle->data);
-        __buffer->base = client->_M_alloc_buffer(__suggested_size);
-        __buffer->len  = __suggested_size;
-    }
-
-
-    void
-    uv_tcp_client_on_data(
-        uv_stream_t*    __stream,
-        ssize_t         __nread,
-        const uv_buf_t* __buffer)
-    {
-        using ready_state = uv_tcp_client::ready_state_t;
-        auto* client = reinterpret_cast<uv_tcp_client*>(__stream->data);
-
-        if (__nread > 0) {
-            std::string data(__buffer->base, sizeof(char) * __nread);
-            client->_M_free_buffer(__buffer->base);
-            client->m_bytes_read += data.size();
-            client->m_fast_events->on_data(data);
-            // reset timeout
-            if (client->m_has_timeout)
-                client->_M_set_timeout(client->m_timeout);
-        }
-        else if (__nread == UV_EOF) {
-            // clear timeout
-            if (client->m_has_timeout)
-                client->_M_set_timeout(0);
-            if (client->m_ready_state == ready_state::OPEN)
-                client->m_ready_state = ready_state::WRITE_ONLY;
-            else if (client->m_ready_state == ready_state::READ_ONLY)
-                client->_M_on_close();
-        }
-        else client->_M_emit_error_code("read", __nread);
-    }
-
-
-    void
-    uv_tcp_client_on_write(
-        uv_write_t* __request,
-        int         __status)
-    {
-        auto result = __status;
-        auto* context =
-            reinterpret_cast<uv_tcp_client::write_context_t*>(__request->data);
-        if (result == UV_ECONNRESET)
-            context->client->_M_on_close();
-        if (result < 0)
-            context->client->_M_emit_error_code("write", result);
-        else {
-            context->client->m_bytes_written += context->data.size();
-            if (context->cb)
-                context->cb({});
-        }
-        delete context;
-        delete __request;
-    }
-
-
-    void
-    uv_tcp_client_on_shutdown(
-        uv_shutdown_t* __request,
-        int            __status)
-    {
-        auto result = __status;
-        auto* client =
-            reinterpret_cast<uv_tcp_client*>(__request->data);
-        if (result < 0)
-            client->_M_emit_error_code("end", result);
-        else {
-            using ready_state_t = uv_tcp_client::ready_state_t;
-            if (client->m_ready_state == ready_state_t::OPEN) {
-                client->m_ready_state = ready_state_t::READ_ONLY;
-                client->m_fast_events->on_end();
-            }
-            else client->_M_on_close(); /* WRITE_ONLY state assumed */
-        }
-        delete __request;
-    }
-
-
-    void
-    uv_tcp_client_on_close(uv_handle_t* __handle)
-    {
-        auto* client =
-            reinterpret_cast<uv_tcp_client*>(__handle->data);
-        client->_M_on_close();
-    }
-
-}
-
-
 uv_tcp_client::uv_tcp_client(uv_event_loop* __event_loop)
 {
     _M_init(__event_loop);
@@ -177,6 +22,22 @@ uv_tcp_client::uv_tcp_client(uv_event_loop* __event_loop)
     int result = uv_tcp_init(m_event_loop->get_loop_handle(), m_handle.get());
     if (result != 0) throw impact_error("unexpected uv error");
     m_handle->data = (void*)this;
+}
+
+
+uv_tcp_client::uv_tcp_client(
+    uv_event_loop*            __event_loop,
+    uv_tcp_server*            __parent_server,
+    std::shared_ptr<uv_tcp_t> __base_connection)
+: m_server(__parent_server),
+  m_handle(__base_connection)
+{
+    // called by uv_tcp_server
+    _M_init(__event_loop);
+    m_handle->data = (void*)this;
+    m_stream       = (uv_stream_t*)m_handle.get();
+    m_ready_state  = uv_tcp_client::ready_state_t::OPEN;
+    _M_resume();
 }
 
 
@@ -510,7 +371,7 @@ uv_tcp_client::_M_connect(std::string __path)
     resolver = new uv_getaddrinfo_t();
     resolver->data = (void*)this;
     result = uv_getaddrinfo(m_event_loop->get_loop_handle(), resolver,
-        uv_tcp_client_on_path_resolved, __path.c_str(), nullptr, &m_hints);
+        _S_on_path_resolved_callback, __path.c_str(), nullptr, &m_hints);
     if (result != 0) goto error;
     return;
 
@@ -557,7 +418,7 @@ uv_tcp_client::_M_connect(const struct sockaddr* __address)
         connect_handle,
         m_handle.get(),
         __address,
-        uv_tcp_client_on_connect);
+        _S_on_connect_callback);
     if (result != 0) _M_emit_error_code(__FUNCTION__, result);
 }
 
@@ -575,8 +436,8 @@ uv_tcp_client::_M_resume()
 {
     auto result = uv_read_start(
         m_stream,
-        uv_tcp_client_alloc_buffer,
-        uv_tcp_client_on_data);
+        _S_alloc_buffer_callback,
+        _S_on_data_callback);
     if (result != 0) _M_emit_error_code(__FUNCTION__, result);
 }
 
@@ -609,7 +470,7 @@ uv_tcp_client::_M_write(
         m_stream,
         buffers,
         /*size=*/1,
-        uv_tcp_client_on_write);
+        _S_on_write_callback);
     if (result != 0) {
         delete request;
         delete context;
@@ -650,7 +511,7 @@ uv_tcp_client::_M_end(
     uv_shutdown_t* request = new uv_shutdown_t;
     memset(request, 0, sizeof(uv_shutdown_t));
     request->data = this;
-    uv_shutdown(request, m_stream, uv_tcp_client_on_shutdown);
+    uv_shutdown(request, m_stream, _S_on_shutdown_callback);
 }
 
 
@@ -661,7 +522,7 @@ uv_tcp_client::_M_destroy(std::string __error)
     // if (result != 0) _M_emit_error_code("error", result);
 
     if (!uv_is_closing((uv_handle_t*)m_handle.get()))
-        uv_close((uv_handle_t*)m_handle.get(), uv_tcp_client_on_close);
+        uv_close((uv_handle_t*)m_handle.get(), _S_on_close_callback);
 
     if (__error.size() > 0)
         m_fast_events->on_error(__error);
@@ -744,7 +605,7 @@ uv_tcp_client::_M_on_close()
     m_ready_state = ready_state_t::DESTROYED;
     if (old_state != ready_state_t::DESTROYED) {
         if (m_server != nullptr)
-            m_server->m_client_count--;
+            m_server->_M_remove_client_reference(this);
         m_fast_events->on_close("");
     }
 }
@@ -772,4 +633,155 @@ uv_tcp_client::_M_free_buffer(char* __buffer)
         free((void*)__buffer);
         m_malloc_buffers.erase(source);
     }
+}
+
+
+void
+uv_tcp_client::_S_on_path_resolved_callback(
+    uv_getaddrinfo_t* __resolver,
+    int               __status,
+    struct addrinfo*  __info)
+{
+    auto result = __status;
+    auto* server =
+        reinterpret_cast<uv_tcp_client*>(__resolver->data);
+    tcp_address_t hr_address;
+    std::string error, host;
+    if (result < 0) {
+        error = uv_strerror(result);
+        server->_M_emit_error_code(__FUNCTION__, result);
+    }
+    else {
+        server->_M_fill_address_info(__info->ai_addr, &hr_address);
+        if (__info->ai_canonname)
+            host = std::string(__info->ai_canonname);
+        server->_M_connect(__info->ai_addr);
+        uv_freeaddrinfo(__info);
+    }
+    server->m_fast_events->on_lookup(
+        error,
+        hr_address.address,
+        hr_address.family,
+        host
+    );
+    delete __resolver;
+}
+
+
+void
+uv_tcp_client::_S_on_connect_callback(
+    uv_connect_t* __request,
+    int           __status)
+{
+    auto result = __status;
+    auto* client =
+        reinterpret_cast<uv_tcp_client*>(__request->data);
+    if (result < 0)
+        client->_M_emit_error_code("connect", result);
+    else {
+        client->m_stream = __request->handle;
+        client->m_stream->data = __request->data;
+        client->_M_update_addresses();
+        client->m_ready_state = uv_tcp_client::ready_state_t::OPEN;
+        client->_M_resume();
+        client->m_fast_events->on_connect();
+        client->m_fast_events->on_ready();
+    }
+    delete __request;
+}
+
+
+void
+uv_tcp_client::_S_alloc_buffer_callback(
+    uv_handle_t* __handle,
+    size_t       __suggested_size,
+    uv_buf_t*    __buffer)
+{
+    auto* client = reinterpret_cast<uv_tcp_client*>(__handle->data);
+    __buffer->base = client->_M_alloc_buffer(__suggested_size);
+    __buffer->len  = __suggested_size;
+}
+
+
+void
+uv_tcp_client::_S_on_data_callback(
+    uv_stream_t*    __stream,
+    ssize_t         __nread,
+    const uv_buf_t* __buffer)
+{
+    using ready_state = uv_tcp_client::ready_state_t;
+    auto* client = reinterpret_cast<uv_tcp_client*>(__stream->data);
+
+    if (__nread > 0) {
+        std::string data(__buffer->base, sizeof(char) * __nread);
+        client->_M_free_buffer(__buffer->base);
+        client->m_bytes_read += data.size();
+        client->m_fast_events->on_data(data);
+        // reset timeout
+        if (client->m_has_timeout)
+            client->_M_set_timeout(client->m_timeout);
+    }
+    else if (__nread == UV_EOF) {
+        // clear timeout
+        if (client->m_has_timeout)
+            client->_M_set_timeout(0);
+        if (client->m_ready_state == ready_state::OPEN)
+            client->m_ready_state = ready_state::WRITE_ONLY;
+        else if (client->m_ready_state == ready_state::READ_ONLY)
+            client->_M_on_close();
+    }
+    else client->_M_emit_error_code("read", __nread);
+}
+
+
+void
+uv_tcp_client::_S_on_write_callback(
+    uv_write_t* __request,
+    int         __status)
+{
+    auto result = __status;
+    auto* context =
+        reinterpret_cast<uv_tcp_client::write_context_t*>(__request->data);
+    if (result == UV_ECONNRESET)
+        context->client->_M_on_close();
+    if (result < 0)
+        context->client->_M_emit_error_code("write", result);
+    else {
+        context->client->m_bytes_written += context->data.size();
+        if (context->cb)
+            context->cb({});
+    }
+    delete context;
+    delete __request;
+}
+
+
+void
+uv_tcp_client::_S_on_shutdown_callback(
+    uv_shutdown_t* __request,
+    int            __status)
+{
+    auto result = __status;
+    auto* client =
+        reinterpret_cast<uv_tcp_client*>(__request->data);
+    if (result < 0)
+        client->_M_emit_error_code("end", result);
+    else {
+        using ready_state_t = uv_tcp_client::ready_state_t;
+        if (client->m_ready_state == ready_state_t::OPEN) {
+            client->m_ready_state = ready_state_t::READ_ONLY;
+            client->m_fast_events->on_end();
+        }
+        else client->_M_on_close(); /* WRITE_ONLY state assumed */
+    }
+    delete __request;
+}
+
+
+void
+uv_tcp_client::_S_on_close_callback(uv_handle_t* __handle)
+{
+    auto* client =
+        reinterpret_cast<uv_tcp_client*>(__handle->data);
+    client->_M_on_close();
 }

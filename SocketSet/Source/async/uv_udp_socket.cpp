@@ -11,78 +11,6 @@ using namespace impact;
 
 #define V(x) std::cout << x << std::endl
 
-namespace impact {
-
-    void
-    uv_udp_socket_on_close(uv_handle_t* __handle)
-    {
-        auto* socket = reinterpret_cast<uv_udp_socket*>(__handle->data);
-        socket->m_fast_events->on_close();
-    }
-
-
-    void
-    uv_udp_socket_send_callback(
-        uv_udp_send_t* __request,
-        int            __status)
-    {
-        auto result = __status;
-        auto* context =
-            reinterpret_cast<uv_udp_socket::write_context_t*>(__request->data);
-        if (result < 0)
-            context->socket->_M_emit_error_code("send", result);
-        else {
-            if (context->cb)
-                context->cb({});
-        }
-        delete context;
-        delete __request;
-    }
-
-
-    void
-    uv_udp_socket_alloc_buffer(
-        uv_handle_t* __handle,
-        size_t       __suggested_size,
-        uv_buf_t*    __buffer)
-    {
-        auto* client = reinterpret_cast<uv_udp_socket*>(__handle->data);
-        __buffer->base = client->_M_alloc_buffer(__suggested_size);
-        __buffer->len  = __suggested_size;
-    }
-
-
-    void
-    uv_udp_socket_recv_callback(
-        uv_udp_t*              __handle,
-        ssize_t                __nread,
-        const uv_buf_t*        __buffer,
-        const struct sockaddr* __address,
-        unsigned             /*__flags*/)
-    {
-        auto* socket = reinterpret_cast<uv_udp_socket*>(__handle->data);
-        if (__nread >= 0) {
-            std::string data;
-            udp_address_t address;
-            if (__buffer->base != NULL) {
-                data = std::string(__buffer->base, sizeof(char) * __nread);
-                socket->_M_free_buffer(__buffer->base);
-            }
-            // else empty datagram: return an empty string
-            if (__address != NULL)
-                socket->_M_fill_address_info(__address, &address);
-            else {
-                address.address = "";
-                address.family  = address_family::UNSPECIFIED;
-                address.port    = 0;
-            }
-            socket->m_fast_events->on_message(data, address);
-        }
-        else socket->_M_emit_error_code("read", __nread);
-    }
-
-}
-
 
 uv_udp_socket::uv_udp_socket(uv_event_loop* __event_loop)
 {
@@ -531,7 +459,7 @@ uv_udp_socket::_M_send(
         buffers,
         /*size=*/1,
         (struct sockaddr*)&addr,
-        uv_udp_socket_send_callback);
+        _S_on_send_callback);
 
     if (result == 0) return;
 
@@ -556,8 +484,8 @@ uv_udp_socket::_M_resume()
 {
     auto result = uv_udp_recv_start(
         m_handle.get(),
-        uv_udp_socket_alloc_buffer,
-        uv_udp_socket_recv_callback);
+        _S_alloc_buffer_callback,
+        _S_on_recv_callback);
     if (result != 0) _M_emit_error_code(__FUNCTION__, result);
 }
 
@@ -607,7 +535,7 @@ void
 uv_udp_socket::_M_destroy()
 {
     if (!uv_is_closing((uv_handle_t*)m_handle.get()))
-        uv_close((uv_handle_t*)m_handle.get(), uv_udp_socket_on_close);
+        uv_close((uv_handle_t*)m_handle.get(), _S_on_close_callback);
 }
 
 
@@ -697,4 +625,73 @@ uv_udp_socket::_M_free_buffer(char* __buffer)
         free((void*)__buffer);
         m_malloc_buffers.erase(source);
     }
+}
+
+
+void
+uv_udp_socket::_S_on_close_callback(uv_handle_t* __handle)
+{
+    auto* socket = reinterpret_cast<uv_udp_socket*>(__handle->data);
+    socket->m_fast_events->on_close();
+}
+
+
+void
+uv_udp_socket::_S_on_send_callback(
+    uv_udp_send_t* __request,
+    int            __status)
+{
+    auto result = __status;
+    auto* context =
+        reinterpret_cast<uv_udp_socket::write_context_t*>(__request->data);
+    if (result < 0)
+        context->socket->_M_emit_error_code("send", result);
+    else {
+        if (context->cb)
+            context->cb({});
+    }
+    delete context;
+    delete __request;
+}
+
+
+void
+uv_udp_socket::_S_on_recv_callback(
+    uv_udp_t*              __handle,
+    ssize_t                __nread,
+    const uv_buf_t*        __buffer,
+    const struct sockaddr* __address,
+    unsigned             /*__flags*/)
+{
+    auto* socket = reinterpret_cast<uv_udp_socket*>(__handle->data);
+    if (__nread >= 0) {
+        std::string data;
+        udp_address_t address;
+        if (__buffer->base != NULL) {
+            data = std::string(__buffer->base, sizeof(char) * __nread);
+            socket->_M_free_buffer(__buffer->base);
+        }
+        // else empty datagram: return an empty string
+        if (__address != NULL)
+            socket->_M_fill_address_info(__address, &address);
+        else {
+            address.address = "";
+            address.family  = address_family::UNSPECIFIED;
+            address.port    = 0;
+        }
+        socket->m_fast_events->on_message(data, address);
+    }
+    else socket->_M_emit_error_code("read", __nread);
+}
+
+
+void
+uv_udp_socket::_S_alloc_buffer_callback(
+    uv_handle_t* __handle,
+    size_t       __suggested_size,
+    uv_buf_t*    __buffer)
+{
+    auto* client = reinterpret_cast<uv_udp_socket*>(__handle->data);
+    __buffer->base = client->_M_alloc_buffer(__suggested_size);
+    __buffer->len  = __suggested_size;
 }

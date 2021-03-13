@@ -128,11 +128,11 @@ namespace impact {
         char* _M_alloc_buffer(size_t size);
         void _M_free_buffer(char* buffer);
 
-        friend void uv_udp_socket_on_close(uv_handle_t* __handle);
-        friend void uv_udp_socket_send_callback(uv_udp_send_t* request, int status);
-        friend void uv_udp_socket_recv_callback(uv_udp_t*, ssize_t,
+        static void _S_on_close_callback(uv_handle_t* __handle);
+        static void _S_on_send_callback(uv_udp_send_t* request, int status);
+        static void _S_on_recv_callback(uv_udp_t*, ssize_t,
             const uv_buf_t*, const struct sockaddr*, unsigned);
-        friend void uv_udp_socket_alloc_buffer(uv_handle_t*, size_t, uv_buf_t*);
+        static void _S_alloc_buffer_callback(uv_handle_t*, size_t, uv_buf_t*);
     };
 
 } /* namespace impact */

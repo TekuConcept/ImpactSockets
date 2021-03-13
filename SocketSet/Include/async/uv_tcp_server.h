@@ -9,6 +9,7 @@
 #include <atomic>
 #include <vector>
 #include <future>
+#include <mutex>
 #include "uv.h"
 #include "interfaces/tcp_server_interface.h"
 #include "interfaces/uv_node_interface.h"
@@ -16,6 +17,7 @@
 
 namespace impact {
 
+    class uv_tcp_client;
     class uv_tcp_server :
         public tcp_server_interface,
         public uv_child_interface,
@@ -57,19 +59,27 @@ namespace impact {
         tcp_address_t                  m_address;
         uv_tcp_t                       m_handle;
         struct addrinfo                m_hints;
-        std::atomic<size_t>            m_client_count;
+        std::vector<uv_tcp_client*>    m_connection_list;
+        std::mutex                     m_list_mtx;
 
         void _M_close();
         void _M_listen(unsigned short port, std::string host);
         void _M_listen(std::string path);
         void _M_listen(const struct sockaddr*);
         void _M_emit_listen_error(int status);
+        void _M_add_client_reference(uv_tcp_client*);
+        void _M_remove_client_reference(uv_tcp_client*);
+        size_t _M_client_reference_count();
 
-        friend class uv_tcp_client;
-        friend void uv_tcp_server_on_close(uv_handle_t*);
-        friend void uv_tcp_server_on_connection(uv_stream_t*, int);
-        friend void uv_tcp_server_on_path_resolved(
+        static void _S_on_close_callback(uv_handle_t*);
+        static void _S_on_connection_callback(uv_stream_t*, int);
+        static void _S_on_path_resolved_callback(
             uv_getaddrinfo_t*, int, struct addrinfo*);
+
+        // only meant to allow clients created by the server to
+        // remove themselves from the server's connection count
+        // list and nothing else
+        friend class uv_tcp_client;
     };
 
 } /* namespace impact */

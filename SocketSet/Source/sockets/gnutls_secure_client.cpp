@@ -6,12 +6,13 @@
 #include <cstring>
 #include <iostream>
 #include <algorithm>
+#include <functional>
 #include "sockets/gnutls_secure_client.h"
 #include "utils/impact_error.h"
 
 #define V(x) std::cout << x << std::endl
-#define LOCKED_BEGIN { std::lock_guard<std::mutex> lock(m_gnutls_mtx);
-#define LOCKED_END }
+#define BEGIN_LOCK(m) { std::lock_guard<std::mutex> lock(m);
+#define END_LOCK }
 
 using namespace impact;
 
@@ -47,27 +48,26 @@ namespace impact {
         gnutls_secure_client* client =
             reinterpret_cast<gnutls_secure_client*>(__user_data);
 
-        { /* begin lock */
-            std::lock_guard<std::mutex> lock(client->m_gnutls_mtx);
+        BEGIN_LOCK(client->m_gnutls_mtx)
 
-            using ready_state = tcp_client_interface::ready_state_t;
-            if (client->m_recv_buffer.size() == 0) {
-                if (client->m_base->ready_state() == ready_state::DESTROYED ||
-                    client->m_base->ready_state() == ready_state::WRITE_ONLY)
-                    return 0;
-                else {
-                    errno = EAGAIN;
-                    return -1;
-                }
+        using ready_state = tcp_client_interface::ready_state_t;
+        if (client->m_recv_buffer.size() == 0) {
+            if (client->m_base->ready_state() == ready_state::DESTROYED ||
+                client->m_base->ready_state() == ready_state::WRITE_ONLY)
+                return 0;
+            else {
+                errno = EAGAIN;
+                return -1;
             }
+        }
 
-            size = std::min(__length, client->m_recv_buffer.size());
-            std::memcpy(__data, client->m_recv_buffer.data(), size);
-            if (size == client->m_recv_buffer.size())
-                client->m_recv_buffer.clear();
-            else client->m_recv_buffer = client->m_recv_buffer.substr(size);
+        size = std::min(__length, client->m_recv_buffer.size());
+        std::memcpy(__data, client->m_recv_buffer.data(), size);
+        if (size == client->m_recv_buffer.size())
+            client->m_recv_buffer.clear();
+        else client->m_recv_buffer = client->m_recv_buffer.substr(size);
 
-        } /* end lock */
+        END_LOCK
 
         return size;
     }
@@ -77,10 +77,12 @@ namespace impact {
 
 gnutls_secure_client::gnutls_secure_client(
     tcp_client_t             __base,
-    secure_connection_type_t __connection_type)
+    secure_connection_type_t __connection_type,
+    gnutls_x509_certificate  __certificate,
+    priority_t               __priority)
 : m_base(__base),
   m_session(nullptr),
-  m_x509_credentials(nullptr),
+  m_certificate(__certificate),
   m_fast_events(nullptr),
   m_cert_verify_enabled(false),
   m_state(secure_state_t::CLOSED)
@@ -102,7 +104,11 @@ gnutls_secure_client::gnutls_secure_client(
          m_base->ready_state() != ready_state_t::OPEN))
         throw impact_error("provided TCP client is not usable");
 
-    _M_init_gnutls_session(nullptr, nullptr, __connection_type);
+    m_certificate.set_error_observer(std::bind(
+        &gnutls_secure_client::_M_emit_error_message,
+        this, std::placeholders::_1));
+
+    _M_init_gnutls_session(__priority, __connection_type);
 
     this->forward(m_base.get());
     m_base->set_event_observer(this);
@@ -114,33 +120,8 @@ gnutls_secure_client::gnutls_secure_client(
 }
 
 
-gnutls_secure_client::gnutls_secure_client(
-    tcp_client_t  __base,
-    credentials_t __credentials,
-    priority_t    __priority)
-: m_base(__base),
-  m_session(nullptr),
-  m_x509_credentials(nullptr),
-  m_fast_events(nullptr),
-  m_cert_verify_enabled(false),
-  m_state(secure_state_t::OPENING)
-{
-    // called by gnutls_secure_server
-
-    _M_init_gnutls_session(
-        __credentials,
-        __priority,
-        secure_connection_type_t::SERVER);
-
-    this->forward(m_base.get());
-    m_base->set_event_observer(this);
-    _M_try_handshake();
-}
-
-
 void
 gnutls_secure_client::_M_init_gnutls_session(
-    credentials_t            __credentials,
     priority_t               __priority,
     secure_connection_type_t __connection_type)
 {
@@ -170,34 +151,15 @@ gnutls_secure_client::_M_init_gnutls_session(
         gnutls_transport_set_ptr(m_session.get(), this);
     }
 
-    if (__credentials) m_x509_credentials = __credentials;
-    else {
-        gnutls_certificate_credentials_t credentials;
-        result = gnutls_certificate_allocate_credentials(&credentials);
-        if (result < 0) goto error;
-        m_x509_credentials = std::shared_ptr<gnutls_certificate_credentials_st>(
-            credentials,
-            [](gnutls_certificate_credentials_st* p)
-            { gnutls_certificate_free_credentials(p); }
-        );
-        /* Sets the system trusted CAs for Internet PKI */
-        result = gnutls_certificate_set_x509_system_trust(
-            m_x509_credentials.get());
-        if (result < 0) goto error;
-    }
-
     if (__priority)
         result = gnutls_priority_set(m_session.get(), __priority.get());
-    else
-        /* It is recommended to use the default priorities */
+    else /* It is recommended to use the default priorities */
         result = gnutls_set_default_priority(m_session.get());
     if (result < 0) goto error;
 
     /* Put the x509 credentials to the current session */
     result = gnutls_credentials_set(
-        m_session.get(),
-        GNUTLS_CRD_CERTIFICATE,
-        m_x509_credentials.get());
+        m_session.get(), GNUTLS_CRD_CERTIFICATE, m_certificate.get());
     if (result < 0) goto error;
 
     if (__connection_type == secure_connection_type_t::SERVER)
@@ -278,34 +240,6 @@ gnutls_secure_client::cert_verify_enabled(bool __enabled)
 }
 
 
-void
-gnutls_secure_client::set_x509_credentials(
-    std::string     __key,
-    std::string     __certificate,
-    secure_format_t __format)
-{
-    if (__key.size() == 0 || __certificate.size() == 0) {
-        _M_emit_error_message("[security] X509 credentials are empty");
-        return;
-    }
-    gnutls_x509_crt_fmt_t format;
-    switch (__format) {
-    case secure_format_t::DER: format = GNUTLS_X509_FMT_DER; break;
-    case secure_format_t::PEM: format = GNUTLS_X509_FMT_PEM; break;
-    default: format = GNUTLS_X509_FMT_PEM; break;
-    }
-    gnutls_datum_t key;
-    key.data = (unsigned char*)&__key[0];
-    key.size = (unsigned int)__key.size();
-    gnutls_datum_t certificate;
-    certificate.data = (unsigned char*)&__certificate[0];
-    certificate.size = (unsigned int)__certificate.size();
-    auto result = gnutls_certificate_set_x509_key_mem(
-        m_x509_credentials.get(), &certificate, &key, format);
-    if (result < 0) _M_emit_error_code(__FUNCTION__, result);
-}
-
-
 inline void
 gnutls_secure_client::_M_set_verify_cert()
 {
@@ -314,6 +248,40 @@ gnutls_secure_client::_M_set_verify_cert()
         host = m_server_name.c_str();
     gnutls_session_set_verify_cert(m_session.get(), host, /*flags=*/0);
 }
+
+
+// ----------------------------------------------------------------------------
+// secure_x509_certificate_interface
+// ----------------------------------------------------------------------------
+
+
+void
+gnutls_secure_client::set_x509_trust(
+    std::string     __trust,
+    secure_format_t __format)
+{ m_certificate.set_x509_trust(__trust, __format); }
+
+
+void
+gnutls_secure_client::set_x509_cert_revoke_list(
+    std::string     __crl,
+    secure_format_t __format)
+{ m_certificate.set_x509_cert_revoke_list(__crl, __format); }
+
+
+void
+gnutls_secure_client::set_x509_ocsp_request_file(
+    std::string __ocsp_request_file,
+    size_t      __index)
+{ m_certificate.set_x509_ocsp_request_file(__ocsp_request_file, __index); }
+
+
+void
+gnutls_secure_client::set_x509_credentials(
+    std::string     __key,
+    std::string     __certificate,
+    secure_format_t __format)
+{ m_certificate.set_x509_credentials(__key, __certificate, __format); }
 
 
 // ----------------------------------------------------------------------------
@@ -592,10 +560,10 @@ gnutls_secure_client::on_data(std::string& __data)
     std::string block_buffer(256, '\0');
     size_t buffer_size;
 
-    LOCKED_BEGIN
+    BEGIN_LOCK(m_gnutls_mtx)
     m_recv_buffer.append(__data);
     buffer_size = m_recv_buffer.size();
-    LOCKED_END
+    END_LOCK
 
     change_state:
     switch (m_state) {
@@ -603,9 +571,9 @@ gnutls_secure_client::on_data(std::string& __data)
         while (buffer_size > 0) {
             ssize_t result = gnutls_record_recv(
                 m_session.get(), &block_buffer[0], block_buffer.size());
-            LOCKED_BEGIN
+            BEGIN_LOCK(m_gnutls_mtx)
             buffer_size = m_recv_buffer.size();
-            LOCKED_END
+            END_LOCK
             if (result == GNUTLS_E_REHANDSHAKE) {
                 m_state = secure_state_t::OPENING;
                 goto change_state;
@@ -625,9 +593,9 @@ gnutls_secure_client::on_data(std::string& __data)
     case secure_state_t::OPENING: {
         while (m_state == secure_state_t::OPENING && buffer_size > 0) {
             _M_try_handshake();
-            LOCKED_BEGIN
+            BEGIN_LOCK(m_gnutls_mtx)
             buffer_size = m_recv_buffer.size();
-            LOCKED_END
+            END_LOCK
         }
         if (m_state == secure_state_t::OPEN)
             goto change_state;
@@ -635,9 +603,9 @@ gnutls_secure_client::on_data(std::string& __data)
     case secure_state_t::ENDING: {
         while (m_state == secure_state_t::ENDING && buffer_size > 0) {
             _M_end();
-            LOCKED_BEGIN
+            BEGIN_LOCK(m_gnutls_mtx)
             buffer_size = m_recv_buffer.size();
-            LOCKED_END
+            END_LOCK
         }
         if (m_state == secure_state_t::ENDED && buffer_size > 0)
             goto change_state;
@@ -645,9 +613,9 @@ gnutls_secure_client::on_data(std::string& __data)
     case secure_state_t::CLOSING: {
         while (m_state == secure_state_t::CLOSING && buffer_size > 0) {
             _M_destroy();
-            LOCKED_BEGIN
+            BEGIN_LOCK(m_gnutls_mtx)
             buffer_size = m_recv_buffer.size();
-            LOCKED_END
+            END_LOCK
         }
     } break;
     case secure_state_t::ENDED: {
@@ -659,9 +627,9 @@ gnutls_secure_client::on_data(std::string& __data)
         do {
             result = gnutls_record_recv(
                 m_session.get(), &block_buffer[0], block_buffer.size());
-            LOCKED_BEGIN
+            BEGIN_LOCK(m_gnutls_mtx)
             buffer_size = m_recv_buffer.size();
-            LOCKED_END
+            END_LOCK
             if (result == 0) _M_destroy();
             else if (result > 0) {
                 std::string data = block_buffer.substr(0, result);
@@ -676,9 +644,9 @@ gnutls_secure_client::on_data(std::string& __data)
     } break;
     case secure_state_t::CLOSED: {
         // session is closed, any new data is invalid
-        LOCKED_BEGIN
+        BEGIN_LOCK(m_gnutls_mtx)
         m_recv_buffer.clear();
-        LOCKED_END
+        END_LOCK
     } break;
     }
 }

@@ -11,6 +11,7 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
 
+#include "sockets/gnutls_x509_certificate.h"
 #include "interfaces/secure_server_interface.h"
 #include "interfaces/tcp_server_interface.h"
 #include "interfaces/event_loop_interface.h"
@@ -22,8 +23,11 @@ namespace impact {
         protected tcp_server_observer_interface
     {
     public:
-        gnutls_secure_server(tcp_server_t base =
-            default_event_loop()->create_tcp_server());
+        gnutls_secure_server(
+            tcp_server_t base =
+                default_event_loop()->create_tcp_server(),
+            gnutls_x509_certificate certificate =
+                gnutls_x509_certificate());
         ~gnutls_secure_server() = default;
 
         // prevent copying
@@ -32,6 +36,10 @@ namespace impact {
 
         //
         // -- secure_server_interface --
+        //
+
+        //
+        // -- secure_x509_certificate_interface --
         //
 
         void set_x509_trust(
@@ -80,7 +88,7 @@ namespace impact {
 
     private:
         tcp_server_t m_base;
-        std::shared_ptr<gnutls_certificate_credentials_st> m_x509_credentials;
+        gnutls_x509_certificate m_certificate;
         std::shared_ptr<gnutls_priority_st> m_priority_cache;
         tcp_server_observer_interface* m_fast_events;
 
