@@ -63,6 +63,8 @@ namespace impact {
         // -- udp_socket_interface --
         //
 
+        // int descriptor() const override;
+
         // udp_address_t address() const override;
         // udp_address_t remote_address() const override;
         // // size_t recv_buffer_size() const override;

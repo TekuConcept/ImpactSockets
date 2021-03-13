@@ -49,6 +49,8 @@ namespace impact {
 
         virtual ~tcp_client_interface() = default;
 
+        virtual int descriptor() const = 0;
+
         virtual tcp_address_t address() const = 0;
         virtual size_t bytes_read() const = 0;
         virtual size_t bytes_written() const = 0;

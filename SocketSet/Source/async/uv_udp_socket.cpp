@@ -52,6 +52,19 @@ uv_udp_socket::~uv_udp_socket()
 }
 
 
+int
+uv_udp_socket::descriptor() const
+{
+    uv_os_fd_t fd;
+    auto result = uv_fileno((uv_handle_t*)m_handle.get(), &fd);
+    if (result < 0) {
+        _M_emit_error_code(__FUNCTION__, result);
+        return -1;
+    }
+    else return fd;
+}
+
+
 udp_address_t
 uv_udp_socket::address() const
 { return m_address; }
@@ -542,7 +555,7 @@ uv_udp_socket::_M_destroy()
 void
 uv_udp_socket::_M_emit_error_code(
     std::string __message,
-    int         __code)
+    int         __code) const
 {
     std::string message = __message;
     message += std::string(": ");

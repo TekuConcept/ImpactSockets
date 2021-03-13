@@ -26,6 +26,8 @@ namespace impact {
     public:
         virtual ~tcp_server_interface() = default;
 
+        virtual int descriptor() const = 0;
+
         virtual tcp_address_t address() const = 0;
         virtual bool listening() const = 0;
         virtual size_t max_connections() const = 0;

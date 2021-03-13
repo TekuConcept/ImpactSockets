@@ -27,6 +27,8 @@ namespace impact {
         uv_tcp_server(uv_event_loop* event_loop);
         ~uv_tcp_server();
 
+        int descriptor() const override;
+
         tcp_address_t address() const override;
         bool listening() const override;
         size_t max_connections() const override;
@@ -57,7 +59,7 @@ namespace impact {
         std::atomic<bool>              m_is_listening;
         size_t                         m_max_connections;
         tcp_address_t                  m_address;
-        uv_tcp_t                       m_handle;
+        std::shared_ptr<uv_tcp_t>      m_handle;
         struct addrinfo                m_hints;
         std::vector<uv_tcp_client*>    m_connection_list;
         std::mutex                     m_list_mtx;
@@ -66,7 +68,7 @@ namespace impact {
         void _M_listen(unsigned short port, std::string host);
         void _M_listen(std::string path);
         void _M_listen(const struct sockaddr*);
-        void _M_emit_listen_error(int status);
+        void _M_emit_error_code(std::string, int) const;
         void _M_add_client_reference(uv_tcp_client*);
         void _M_remove_client_reference(uv_tcp_client*);
         size_t _M_client_reference_count();

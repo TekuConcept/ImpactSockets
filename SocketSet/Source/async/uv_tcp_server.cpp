@@ -20,6 +20,8 @@ uv_tcp_server::uv_tcp_server(uv_event_loop* __event_loop)
   m_is_listening(false),
   m_max_connections((size_t)-1)
 {
+    m_handle = std::make_shared<uv_tcp_t>();
+
     m_address.address   = "";
     m_address.family    = address_family::UNSPECIFIED;
     m_address.port      = 0;
@@ -29,9 +31,9 @@ uv_tcp_server::uv_tcp_server(uv_event_loop* __event_loop)
     m_hints.ai_protocol = IPPROTO_TCP;
     m_hints.ai_flags    = 0;
 
-    int result = uv_tcp_init(m_event_loop->get_loop_handle(), &m_handle);
+    int result = uv_tcp_init(m_event_loop->get_loop_handle(), m_handle.get());
     if (result != 0) throw impact_error("unexpected uv error");
-    m_handle.data = (void*)this;
+    m_handle->data = (void*)this;
 
     m_fast_events = this;
     m_event_loop->add_child(this);
@@ -42,6 +44,19 @@ uv_tcp_server::~uv_tcp_server()
 {
     m_event_loop->remove_child(this);
     m_event_loop->invoke([this]() { _M_close(); }, /*blocking=*/true);
+}
+
+
+int
+uv_tcp_server::descriptor() const
+{
+    uv_os_fd_t fd;
+    auto result = uv_fileno((uv_handle_t*)m_handle.get(), &fd);
+    if (result < 0) {
+        _M_emit_error_code(__FUNCTION__, result);
+        return -1;
+    }
+    else return fd;
 }
 
 
@@ -136,8 +151,8 @@ uv_tcp_server::on_listening()
 void
 uv_tcp_server::_M_close()
 {
-    if (!uv_is_closing((uv_handle_t*)&m_handle))
-        uv_close((uv_handle_t*)&m_handle, _S_on_close_callback);
+    if (!uv_is_closing((uv_handle_t*)m_handle.get()))
+        uv_close((uv_handle_t*)m_handle.get(), _S_on_close_callback);
 }
 
 
@@ -164,7 +179,7 @@ uv_tcp_server::_M_listen(
     return;
 
     error:
-    _M_emit_listen_error(result);
+    _M_emit_error_code(__FUNCTION__, result);
 }
 
 
@@ -182,14 +197,14 @@ uv_tcp_server::_M_listen(std::string __path)
     return;
 
     error:
-    _M_emit_listen_error(result);
+    _M_emit_error_code(__FUNCTION__, result);
 }
 
 
 void
 uv_tcp_server::_M_listen(const struct sockaddr* __addr)
 {
-    int result = uv_tcp_bind(&m_handle, __addr, 0);    
+    int result = uv_tcp_bind(m_handle.get(), __addr, 0);    
     if (result) goto error;
 
     if (m_address.family == address_family::INET) {
@@ -209,10 +224,10 @@ uv_tcp_server::_M_listen(const struct sockaddr* __addr)
         m_address.family  = address_family::INET6;
     }
 
-    m_handle.data = (void*)this;
+    m_handle->data = (void*)this;
 
     result = uv_listen(
-        (uv_stream_t*)&m_handle,
+        (uv_stream_t*)m_handle.get(),
         128/*backlog*/,
         _S_on_connection_callback);
     if (result) goto error;
@@ -222,16 +237,19 @@ uv_tcp_server::_M_listen(const struct sockaddr* __addr)
     return;
 
     error:
-    _M_emit_listen_error(result);
+    _M_emit_error_code(__FUNCTION__, result);
 }
 
 
 void
-uv_tcp_server::_M_emit_listen_error(int __status)
+uv_tcp_server::_M_emit_error_code(
+    std::string __message,
+    int         __code) const
 {
-    std::string message = "listen error: ";
-    message += std::to_string(__status) + std::string(" ");
-    message += uv_strerror(__status);
+    std::string message = __message;
+    message += std::string(": ");
+    message += std::to_string(__code) + std::string(" ");
+    message += uv_strerror(__code);
     m_fast_events->on_error(message);
 }
 
@@ -334,6 +352,6 @@ uv_tcp_server::_S_on_path_resolved_callback(
     return;
 
     error:
-    server->_M_emit_listen_error(result);
+    server->_M_emit_error_code(__FUNCTION__, result);
     delete __resolver;
 }

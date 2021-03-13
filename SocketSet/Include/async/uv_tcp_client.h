@@ -26,6 +26,8 @@ namespace impact {
         uv_tcp_client(uv_event_loop* event_loop);
         ~uv_tcp_client();
 
+        int descriptor() const override;
+
         tcp_address_t address() const override;
         size_t bytes_read() const override;
         size_t bytes_written() const override;
@@ -129,7 +131,7 @@ namespace impact {
         void _M_set_timeout(unsigned int);
         void _M_end(std::string, std::string);
         void _M_destroy(std::string);
-        void _M_emit_error_code(std::string, int);
+        void _M_emit_error_code(std::string, int) const;
         void _M_update_addresses();
         void _M_fill_address_info(const struct sockaddr*, tcp_address_t*);
         void _M_on_close();

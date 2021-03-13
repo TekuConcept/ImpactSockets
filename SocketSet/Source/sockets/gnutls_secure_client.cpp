@@ -16,64 +16,6 @@
 
 using namespace impact;
 
-namespace impact {
-
-    ssize_t
-    gnutls_secure_client_send_callback(
-        gnutls_transport_ptr_t __user_data,
-        const void*            __data,
-        size_t                 __length)
-    {
-        gnutls_secure_client* client =
-            reinterpret_cast<gnutls_secure_client*>(__user_data);
-        
-        bool result = client->m_base->write(
-            std::string((char*)__data, __length));
-
-        if (!result) {
-            errno = EAGAIN;
-            return -1;
-        }
-        else return __length;
-    }
-
-
-    ssize_t
-    gnutls_secure_client_recv_callback(
-        gnutls_transport_ptr_t __user_data,
-        void*                  __data,
-        size_t                 __length)
-    {
-        size_t size;
-        gnutls_secure_client* client =
-            reinterpret_cast<gnutls_secure_client*>(__user_data);
-
-        BEGIN_LOCK(client->m_gnutls_mtx)
-
-        using ready_state = tcp_client_interface::ready_state_t;
-        if (client->m_recv_buffer.size() == 0) {
-            if (client->m_base->ready_state() == ready_state::DESTROYED ||
-                client->m_base->ready_state() == ready_state::WRITE_ONLY)
-                return 0;
-            else {
-                errno = EAGAIN;
-                return -1;
-            }
-        }
-
-        size = std::min(__length, client->m_recv_buffer.size());
-        std::memcpy(__data, client->m_recv_buffer.data(), size);
-        if (size == client->m_recv_buffer.size())
-            client->m_recv_buffer.clear();
-        else client->m_recv_buffer = client->m_recv_buffer.substr(size);
-
-        END_LOCK
-
-        return size;
-    }
-
-} /* namespace impact */
-
 
 gnutls_secure_client::gnutls_secure_client(
     tcp_client_t             __base,
@@ -143,11 +85,9 @@ gnutls_secure_client::_M_init_gnutls_session(
         [](gnutls_session_int* p) { gnutls_deinit(p); });
 
         gnutls_transport_set_push_function(
-            m_session.get(),
-            gnutls_secure_client_send_callback);
+            m_session.get(), _S_on_send_callback);
         gnutls_transport_set_pull_function(
-            m_session.get(),
-            gnutls_secure_client_recv_callback);
+            m_session.get(), _S_on_recv_callback);
         gnutls_transport_set_ptr(m_session.get(), this);
     }
 
@@ -287,6 +227,11 @@ gnutls_secure_client::set_x509_credentials(
 // ----------------------------------------------------------------------------
 // tcp_client_interface
 // ----------------------------------------------------------------------------
+
+
+int
+gnutls_secure_client::descriptor() const
+{ return m_base->descriptor(); }
 
 
 tcp_address_t
@@ -738,4 +683,59 @@ gnutls_secure_client::on_timeout()
     if (m_fast_events)
         m_fast_events->on_timeout();
     else event_emitter::emit("timeout");
+}
+
+
+ssize_t
+gnutls_secure_client::_S_on_send_callback(
+    gnutls_transport_ptr_t __user_data,
+    const void*            __data,
+    size_t                 __length)
+{
+    gnutls_secure_client* client =
+        reinterpret_cast<gnutls_secure_client*>(__user_data);
+    
+    bool result = client->m_base->write(
+        std::string((char*)__data, __length));
+
+    if (!result) {
+        errno = EAGAIN;
+        return -1;
+    }
+    else return __length;
+}
+
+
+ssize_t
+gnutls_secure_client::_S_on_recv_callback(
+    gnutls_transport_ptr_t __user_data,
+    void*                  __data,
+    size_t                 __length)
+{
+    size_t size;
+    gnutls_secure_client* client =
+        reinterpret_cast<gnutls_secure_client*>(__user_data);
+
+    BEGIN_LOCK(client->m_gnutls_mtx)
+
+    using ready_state = tcp_client_interface::ready_state_t;
+    if (client->m_recv_buffer.size() == 0) {
+        if (client->m_base->ready_state() == ready_state::DESTROYED ||
+            client->m_base->ready_state() == ready_state::WRITE_ONLY)
+            return 0;
+        else {
+            errno = EAGAIN;
+            return -1;
+        }
+    }
+
+    size = std::min(__length, client->m_recv_buffer.size());
+    std::memcpy(__data, client->m_recv_buffer.data(), size);
+    if (size == client->m_recv_buffer.size())
+        client->m_recv_buffer.clear();
+    else client->m_recv_buffer = client->m_recv_buffer.substr(size);
+
+    END_LOCK
+
+    return size;
 }

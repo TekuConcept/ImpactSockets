@@ -34,6 +34,8 @@ namespace impact {
     public:
         virtual ~udp_socket_interface() = default;
 
+        virtual int descriptor() const = 0;
+
         virtual udp_address_t address() const = 0;
         virtual udp_address_t remote_address() const = 0;
         // virtual size_t recv_buffer_size() const = 0;

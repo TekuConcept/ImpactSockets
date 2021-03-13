@@ -73,6 +73,8 @@ namespace impact {
         // -- tcp_client_interface --
         //
 
+        int descriptor() const override;
+
         tcp_address_t address() const override;
         size_t bytes_read() const override;
         size_t bytes_written() const override;
@@ -163,14 +165,12 @@ namespace impact {
         void _M_try_handshake();
         void _M_destroy();
         void _M_end();
-
-        friend class gnutls_secure_server;
-        friend ssize_t gnutls_secure_client_send_callback(
-            gnutls_transport_ptr_t, const void*, size_t);
-        friend ssize_t gnutls_secure_client_recv_callback(
-            gnutls_transport_ptr_t, void*, size_t);
-
         inline void _M_set_verify_cert();
+
+        static ssize_t _S_on_send_callback(
+            gnutls_transport_ptr_t, const void*, size_t);
+        static ssize_t _S_on_recv_callback(
+            gnutls_transport_ptr_t, void*, size_t);
     };
 
 } /* namespace impact */

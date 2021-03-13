@@ -136,6 +136,11 @@ gnutls_secure_client::set_x509_credentials(
 // ----------------------------------------------------------------------------
 
 
+int
+gnutls_secure_server::descriptor() const
+{ return m_base->descriptor(); }
+
+
 tcp_address_t
 gnutls_secure_server::address() const
 { return m_base->address(); }

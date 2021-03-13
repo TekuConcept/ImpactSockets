@@ -60,6 +60,8 @@ namespace impact {
         // -- tcp_server_interface --
         //
 
+        int descriptor() const override;
+
         tcp_address_t address() const override;
         bool listening() const override;
         size_t max_connections() const override;

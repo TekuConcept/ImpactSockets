@@ -90,6 +90,19 @@ uv_tcp_client::_M_init(uv_event_loop* __event_loop)
 }
 
 
+int
+uv_tcp_client::descriptor() const
+{
+    uv_os_fd_t fd;
+    auto result = uv_fileno((uv_handle_t*)m_handle.get(), &fd);
+    if (result < 0) {
+        _M_emit_error_code(__FUNCTION__, result);
+        return -1;
+    }
+    else return fd;
+}
+
+
 tcp_address_t
 uv_tcp_client::address() const
 { return m_address; }
@@ -532,7 +545,7 @@ uv_tcp_client::_M_destroy(std::string __error)
 void
 uv_tcp_client::_M_emit_error_code(
     std::string __message,
-    int         __code)
+    int         __code) const
 {
     std::string message = __message;
     message += std::string(": ");

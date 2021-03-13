@@ -24,6 +24,8 @@ namespace impact {
         uv_udp_socket(uv_event_loop* event_loop);
         ~uv_udp_socket();
 
+        int descriptor() const override;
+
         udp_address_t address() const override;
         udp_address_t remote_address() const override;
         // size_t recv_buffer_size() const override;
@@ -121,7 +123,7 @@ namespace impact {
         void _M_set_ttl(unsigned char);
         void _M_destroy();
 
-        void _M_emit_error_code(std::string, int);
+        void _M_emit_error_code(std::string, int) const;
         void _M_fill_address_info(const struct sockaddr*, udp_address_t*);
         int _M_info_to_address(unsigned short, const std::string&,
             struct sockaddr*);
