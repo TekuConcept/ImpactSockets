@@ -139,15 +139,6 @@ namespace impact {
         void on_timeout() override;
 
     private:
-        enum class secure_state_t {
-            OPEN,
-            OPENING,
-            ENDING,
-            ENDED,
-            CLOSING,
-            CLOSED
-        };
-
         tcp_client_t m_base;
         session_t m_session;
         gnutls_x509_certificate m_certificate;

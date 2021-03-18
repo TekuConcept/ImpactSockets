@@ -19,13 +19,16 @@ gnutls_x509_certificate::gnutls_x509_certificate(
 
     if (__credentials == nullptr) {
         gnutls_certificate_credentials_t credentials;
+
         result = gnutls_certificate_allocate_credentials(&credentials);
         if (result < 0) goto error;
+
         m_credentials = std::shared_ptr<gnutls_certificate_credentials_st>(
             credentials,
             [](gnutls_certificate_credentials_st* p)
             { gnutls_certificate_free_credentials(p); }
         );
+
         /* Sets the system trusted CAs for Internet PKI */
         result = gnutls_certificate_set_x509_system_trust(
             m_credentials.get());

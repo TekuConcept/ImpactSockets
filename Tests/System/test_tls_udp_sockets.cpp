@@ -21,6 +21,8 @@
 using namespace impact;
 
 std::shared_ptr<event_loop_interface> s_event_loop;
+// std::string test_message;
+// secure_datagram_t datagram;
 
 
 /**
@@ -45,63 +47,62 @@ read_file(std::string file_name)
 }
 
 
+// void create_datagram_socket(unsigned short port) {
+//     auto base_datagram = s_event_loop->create_udp_socket();
+//     datagram = secure_datagram_t(
+//         new gnutls_secure_datagram(base_datagram));
+//     datagram->on("error", EVENT_LISTENER(args, &) {
+//         VERBOSE("EVENT: [error] " << AS_STRING(args[0]));
+//         datagram->close();
+//     });
+//     datagram->on("message", EVENT_LISTENER(args, &) {
+//         auto address = args[1].get<udp_address_t>();
+//         auto message = AS_STRING(args[0]);
+//         if (message.size() > 0) {
+//             VERBOSE("EVENT: [data] " << message << " from "
+//                 << address.address << ":" << address.port);
+//             if (message == test_message) VERBOSE("ECHO TEST: PASS");
+//             else VERBOSE("ECHO TEST: FAIL\nUnexpected message: " << message);
+//         }
+//         // else ignore empty datagrams
+//     });
+//     datagram->on("listening", EVENT_LISTENER(, &) {
+//         auto address = datagram->address();
+//         VERBOSE("EVENT: socket listening on "
+//             << address.address << ":" << address.port);
+//     });
+//     auto key  = read_file("private-key.pem");
+//     auto cert = read_file("public-cert.pem");
+//     datagram->set_x509_credentials(key, cert);
+//     datagram->bind(port);
+// }
+
+
 int main() {
-    VERBOSE("-- BEGIN TLS TCP SOCKETS TEST --");
+    VERBOSE("-- BEGIN TLS UDP SOCKETS TEST --");
 
-    //
-    // read in credentials
-    //
-    auto key  = read_file("private-key.pem");
-    auto cert = read_file("public-cert.pem");
+    /**
+     * The UDP socket will try to send a message to itself.
+     */
 
-    //
-    // setup async event loop
-    //
+    // test_message = "hello world";
+    // unsigned short port = 41234;
     s_event_loop = std::shared_ptr<event_loop_interface>(new uv_event_loop());
     s_event_loop->run_async();
 
-    //
-    // create a new client
-    //
-    // tcp_client_t client = s_event_loop->create_tcp_client();
-    // secure_client_t secure_client =
-    //     secure_client_t(new gnutls_secure_client(client));
+    // create_datagram_socket(port);
 
-    //
-    // setup event callbacks
-    //
-    // size_t state = 0;
-    // secure_client->on("error", EVENT_LISTENER(args, &) {
-    //     VERBOSE("[EVENT] error: " << AS_STRING(args[0]));
-    //     secure_client->destroy();
-    // });
-    // secure_client->on("data", EVENT_LISTENER(args, &) {
-    //     VERBOSE("[EVENT] data: " << AS_STRING(args[0]));
-    //     if (state < 1) secure_client->write("echo client");
-    //     else if (state < 2) secure_client->end();
-    //     state++;
-    // });
-    // secure_client->on("connect", EVENT_LISTENER() {
-    //     VERBOSE("[EVENT] connect");
-    // });
-    // secure_client->on("ready", EVENT_LISTENER() {
-    //     VERBOSE("[EVENT] ready");
-    // });
-    // secure_client->on("close", EVENT_LISTENER() {
-    //     VERBOSE("[EVENT] close");
-    // });
+    // datagram->send(test_message, port);
 
-    //
-    // start the connection
-    //
-    // secure_client->set_x509_credentials(key, cert);
-    // secure_client->connect(8000);
+    /**
+     * Give the program some time to run
+     * (the event loop will automatically stop when main returns)
+     */
 
-    //
-    // wait a while before shutting down
-    //
     std::this_thread::sleep_for(std::chrono::seconds(2));
-    s_event_loop->stop();
+
+    /* gracefully close the socket */
+    // datagram->close();
 
     VERBOSE("-- END OF LINE --");
     return 0;

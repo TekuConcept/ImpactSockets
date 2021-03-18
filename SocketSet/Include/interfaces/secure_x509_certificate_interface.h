@@ -11,6 +11,11 @@ namespace impact {
 
     enum class secure_format_t { PEM, DER };
     enum class secure_connection_type_t { CLIENT, SERVER };
+    enum class secure_state_t {
+        OPENING, OPEN,
+        ENDING,  ENDED,
+        CLOSING, CLOSED
+    };
 
     class secure_x509_certificate_interface {
     public:

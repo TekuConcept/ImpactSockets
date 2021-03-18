@@ -17,7 +17,11 @@ namespace impact {
         unsigned short port;
         address_family family;
         std::string address;
+        // use for std::less(...)
+        // bool operator() (const tcp_address_t&, const tcp_address_t&);
     };
+
+    bool operator<(const tcp_address_t&, const tcp_address_t&);
 
     class tcp_client_observer_interface {
     public:

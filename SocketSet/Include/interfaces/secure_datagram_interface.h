@@ -5,6 +5,8 @@
 #ifndef IMPACT_INTERFACES_SECURE_DATAGRAM_INTERFACE_H
 #define IMPACT_INTERFACES_SECURE_DATAGRAM_INTERFACE_H
 
+#include <string>
+#include <memory>
 #include "interfaces/udp_socket_interface.h"
 #include "interfaces/secure_x509_certificate_interface.h"
 
@@ -17,11 +19,19 @@ namespace impact {
     public:
         virtual ~secure_datagram_interface() = default;
 
-        virtual const std::string& server_name() const = 0;
-        virtual void server_name(std::string host) = 0;
-        virtual bool cert_verify_enabled() const = 0;
-        virtual void cert_verify_enabled(bool enabled) = 0;
+        virtual size_t mtu() const = 0;
+        virtual void mtu(size_t value) = 0;
+        virtual void create(udp_address_t address) = 0;
+        virtual void begin(udp_address_t address) = 0;
+        virtual void end(udp_address_t address) = 0;
+        virtual const std::string& server_name(udp_address_t address) = 0;
+        virtual void server_name(udp_address_t address, std::string host) = 0;
+        virtual bool cert_verify_enabled(udp_address_t address) = 0;
+        virtual void cert_verify_enabled(udp_address_t address, bool enabled) = 0;
+
+        virtual void enable_server(bool enabled) = 0;
     };
+    typedef std::shared_ptr<secure_datagram_interface> secure_datagram_t;
 
 } /* namespace impact */
 
