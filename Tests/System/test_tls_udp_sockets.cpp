@@ -21,8 +21,8 @@
 using namespace impact;
 
 std::shared_ptr<event_loop_interface> s_event_loop;
-// std::string test_message;
-// secure_datagram_t datagram;
+std::string test_message;
+secure_datagram_t datagram;
 
 
 /**
@@ -47,35 +47,32 @@ read_file(std::string file_name)
 }
 
 
-// void create_datagram_socket(unsigned short port) {
-//     auto base_datagram = s_event_loop->create_udp_socket();
-//     datagram = secure_datagram_t(
-//         new gnutls_secure_datagram(base_datagram));
-//     datagram->on("error", EVENT_LISTENER(args, &) {
-//         VERBOSE("EVENT: [error] " << AS_STRING(args[0]));
-//         datagram->close();
-//     });
-//     datagram->on("message", EVENT_LISTENER(args, &) {
-//         auto address = args[1].get<udp_address_t>();
-//         auto message = AS_STRING(args[0]);
-//         if (message.size() > 0) {
-//             VERBOSE("EVENT: [data] " << message << " from "
-//                 << address.address << ":" << address.port);
-//             if (message == test_message) VERBOSE("ECHO TEST: PASS");
-//             else VERBOSE("ECHO TEST: FAIL\nUnexpected message: " << message);
-//         }
-//         // else ignore empty datagrams
-//     });
-//     datagram->on("listening", EVENT_LISTENER(, &) {
-//         auto address = datagram->address();
-//         VERBOSE("EVENT: socket listening on "
-//             << address.address << ":" << address.port);
-//     });
-//     auto key  = read_file("private-key.pem");
-//     auto cert = read_file("public-cert.pem");
-//     datagram->set_x509_credentials(key, cert);
-//     datagram->bind(port);
-// }
+void create_datagram_socket(unsigned short port) {
+    auto base_datagram = s_event_loop->create_udp_socket();
+    datagram = secure_datagram_t(
+        new gnutls_secure_datagram(base_datagram));
+    datagram->on("error", EVENT_LISTENER(args, &) {
+        VERBOSE("EVENT: [error] " << AS_STRING(args[0]));
+        datagram->close();
+    });
+    datagram->on("message", EVENT_LISTENER(args, &) {
+        auto address = args[1].get<udp_address_t>();
+        auto message = AS_STRING(args[0]);
+        if (message.size() > 0) {
+            VERBOSE("EVENT: [data] " << message << " from "
+                << address.address << ":" << address.port);
+            if (message == test_message) VERBOSE("ECHO TEST: PASS");
+            else VERBOSE("ECHO TEST: FAIL\nUnexpected message: " << message);
+        }
+        // else ignore empty datagrams
+    });
+    datagram->on("listening", EVENT_LISTENER(, &) {
+        auto address = datagram->address();
+        VERBOSE("EVENT: socket listening on "
+            << address.address << ":" << address.port);
+    });
+    datagram->bind(port);
+}
 
 
 int main() {
@@ -85,14 +82,37 @@ int main() {
      * The UDP socket will try to send a message to itself.
      */
 
-    // test_message = "hello world";
-    // unsigned short port = 41234;
+    test_message = "hello world";
+    unsigned short port = 41234;
+    udp_address_t loopback = {
+        .port    = port,
+        .family  = address_family::INET,
+        .address = "127.0.0.1"
+    };
+
     s_event_loop = std::shared_ptr<event_loop_interface>(new uv_event_loop());
     s_event_loop->run_async();
 
-    // create_datagram_socket(port);
+    create_datagram_socket(port);
 
-    // datagram->send(test_message, port);
+    // create a new connection with the loopback address
+    datagram->create(loopback);
+
+    { // set certificate credentials
+        auto key  = read_file("private-key.pem");
+        auto cert = read_file("public-cert.pem");
+        datagram->set_x509_credentials(loopback, key, cert);
+    }
+
+    // wait for loopback connection to become ready
+    datagram->on("ready", EVENT_LISTENER(args, &) {
+        udp_address_t address = args[0].get<udp_address_t>();
+        VERBOSE("EVENT: [ready] " << address.address << ":" << address.port);
+        datagram->send(test_message, address.port, address.address);
+    });
+
+    // begin the loopback connection
+    datagram->begin(loopback);
 
     /**
      * Give the program some time to run
@@ -102,7 +122,7 @@ int main() {
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     /* gracefully close the socket */
-    // datagram->close();
+    datagram->close();
 
     VERBOSE("-- END OF LINE --");
     return 0;

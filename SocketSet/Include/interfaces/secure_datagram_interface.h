@@ -24,10 +24,17 @@ namespace impact {
         virtual void create(udp_address_t address) = 0;
         virtual void begin(udp_address_t address) = 0;
         virtual void end(udp_address_t address) = 0;
+        virtual void destroy(udp_address_t address) = 0;
         virtual const std::string& server_name(udp_address_t address) = 0;
         virtual void server_name(udp_address_t address, std::string host) = 0;
         virtual bool cert_verify_enabled(udp_address_t address) = 0;
         virtual void cert_verify_enabled(udp_address_t address, bool enabled) = 0;
+
+        virtual void set_x509_credentials(
+            udp_address_t address,
+            std::string key,
+            std::string certificate,
+            secure_format_t format = secure_format_t::PEM) = 0;
 
         virtual void enable_server(bool enabled) = 0;
     };

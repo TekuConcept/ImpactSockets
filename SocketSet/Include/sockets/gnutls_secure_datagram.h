@@ -43,10 +43,17 @@ namespace impact {
         void create(udp_address_t address) override;
         void begin(udp_address_t address) override;
         void end(udp_address_t address) override;
+        void destroy(udp_address_t address) override;
         const std::string& server_name(udp_address_t address) override;
         void server_name(udp_address_t address, std::string host) override;
         bool cert_verify_enabled(udp_address_t address) override;
         void cert_verify_enabled(udp_address_t address, bool enabled) override;
+
+        void set_x509_credentials(
+            udp_address_t address,
+            std::string key,
+            std::string certificate,
+            secure_format_t format = secure_format_t::PEM) override;
 
         void enable_server(bool enabled) override;
 
@@ -145,6 +152,7 @@ namespace impact {
         cookie_t m_cookie_key;
         size_t m_mtu;
         secure_state_t m_state;
+        std::string m_string_placeholder;
 
         struct route_context {
             session_t session;
@@ -155,12 +163,12 @@ namespace impact {
             bool cert_verify_enabled;
             secure_state_t state;
             udp_address_t address;
-            udp_socket_t socket;
+            gnutls_secure_datagram* parent;
         };
         typedef std::shared_ptr<route_context> route_t;
 
-        route_t m_loopback;
-        std::map<udp_address_t, route_t> m_routes;
+        typedef std::map<udp_address_t, route_t> route_map_t;
+        route_map_t m_routes;
         std::mutex m_route_mtx;
 
         void _M_emit_error_code(std::string, int);
@@ -172,17 +180,21 @@ namespace impact {
         void _M_init_gnutls_session(
             route_t, secure_connection_type_t,
             priority_t, prestate_t);
-        void _M_close(route_t);
         inline void _M_set_verify_cert(route_t);
-        void _M_try_handshake(route_t);
-        inline void _M_remove_closed_routes();
-        inline void _M_process_message(std::string, route_t);
         inline route_t _M_create_server_agent(std::string, udp_address_t);
+        void _M_try_handshake(route_t);
+        void _M_end(route_t);
+        void _M_destroy(route_t);
+
+        static void _S_process_message(std::string, route_t);
 
         static ssize_t _S_on_send_callback(
             gnutls_transport_ptr_t, const void*, size_t);
         static ssize_t _S_on_recv_callback(
             gnutls_transport_ptr_t, void*, size_t);
+
+        static ssize_t _S_on_loopback_server_send_callback(
+            gnutls_transport_ptr_t, const void*, size_t);
     };
 
 } /* namespace impact */
