@@ -30,6 +30,13 @@ secure_datagram_t datagram;
  * openssl req -new -key private-key.pem -out csr.pem
  * openssl x509 -req -in csr.pem -signkey private-key.pem -out public-cert.pem
  * openssl s_client -connect 127.0.0.1:8000
+ * 
+ * mkdir -p demoCA &\
+ * touch demoCA/index.txt &\
+ * touch demoCA/index.txt.attr &\
+ * echo 1000 > demoCA/crlnumber
+ * openssl rand -out ~/.rnd -hex 256
+ * openssl ca -keyfile private-key.pem -cert public-cert.pem -gencrl -out crl.pem
  */
 
 
@@ -101,7 +108,8 @@ int main() {
     { // set certificate credentials
         auto key  = read_file("private-key.pem");
         auto cert = read_file("public-cert.pem");
-        datagram->set_x509_credentials(loopback, key, cert);
+        datagram->set_x509_client_credentials(loopback, key, cert);
+        datagram->set_x509_credentials(key, cert);
     }
 
     // wait for loopback connection to become ready
@@ -119,7 +127,7 @@ int main() {
      * (the event loop will automatically stop when main returns)
      */
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(3));
 
     /* gracefully close the socket */
     datagram->close();

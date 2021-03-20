@@ -594,6 +594,10 @@ uv_udp_socket::_M_fill_address_info(
         __dest->address.size());
     if (status2 == nullptr)
         m_fast_events->on_error("unexpected address error");
+
+    auto string_size = strnlen(
+        __dest->address.c_str(), __dest->address.size());
+    __dest->address.resize(string_size);
 }
 
 
@@ -687,11 +691,7 @@ uv_udp_socket::_S_on_recv_callback(
         // else empty datagram: return an empty string
         if (__address != NULL)
             socket->_M_fill_address_info(__address, &address);
-        else {
-            address.address = "";
-            address.family  = address_family::UNSPECIFIED;
-            address.port    = 0;
-        }
+        else return; // no more data to receive
         socket->m_fast_events->on_message(data, address);
     }
     else socket->_M_emit_error_code("read", __nread);

@@ -89,6 +89,7 @@ gnutls_secure_client::_M_init_gnutls_session(
         gnutls_transport_set_pull_function(
             m_session.get(), _S_on_recv_callback);
         gnutls_transport_set_ptr(m_session.get(), this);
+        gnutls_handshake_set_timeout(m_session.get(), 0);
     }
 
     if (__priority)

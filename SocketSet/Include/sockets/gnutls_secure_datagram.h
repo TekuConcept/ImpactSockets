@@ -49,7 +49,7 @@ namespace impact {
         bool cert_verify_enabled(udp_address_t address) override;
         void cert_verify_enabled(udp_address_t address, bool enabled) override;
 
-        void set_x509_credentials(
+        void set_x509_client_credentials(
             udp_address_t address,
             std::string key,
             std::string certificate,
@@ -192,6 +192,8 @@ namespace impact {
             gnutls_transport_ptr_t, const void*, size_t);
         static ssize_t _S_on_recv_callback(
             gnutls_transport_ptr_t, void*, size_t);
+        static int _S_on_recv_timeout_callback(
+            gnutls_transport_ptr_t, unsigned int);
 
         static ssize_t _S_on_loopback_server_send_callback(
             gnutls_transport_ptr_t, const void*, size_t);

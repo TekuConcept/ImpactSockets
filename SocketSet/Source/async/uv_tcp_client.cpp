@@ -608,6 +608,10 @@ uv_tcp_client::_M_fill_address_info(
         __dest->address.size());
     if (status2 == nullptr)
         m_fast_events->on_error("unexpected address error");
+
+    auto string_size = strnlen(
+        __dest->address.data(), __dest->address.size());
+    __dest->address.resize(string_size);
 }
 
 

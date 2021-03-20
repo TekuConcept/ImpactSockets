@@ -30,7 +30,7 @@ namespace impact {
         virtual bool cert_verify_enabled(udp_address_t address) = 0;
         virtual void cert_verify_enabled(udp_address_t address, bool enabled) = 0;
 
-        virtual void set_x509_credentials(
+        virtual void set_x509_client_credentials(
             udp_address_t address,
             std::string key,
             std::string certificate,
