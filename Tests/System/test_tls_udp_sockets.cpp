@@ -65,9 +65,9 @@ void create_datagram_socket(unsigned short port) {
     datagram->on("message", EVENT_LISTENER(args, &) {
         auto address = args[1].get<udp_address_t>();
         auto message = AS_STRING(args[0]);
+        VERBOSE("EVENT: [data] " << message << " from "
+            << address.address << ":" << address.port);
         if (message.size() > 0) {
-            VERBOSE("EVENT: [data] " << message << " from "
-                << address.address << ":" << address.port);
             if (message == test_message) VERBOSE("ECHO TEST: PASS");
             else VERBOSE("ECHO TEST: FAIL\nUnexpected message: " << message);
         }
@@ -78,6 +78,7 @@ void create_datagram_socket(unsigned short port) {
         VERBOSE("EVENT: socket listening on "
             << address.address << ":" << address.port);
     });
+    datagram->enable_server(true);
     datagram->bind(port);
 }
 
@@ -117,6 +118,9 @@ int main() {
         udp_address_t address = args[0].get<udp_address_t>();
         VERBOSE("EVENT: [ready] " << address.address << ":" << address.port);
         datagram->send(test_message, address.port, address.address);
+        // s_event_loop->set_immediate([&, address]() {
+        //     datagram->send(test_message, address.port, address.address);
+        // });
     });
 
     // begin the loopback connection
@@ -127,7 +131,7 @@ int main() {
      * (the event loop will automatically stop when main returns)
      */
 
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 
     /* gracefully close the socket */
     datagram->close();

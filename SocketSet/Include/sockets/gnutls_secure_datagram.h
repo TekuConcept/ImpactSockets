@@ -176,17 +176,16 @@ namespace impact {
         void _M_fatal_error(route_t, int);
         route_t _M_find_route(udp_address_t);
         void _M_init_server_info();
-        void _M_init_loopback();
         void _M_init_gnutls_session(
             route_t, secure_connection_type_t,
             priority_t, prestate_t);
         inline void _M_set_verify_cert(route_t);
-        inline route_t _M_create_server_agent(std::string, udp_address_t);
-        void _M_try_handshake(route_t);
+        inline route_t _M_create_server_agent(std::string, udp_address_t, bool);
+        void _M_try_handshake(route_t, bool loopback = false);
         void _M_end(route_t);
         void _M_destroy(route_t);
 
-        static void _S_process_message(std::string, route_t);
+        static void _S_process_message(std::string, route_t, bool);
 
         static ssize_t _S_on_send_callback(
             gnutls_transport_ptr_t, const void*, size_t);

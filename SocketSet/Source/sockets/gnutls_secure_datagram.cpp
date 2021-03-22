@@ -69,7 +69,6 @@ gnutls_secure_datagram::_M_fatal_error(
     route_t __route,
     int     __code)
 {
-    V(__FUNCTION__);
     impact_error error("");
     std::string message = "[security] [fetal] [";
     message += __route->address.address + std::string(":");
@@ -102,7 +101,6 @@ gnutls_secure_datagram::_M_fatal_error(
 gnutls_secure_datagram::route_t
 gnutls_secure_datagram::_M_find_route(udp_address_t __address)
 {
-    V(__FUNCTION__);
     route_t result = nullptr;
     BEGIN_LOCK(m_route_mtx)
     auto route = m_routes.find(__address);
@@ -118,9 +116,8 @@ gnutls_secure_datagram::_M_find_route(udp_address_t __address)
 void
 gnutls_secure_datagram::_M_init_server_info()
 {
-    V(__FUNCTION__);
     int result;
-    
+
     { // priority_cache
         gnutls_priority_t priority_cache;
         #if GNUTLS_VERSION_NUMBER >= 0x030603
@@ -165,52 +162,12 @@ gnutls_secure_datagram::_M_init_server_info()
 
 
 void
-gnutls_secure_datagram::_M_init_loopback()
-{
-    V(__FUNCTION__);
-    auto address = m_base->address();
-    if (address.family != address_family::INET &&
-        address.family != address_family::INET6) return;
-
-    udp_address_t loopback_address;
-    loopback_address.address = LOOPBACK;
-    loopback_address.port    = address.port;
-    loopback_address.family  = address_family::UNSPECIFIED;
-
-    route_t server = std::make_shared<route_context>();
-    server->address             = address;
-    server->state               = secure_state_t::OPENING;
-    server->cert_verify_enabled = false;
-    server->server_name         = "";
-    server->parent              = this;
-    server->certificate         = m_server_certificate;
-
-    auto prestate = std::make_shared<gnutls_dtls_prestate_st>();
-    memset(prestate.get(), 0, sizeof(gnutls_dtls_prestate_st));
-    _M_init_gnutls_session(
-        server,
-        secure_connection_type_t::SERVER,
-        m_priority_cache,
-        prestate);
-
-    // set special-case callback
-    gnutls_transport_set_push_function(
-        server->session.get(), _S_on_loopback_server_send_callback);
-
-    BEGIN_LOCK(m_route_mtx)
-    m_routes[loopback_address] = server;
-    END_LOCK(m_route_mtx)
-}
-
-
-void
 gnutls_secure_datagram::_M_init_gnutls_session(
     route_t                  __route,
     secure_connection_type_t __connection_type,
     priority_t               __priority_cache,
     prestate_t               __prestate)
 {
-    V(__FUNCTION__);
     int result;
     int session_flags = GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
 
@@ -286,20 +243,31 @@ gnutls_secure_datagram::_M_set_verify_cert(route_t __route)
 inline gnutls_secure_datagram::route_t
 gnutls_secure_datagram::_M_create_server_agent(
     std::string   __data,
-    udp_address_t __address)
+    udp_address_t __address,
+    bool          __is_loopback)
 {
     if (__data.size() == 0) return nullptr;
+
+    ssize_t (*send_callback)(
+        gnutls_transport_ptr_t __user_data,
+        const void *__buffer,
+        size_t __size);
+    send_callback = __is_loopback ?
+        _S_on_loopback_server_send_callback : _S_on_send_callback;
 
     auto prestate = std::make_shared<gnutls_dtls_prestate_st>();
     memset(prestate.get(), 0, sizeof(gnutls_dtls_prestate_st));
 
     // lock m_routes_mtx outside function call
     route_t connection = std::make_shared<route_context>();
-    connection->address             = __address;
+    connection->address             =
+        __is_loopback ? m_base->address() : __address;
     connection->state               = secure_state_t::OPENING;
     connection->cert_verify_enabled = false;
     connection->server_name         = "";
     connection->parent              = this;
+    connection->recv_buffer         = __data;
+    connection->certificate         = m_server_certificate;
 
     // attempt to prevent DoS
     int result;
@@ -318,7 +286,7 @@ gnutls_secure_datagram::_M_create_server_agent(
             &cookie_data[0], cookie_data.size(),
             prestate.get(),
             (gnutls_transport_ptr_t)connection.get(),
-            _S_on_send_callback);
+            send_callback);
         // ignore potential error code from gnutls_dtls_cookie_send
         return nullptr;
     }
@@ -329,6 +297,10 @@ gnutls_secure_datagram::_M_create_server_agent(
             secure_connection_type_t::SERVER,
             m_priority_cache,
             prestate);
+        // set special-case callback
+        gnutls_transport_set_push_function(
+            connection->session.get(),
+            send_callback);
     }
     catch (impact_error& error) {
         _M_emit_error_message(error.what());
@@ -343,17 +315,19 @@ gnutls_secure_datagram::_M_create_server_agent(
 
 
 void
-gnutls_secure_datagram::_M_try_handshake(route_t __route)
+gnutls_secure_datagram::_M_try_handshake(
+    route_t __route,
+    bool    __is_loopback)
 {
-    V(__FUNCTION__);
     int status = gnutls_handshake(__route->session.get());
     if (status == GNUTLS_E_SUCCESS) {
         __route->state = secure_state_t::OPEN;
-        event_emitter::emit("secure-connect", __route->address);
-        event_emitter::emit("ready", __route->address);
+        if (!__is_loopback) {
+            event_emitter::emit("secure-connect", __route->address);
+            event_emitter::emit("ready", __route->address);
+        }
         return;
     }
-    V(__FUNCTION__ << ": " << status);
     // TODO: process GNUTLS_E_WARNING_ALERT_RECEIVED
     // TODO: process GNUTLS_E_GOT_APPLICATION_DATA
     if (gnutls_error_is_fatal(status) != 0)
@@ -416,9 +390,9 @@ gnutls_secure_datagram::_M_destroy(route_t __route)
 void
 gnutls_secure_datagram::_S_process_message(
     std::string __data,
-    route_t     __connection)
+    route_t     __connection,
+    bool        __is_loopback)
 {
-    V(__FUNCTION__);
     auto parent = __connection->parent;
     std::string block_buffer(parent->m_mtu, '\0');
     size_t buffer_size;
@@ -429,7 +403,6 @@ gnutls_secure_datagram::_S_process_message(
     change_state:
     switch (__connection->state) {
     case secure_state_t::OPEN: {
-        V("-- OPEN --");
         while (buffer_size > 0) {
             ssize_t result = gnutls_record_recv(
                 __connection->session.get(),
@@ -449,24 +422,20 @@ gnutls_secure_datagram::_S_process_message(
                 if (parent->m_fast_events)
                     parent->m_fast_events->on_message(
                         data, __connection->address);
-                else parent->emit("data", data, __connection->address);
+                else parent->emit("message", data, __connection->address);
             }
             // TODO: process GNUTLS_E_WARNING_ALERT_RECEIVED
         }
     } break;
     case secure_state_t::OPENING: {
-        V("-- OPENING --");
         while (__connection->state == secure_state_t::OPENING && buffer_size > 0) {
-            V("[opening] buffer_size: " << buffer_size);
-            V("trying connection handshake");
-            parent->_M_try_handshake(__connection);
+            parent->_M_try_handshake(__connection, __is_loopback);
             buffer_size = __connection->recv_buffer.size();
         }
         if (__connection->state == secure_state_t::OPEN)
             goto change_state;
     } break;
     case secure_state_t::ENDING: {
-        V("-- ENDING --");
         while (__connection->state == secure_state_t::ENDING && buffer_size > 0) {
             parent->_M_end(__connection);
             buffer_size = __connection->recv_buffer.size();
@@ -475,7 +444,6 @@ gnutls_secure_datagram::_S_process_message(
             goto change_state;
     } break;
     case secure_state_t::CLOSING: {
-        V("-- CLOSING --");
         while (__connection->state == secure_state_t::CLOSING && buffer_size > 0) {
             parent->_M_destroy(__connection);
             buffer_size = __connection->recv_buffer.size();
@@ -484,7 +452,6 @@ gnutls_secure_datagram::_S_process_message(
             goto change_state;
     } break;
     case secure_state_t::ENDED: {
-        V("-- ENDED --");
         ssize_t result;
         bool again = false;
         //
@@ -514,7 +481,6 @@ gnutls_secure_datagram::_S_process_message(
         } while (again);
     } break;
     case secure_state_t::CLOSED: {
-        V("-- CLOSED --");
         // session is closed, any new data is invalid
         __connection->recv_buffer.clear();
     } break;
@@ -528,12 +494,8 @@ gnutls_secure_datagram::_S_on_send_callback(
     const void*            __buffer,
     size_t                 __size)
 {
-    V("=== " << __FUNCTION__ << " ===");
     gnutls_secure_datagram::route_context* route =
         reinterpret_cast<gnutls_secure_datagram::route_context*>(__user_data);
-    V("ptr: " << __user_data);
-    V("sending " << __size << " to "
-        << route->address.address << ":" << route->address.port);
     route->parent->m_base->send(
         std::string((char*)__buffer, __size),
         route->address.port,
@@ -548,39 +510,20 @@ gnutls_secure_datagram::_S_on_recv_callback(
     void*                  __buffer,
     size_t                 __size)
 {
-    V(__FUNCTION__);
     size_t size;
     gnutls_secure_datagram::route_context* route =
         reinterpret_cast<gnutls_secure_datagram::route_context*>(__user_data);
-    V("recv: " << route->address.address << ":" << route->address.port
-        << " size: " << route->recv_buffer.size());
     if (route->recv_buffer.size() == 0) {
-        V("recv EAGAIN " << route->recv_buffer.size());
         errno = EAGAIN;
         return -1;
     }
 
     size = std::min(__size, route->recv_buffer.size());
-    V("comp(" << __size << ", " << route->recv_buffer.size() << ") -> " << size);
     std::memcpy(__buffer, route->recv_buffer.c_str(), size);
 
-    V("------------------------------------------------");
-    std::cout << std::hex << std::setfill('0');
-    for (size_t i = 0; i < size; i++) {
-        if (i != 0 && i % 16 == 0) std::cout << std::endl;
-        std::cout << std::setw(2) << (int)(0xFF & ((unsigned char*)__buffer)[i]) << " ";
-    }
-    std::cout << std::dec << std::setfill(' ') << std::endl;
-    V("================================================");
-
-    if (size == route->recv_buffer.size()) {
-        V("buff emptied");
+    if (size == route->recv_buffer.size())
         route->recv_buffer.clear();
-    }
-    else {
-        route->recv_buffer = route->recv_buffer.substr(size);
-        V("buff partial read; remaining: " << route->recv_buffer.size());
-    }
+    else route->recv_buffer = route->recv_buffer.substr(size);
     return size;
 }
 
@@ -588,9 +531,8 @@ gnutls_secure_datagram::_S_on_recv_callback(
 int
 gnutls_secure_datagram::_S_on_recv_timeout_callback(
     gnutls_transport_ptr_t __user_data,
-    unsigned int           __ms)
+    unsigned int         /*__ms*/)
 {
-    V(__FUNCTION__ << " ms: " << __ms);
     gnutls_secure_datagram::route_context* route =
         reinterpret_cast<gnutls_secure_datagram::route_context*>(__user_data);
     if (route->recv_buffer.size() == 0) {
@@ -607,10 +549,8 @@ gnutls_secure_datagram::_S_on_loopback_server_send_callback(
     const void*            __buffer,
     size_t                 __size)
 {
-    V("=== " << __FUNCTION__ << " ===");
     using route_context = gnutls_secure_datagram::route_context;
     route_context* server = reinterpret_cast<route_context*>(__user_data);
-    V(__FUNCTION__ << "| " << server->address.address << ":" << server->address.port);
     auto loopback_address = server->address;
     loopback_address.address = LOOPBACK;
     server->parent->on_message(
@@ -644,7 +584,6 @@ gnutls_secure_datagram::mtu(size_t __value)
 void
 gnutls_secure_datagram::create(udp_address_t __address)
 {
-    V(__FUNCTION__);
     std::string message;
     BEGIN_LOCK(m_route_mtx)
     auto route = m_routes.find(__address);
@@ -671,16 +610,6 @@ gnutls_secure_datagram::create(udp_address_t __address)
     m_routes[__address] = connection;
     END_LOCK(m_route_mtx)
 
-    { // run this outside locked scope to avoid deadlocking
-        auto loopback_address = m_base->address();
-        if ((__address.address == loopback_address.address) &&
-            (__address.port    == loopback_address.port)) {
-            try { _M_init_loopback(); }
-            catch (impact_error& error)
-            { message = error.what(); goto error; }
-        }
-    }
-
     return;
 
     error:
@@ -691,13 +620,11 @@ gnutls_secure_datagram::create(udp_address_t __address)
 void
 gnutls_secure_datagram::begin(udp_address_t __address)
 {
-    V(__FUNCTION__);
     auto connection = _M_find_route(__address);
     if (connection == nullptr) return;
     if (connection->state == secure_state_t::CLOSED ||
         connection->state == secure_state_t::OPENING) {
         connection->state = secure_state_t::OPENING;
-        V("trying client handshake");
         _M_try_handshake(connection);
     }
 }
@@ -706,7 +633,6 @@ gnutls_secure_datagram::begin(udp_address_t __address)
 void
 gnutls_secure_datagram::end(udp_address_t __address)
 {
-    V(__FUNCTION__);
     auto connection = _M_find_route(__address);
     if (connection != nullptr)
         _M_end(connection);
@@ -716,7 +642,6 @@ gnutls_secure_datagram::end(udp_address_t __address)
 void
 gnutls_secure_datagram::destroy(udp_address_t __address)
 {
-    V(__FUNCTION__);
     auto connection = _M_find_route(__address);
     if (connection != nullptr)
         _M_destroy(connection);
@@ -786,7 +711,6 @@ gnutls_secure_datagram::set_x509_client_credentials(
     std::string     __certificate,
     secure_format_t __format)
 {
-    V(__FUNCTION__);
     auto connection = _M_find_route(__address);
     if (connection != nullptr) {
         try {
@@ -1035,37 +959,23 @@ gnutls_secure_datagram::on_message(
     const std::string&   __data,
     const udp_address_t& __address)
 {
-    V(__FUNCTION__ << "| " << __address.address << ":" << __address.port);
-
     auto state = 0;
+    bool is_loopback = false;
     route_t connection;
     udp_address_t address;
     address.port = __address.port;
 
-    // V(m_base->address().address << " vs " << __address.address);
-    // V(m_base->address().port << " vs " << __address.port);
-    // V(m_base->address().address.size() << " vs " << __address.address.size());
-
-    if (__address.address == LOOPBACK) {
-        V("route to loopback-client\n");
+    if (__address.address == LOOPBACK)
         address.address = m_base->address().address;
-    }
     else if (
         __address.address == m_base->address().address &&
         __address.port    == m_base->address().port) {
-        V("route to loopback-server\n");
         address.address = LOOPBACK;
+        is_loopback = true;
     }
-    else {
-        V("normal route\n");
-        address.address = __address.address;
-    }
+    else address.address = __address.address;
 
-    if (address.port == 0) {
-        throw impact_error("");
-    }
-
-    V("next route: " << address.address << ":" << address.port);
+    // if (address.port == 0) throw impact_error("");
 
     BEGIN_LOCK(m_route_mtx)
     auto token = m_routes.find(address);
@@ -1077,27 +987,20 @@ gnutls_secure_datagram::on_message(
 
     if (state == 0 && m_server_enabled) {
         state = 2;
-        connection = _M_create_server_agent(__data, __address);
+        connection = _M_create_server_agent(__data, address, is_loopback);
     }
 
     // invoke events outside the lock so we don't deadlock
     if (connection) {
         switch (state) {
         case 1:
-            V("process message for "
-                << connection->address.address << ":" << connection->address.port
-                << " aka "
-                << address.address << ":" << address.port);
-            _S_process_message(__data, connection);
+            _S_process_message(__data, connection, is_loopback);
             break;
         case 2:
-            V("create server agent");
             event_emitter::emit("connection", __address);
-            V("trying server-agent handshake");
-            _M_try_handshake(connection);
+            _M_try_handshake(connection, is_loopback);
             break;
         default:
-            V("drop message");
             /*drop message*/
             break;
         }
